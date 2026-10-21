@@ -13,6 +13,7 @@ node_modules/
 .npm/
 .pnpm-store/
 .angular/
+.tools/
 .next/
 dist/
 build/

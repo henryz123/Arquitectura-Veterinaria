@@ -15,7 +15,7 @@
 
 Spring Boot 4.1.1 y PostgreSQL 18 son versiones publicadas y documentadas por sus proyectos. Angular 21 admite Node 22.12 o superior, por lo que el Node 22.20.0 detectado es compatible; esto no sustituye la ausencia real de Angular CLI.
 
-## Estructura objetivo — no creada todavía
+## Estructura objetivo
 
 ```text
 Arquitectura-Veterinaria/
@@ -38,13 +38,13 @@ Arquitectura-Veterinaria/
 └── PRODUCT.md
 ```
 
-No se crea esta estructura en esta actividad para evitar presentar scaffolding como implementación. Los nombres establecen la ubicación exclusiva futura de cada clase de artefacto.
+La estructura se materializa solamente dentro de una tarea G4 autorizada. Sus nombres establecen la ubicación exclusiva de cada clase de artefacto y no autorizan funcionalidades fuera del incremento.
 
 ## Convenciones que protegen el producto
 
 - Paquetes Java: `pe.arquitecturaveterinaria.<modulo>`, y dentro de cada módulo `domain`, `application`, `adapter.in.web`, `adapter.out.persistence` y `config` solo cuando el límite lo justifique.
 - Angular se organiza por capacidad (`features/<capacidad>`), `core` para sesión/API/interceptores y `shared` para componentes sin reglas de negocio. No replica tablas ni capas Java.
-- Las migraciones futuras se numeran en `database/migration/` y se aplican únicamente mediante Flyway en un entorno controlado. No se modifica una migración aplicada.
+- `database/migration/` es la única fuente versionada de migraciones Flyway. Maven copia ese directorio a la salida de compilación `target/classes/db/migration`; esa salida es generada y no constituye una segunda fuente. Flyway se configura para ejecutar únicamente `classpath:db/migration`. No se modifica una migración aplicada.
 - OpenAPI vive en `docs/contracts/` como fuente de contrato; clientes Angular se generan o implementan contra esa versión, nunca contra tablas.
 - Solo datos sintéticos y manifiestos verificables se versionan. `.env`, certificados, cachés, binarios y dependencias permanecen excluidos.
 

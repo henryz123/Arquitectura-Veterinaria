@@ -4,6 +4,8 @@
 
 Toda operación privada verifica, en este orden: sesión válida, tipo de cuenta, tenant de confianza, estado del tenant, rol efectivo, titularidad/relación con recurso y transición permitida. La ausencia de un permiso es denegación. Un rol no sustituye la comprobación de propiedad de un cliente ni permite revisar clínica fuera de su ámbito.
 
+Una ruta pública puede contener un `tenantSlug` para seleccionar un contexto de login o identificar un recurso solicitado, pero nunca se convierte en tenant autorizado. El `ActorContext` se deriva exclusivamente de la sesión validada y contiene identificador de cuenta, tipo, tenant y roles efectivos. Un recurso con slug ajeno se rechaza sin consultar datos ajenos; las transacciones de tenant fijan además el contexto local de PostgreSQL y quedan sujetas a RLS.
+
 | Rol/contexto | Límite técnico esencial |
 |---|---|
 | Administrador SaaS | consulta y gestiona metadatos globales autorizados; sin expedientes clínicos ni detalle comercial cotidiano |

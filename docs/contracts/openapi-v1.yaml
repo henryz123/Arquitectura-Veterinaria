@@ -16,11 +16,13 @@ tags:
   - name: inventory
   - name: commerce
 paths:
-  /api/v1/auth/staff-sessions:
+  /api/v1/auth/tenants/{tenantSlug}/staff-sessions:
     post:
       tags: [authentication]
-      summary: Inicia una sesión laboral contextual
+      summary: Inicia una sesión laboral para el contexto solicitado
       x-v1-requirements: [RF-AUT-01, RF-AUT-04, RF-AUT-05, RF-AUT-10]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
       requestBody:
         required: true
         content:
@@ -30,11 +32,13 @@ paths:
         '201': { $ref: '#/components/responses/SessionCreated' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/RateLimited' }
-  /api/v1/auth/client-sessions:
+  /api/v1/auth/tenants/{tenantSlug}/client-sessions:
     post:
       tags: [authentication]
-      summary: Inicia una sesión de cliente por tenant
+      summary: Inicia una sesión de cliente para el contexto solicitado
       x-v1-requirements: [RF-CLI-01, RF-CLI-02, RF-CLI-03, RF-CLI-04]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
       requestBody:
         required: true
         content:
@@ -52,6 +56,35 @@ paths:
       responses:
         '204': { description: Sesión revocada }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/session-context:
+    get:
+      tags: [authentication]
+      summary: Consulta el contexto mínimo de la sesión actual
+      x-g4-i00-support: true
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Contexto de sesión sin secretos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionContextResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/tenant-profile/{tenantSlug}:
+    get:
+      tags: [tenant-administration]
+      summary: Consulta el perfil mínimo del tenant propio
+      x-g4-i00-support: true
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      responses:
+        '200':
+          description: Perfil propio visible para la sesión
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantProfileResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/tenants:
     post:
       tags: [tenant-administration]
@@ -217,6 +250,12 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    TenantSlug:
+      name: tenantSlug
+      in: path
+      required: true
+      description: Selector de contexto o recurso; nunca concede autoridad por sí mismo.
+      schema: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
   schemas:
     StaffLoginRequest:
       type: object
@@ -226,6 +265,45 @@ components:
         password: { type: string, format: password, writeOnly: true }
     ClientLoginRequest:
       allOf: [{ $ref: '#/components/schemas/StaffLoginRequest' }]
+    SessionContext:
+      type: object
+      required: [accountType, tenant, roles]
+      properties:
+        accountType: { type: string, enum: [STAFF, CLIENT] }
+        tenant:
+          type: object
+          required: [slug, commercialName, status]
+          properties:
+            slug: { type: string }
+            commercialName: { type: string }
+            status: { type: string, enum: [ACTIVO, SUSPENDIDO] }
+        roles:
+          type: array
+          items: { type: string }
+    SessionContextResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SessionContext' }
+    TenantProfileResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [slug, commercialName, status]
+          properties:
+            slug: { type: string }
+            commercialName: { type: string }
+            status: { type: string, enum: [ACTIVO, SUSPENDIDO] }
+    LoginResult:
+      type: object
+      required: [csrfToken, context]
+      properties:
+        csrfToken:
+          type: string
+          description: Token anti-CSRF ligado a la sesión; Angular lo conserva solo en memoria y lo transmite en X-CSRF-Token para mutaciones.
+        context: { $ref: '#/components/schemas/SessionContext' }
     TenantRegistrationRequest:
       type: object
       required: [commercialName, administratorEmail]
@@ -295,11 +373,23 @@ components:
   responses:
     Success: { description: Operación válida, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
     Created: { description: Recurso creado, headers: { Location: { schema: { type: string } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
-    SessionCreated: { description: Sesión creada por cookie HttpOnly; no expone el token, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
+    SessionCreated:
+      description: Sesión creada mediante cookie HttpOnly; no expone el token opaco de sesión.
+      headers:
+        Set-Cookie:
+          description: Cookie AV_SESSION HttpOnly, SameSite=Lax y Secure en producción.
+          schema: { type: string }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { $ref: '#/components/schemas/LoginResult' }
     Collection: { description: Colección paginada, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
     Unauthorized: { description: Sesión ausente o inválida, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     Forbidden: { description: Operación no autorizada, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     NotFound: { description: Recurso inexistente o no visible, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    Conflict: { description: Conflicto de estado, concurrencia o idempotencia, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: 'Conflicto de estado, concurrencia o idempotencia', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     ValidationError: { description: Validación semántica, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     RateLimited: { description: Límite de intentos, headers: { Retry-After: { schema: { type: integer } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

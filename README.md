@@ -1,19 +1,49 @@
 # Arquitectura - Veterinaria
 
-SaaS académico para veterinarias independientes del Perú, definido por la especificación funcional V1 cerrada. Este repositorio conserva arquitectura, ADR y planificación antes de la primera implementación; no contiene una aplicación ejecutable todavía.
+Monolito modular académico para veterinarias independientes en Perú. La especificación funcional V1 permanece inmutable en `arquitectura_veterinaria_v1_FINAL/`; G4-I00 solo materializa un vertical técnico limitado de sesión laboral y aislamiento de tenant con datos sintéticos.
 
-## Estado verificable
+## Estructura
 
-- Línea funcional: `arquitectura_veterinaria_v1_FINAL/`, 118 RF, 68 casos de uso y 131 criterios diseñados.
-- Arquitectura: `docs/architecture/` y `docs/adr/`.
-- Plan G3 y trazabilidad: `docs/implementation-plan/`.
-- Ecosistema: `docs/audits/P1B_ECOSISTEMA_Y_HERRAMIENTAS.md`.
-- Entorno: Node/Python/PostgreSQL presentes; JDK 21, Maven, Angular CLI y Docker aún no disponibles. No intente ejecutar comandos de aplicación desde esta línea base.
+- `backend/`: Spring Boot 4.1.1, Java 21 y Maven Wrapper.
+- `frontend/`: Angular 21 y TypeScript, gestionado por pnpm 11.25.0.
+- `database/migration/`: fuente única de esquema Flyway.
+- `database/demo/`: carga interactiva de datos sintéticos, fuera de Flyway.
+- `infra/`: estado de infraestructura reproducible y límites de Docker.
+- `docs/`: arquitectura, ADR, contratos, auditorías y runbooks.
+- `scripts/`: verificaciones locales sin secretos.
 
-## No hacer todavía
+## Requisitos verificados
 
-No crear scaffolding, ejecutar migraciones, usar datos reales, activar Impeccable, publicar una URL, conectar GitHub ni hacer push sin la autorización y validación de la puerta correspondiente.
+- JDK Microsoft 21.0.12.1, mediante `C:\Users\HNR05\.jdks\ms-21.0.12.1`.
+- Maven Wrapper 3.10.0.
+- Node.js 22.20.0.
+- PostgreSQL 18.6, cliente en `C:\Program Files\PostgreSQL\18\bin\psql.exe`.
 
-## Próximo paso controlado
+El servicio PostgreSQL está activo, pero la creación de la base exclusiva requiere una sesión administrativa interactiva. Sigue el [runbook local](docs/runbooks/G4-I00_ENTORNO_LOCAL.md); no proporciones contraseñas en chat, archivos ni comandos.
 
-Tras aprobar el commit documental, autorizar el primer incremento G4-I01 descrito en `docs/implementation-plan/02_INCREMENTOS_Y_RUTA_CRITICA.md`; primero debe resolverse el preflight de herramientas sin alterar el alcance funcional.
+## Instalación y verificación
+
+En `frontend/`, usa Corepack/pnpm 11.25.0 y respeta `pnpm-workspace.yaml`, que bloquea scripts de construcción nativos de dependencias transitorias. Los binarios precompilados que Angular requiere se resuelven desde paquetes oficiales.
+
+```powershell
+corepack pnpm install
+```
+
+Con JDK 21 disponible en `JAVA_HOME`, desde la raíz:
+
+```powershell
+.\scripts\verify-g4-i00.cmd
+```
+
+La política de ejecución actual bloquea scripts `.ps1`; el lanzador `.cmd` evita modificar o eludir dicha política.
+
+El backend no debe considerarse integrado hasta seguir el runbook, migrar la base exclusiva y ejecutar las pruebas PostgreSQL, de autenticación y de aislamiento tenant. Los comandos de ejecución se mantienen locales: no existe remoto Git ni despliegue autorizado.
+
+## Estado G4-I00
+
+- Compilación y pruebas unitarias backend: verificadas localmente.
+- Compilación y prueba de servicio frontend: verificadas localmente.
+- Validación de OpenAPI: ejecutada con Redocly antes de materializar el proveedor; el contrato no cambió después de esa validación.
+- Integración PostgreSQL, E2E de navegador y verificación de migraciones: pendientes de una base exclusiva con acceso administrativo local.
+
+No se declara B01 completa ni se avanza a I01–I06.

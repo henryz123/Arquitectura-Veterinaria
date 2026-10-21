@@ -1,0 +1,32 @@
+<main class="workspace-shell" aria-labelledby="workspace-title">
+  <header>
+    <div>
+      <p class="eyebrow">Sesión autenticada</p>
+      <h1 id="workspace-title">Espacio de trabajo</h1>
+    </div>
+    <button type="button" (click)="logout()">Cerrar sesión</button>
+  </header>
+
+  <section aria-live="polite" class="workspace-content">
+    <p *ngIf="loading()">Cargando perfil autorizado…</p>
+    <p class="error" *ngIf="error()">{{ error() }}</p>
+    <article *ngIf="profile() as tenant">
+      <p class="label">Veterinaria autorizada</p>
+      <h2>{{ tenant.commercialName }}</h2>
+      <dl>
+        <div>
+          <dt>Slug</dt>
+          <dd>{{ tenant.slug }}</dd>
+        </div>
+        <div>
+          <dt>Estado</dt>
+          <dd>{{ tenant.status }}</dd>
+        </div>
+      </dl>
+      <p>
+        Esta vista procede de la API protegida. No representa los módulos de negocio pendientes de
+        I01–I06.
+      </p>
+    </article>
+  </section>
+</main>

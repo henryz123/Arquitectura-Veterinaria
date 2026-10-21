@@ -2,7 +2,7 @@
 
 ## Alcance
 
-Este es un modelo físico de intención, no DDL ni una migración ejecutable. Los nombres finales se validarán contra el contrato de API y el primer incremento autorizado. PostgreSQL 18.6 está localizado en el equipo, pero no se abre conexión ni se crea base de datos en G2.
+Este documento conserva el modelo físico de intención de G2. G4-I00 materializa únicamente `database/migration/V001__g4_i00_identity_tenant.sql` para tenant, cuenta laboral y sesión; el resto de los grupos sigue siendo de intención. PostgreSQL 18.6 está localizado en el equipo, pero no se abrió conexión administrativa ni se creó una base exclusiva durante G4-I00.
 
 ## Convenciones físicas
 
@@ -29,7 +29,7 @@ Este es un modelo físico de intención, no DDL ni una migración ejecutable. Lo
 
 La aplicación autentica el actor y calcula el tenant permitido antes de crear una transacción. Cada transacción de tenant fija una variable local de conexión (`SET LOCAL app.tenant_id`) y opera con un rol de aplicación que no es propietario de tablas. Las tablas privadas deben tener RLS que compare ese valor y claves/relaciones que impidan un cruce accidental.
 
-Las migraciones usan un rol técnico separado y controlado; el proceso de aplicación no puede desactivar RLS. Las pruebas de integración deben demostrar que el pooling no filtra el contexto entre transacciones. No se confía en un `tenant_id` suministrado por Angular.
+Las migraciones usan un rol técnico separado y controlado; el proceso de aplicación no puede ser dueño de tablas ni tener `BYPASSRLS`. V001 habilita RLS sin `FORCE` para permitir una única función `SECURITY DEFINER` de lookup de login con búsqueda parametrizada y `search_path` fijo. Las pruebas de integración deben demostrar que el pooling no filtra el contexto entre transacciones. No se confía en un `tenant_id` suministrado por Angular.
 
 ## Integridad y concurrencia
 
@@ -45,7 +45,7 @@ Los detalles exactos de índices, extensión necesaria para rangos y sentencia d
 
 ## Flyway y datos sintéticos
 
-Flyway será el único mecanismo de evolución de esquema del producto. La documentación de Flyway declara soporte de PostgreSQL 18 y requiere el módulo PostgreSQL en dependencias Java; la versión concreta se fijará al crear el `pom.xml` aprobado. Fixtures sintéticos van separados de las migraciones estructurales, no contienen secretos ni se cargan fuera de un perfil de prueba/demostración explícito.
+Flyway es el único mecanismo de evolución de esquema del producto. `database/migration/` es la única fuente y Maven la copia a `target/classes/db/migration`; Spring Boot 4.1.1 gestiona Flyway 12.4.0 y su módulo PostgreSQL. Los datos sintéticos van separados en `database/demo/seed-synthetic.psql`, no contienen contraseñas y solo se cargan mediante prompt interactivo de demostración.
 
 ## Índices de partida que deben justificarse
 

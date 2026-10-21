@@ -27,10 +27,14 @@ Respuestas correctas usan `{"data": ...}` y colecciones añaden `meta` y `links`
 - `Idempotency-Key` es obligatorio en venta POS, confirmación/cancelación de pedido, devolución, ajustes y operaciones equivalentes que mueven stock o cambian hechos irreversibles.
 - Cada contrato incluye ejemplos sintéticos, autorización requerida, estados, errores, criterios V1 cubiertos y pruebas de contrato.
 
-## Autenticación de navegador
+## Autenticación de navegador y selección de contexto
 
-El login crea una sesión opaca de servidor. El navegador recibe solo una cookie `HttpOnly`, `Secure` en producción, `SameSite=Lax` y con alcance mínimo. Las llamadas mutantes añaden un token CSRF vinculado a sesión. Producción sirve SPA y API en mismo origen; si una excepción exige orígenes distintos, se documenta y autoriza antes de usar `SameSite=None`, CORS con credenciales y cookies de terceros.
+El login crea una sesión opaca de servidor. Una ruta de acceso pública incluye un `tenantSlug` que solo sirve para localizar una cuenta del contexto solicitado; no es autoridad ni se acepta un `tenantId` arbitrario. Tras validar credenciales, tipo de cuenta, estado de cuenta y estado de tenant, la sesión derivada pasa a ser la única fuente confiable de tenant y roles.
+
+El navegador recibe solo una cookie `HttpOnly`, `Secure` en producción, `SameSite=Lax` y con alcance mínimo. La respuesta de login devuelve un token CSRF vinculado a la sesión para mantenerlo solo en memoria del cliente; no devuelve el token opaco de sesión ni permite persistir el CSRF en almacenamiento web. Las llamadas mutantes añaden ese token CSRF. Producción sirve SPA y API en mismo origen; en desarrollo Angular usa un proxy local hacia `/api`. Si una excepción exige orígenes distintos, se documenta y autoriza antes de usar `SameSite=None`, CORS con credenciales y cookies de terceros.
+
+El recurso técnico `GET /api/v1/session-context` devuelve únicamente el tipo de cuenta, roles efectivos y metadatos mínimos del tenant de la sesión. `GET /api/v1/tenant-profile/{tenantSlug}` permite demostrar el perfil del tenant propio; un slug ajeno se responde como no visible sin derivar autoridad de la ruta. Ambos recursos soportan el vertical G4-I00 y no añaden requisitos funcionales nuevos.
 
 ## Contrato OpenAPI de diseño
 
-`docs/contracts/openapi-v1.yaml` es un contrato OpenAPI 3.1 de diseño con las familias que abren los primeros verticales. Expone el marcador `demo.invalid`, versión `0.1.0-design` y `x-v1-requirements` precisamente para no presentarse como endpoint, servidor o prueba existentes. En esta estación no hay parser YAML/OpenAPI instalado y no se instalará fuera de una tarea autorizada; la validación formal de sintaxis es un criterio obligatorio de I00. Cada incremento materializa solo las rutas autorizadas, valida sintaxis y prueba compatibilidad antes de ampliar el contrato.
+`docs/contracts/openapi-v1.yaml` es el contrato OpenAPI 3.1 canónico para las familias que abren los primeros verticales. Mantiene el marcador `demo.invalid`, versión `0.1.0-design` y `x-v1-requirements` hasta que una ruta sea implementada y probada. G4-I00 autoriza instalar un validador formal y corregir este contrato antes de generar proveedor o consumidor. Cada incremento materializa solo las rutas autorizadas, valida sintaxis y prueba compatibilidad antes de ampliar el contrato.

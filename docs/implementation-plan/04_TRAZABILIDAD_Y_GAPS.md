@@ -17,3 +17,9 @@ Estos gaps no alteran V1 ni se declaran cubiertos por similitud. Las tareas que 
 ## Evidencia por nivel
 
 `RF → CU/CA V1 → tarea G4 → commit/diff → prueba ejecutada → evidencia sintética → revisión`. Un criterio V1 puede aparecer en varios RF; la evidencia enumera todas las relaciones, no solo la primera. B01 conserva fuentes históricas agrupadas, por lo que una tarea debe enlazar además el párrafo/tabla V1 concreto y no atribuir una DEC individual sin prueba de procedencia.
+
+## G4-I00 — estado de evidencia limitado
+
+G4-I00 aporta código y pruebas unitarias para un vertical técnico de sesión laboral, token opaco/CSRF, throttle local, contexto de sesión y perfil del tenant propio. La evidencia de compilación y pruebas se registra en `docs/audits/G4-I00_PRECHECK.md`.
+
+No se marca ningún RF como cerrado todavía. `RF-AUT-01`, `RF-AUT-04`, `RF-AUT-05`, `RF-AUT-10`, `RF-AUT-13` y porciones de `RF-B06-001/002` solo podrán asociarse cuando existan: migración ejecutada sobre base exclusiva, login con datos sintéticos, autorización real, rechazo cross-tenant y E2E registrados. El vertical no cubre cuentas de cliente, suspensión, recuperación, alta de tenant ni capacidades de I01–I06.

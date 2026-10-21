@@ -1,0 +1,47 @@
+<main class="login-shell" aria-labelledby="page-title">
+  <section class="login-panel">
+    <p class="eyebrow">Arquitectura - Veterinaria</p>
+    <h1 id="page-title">Acceso al espacio de trabajo</h1>
+    <p class="context">
+      Contexto solicitado: <strong>{{ tenantLabel() }}</strong>
+    </p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label for="email">Correo institucional</label>
+      <input
+        id="email"
+        type="email"
+        autocomplete="username"
+        formControlName="email"
+        aria-describedby="email-help"
+      />
+      <small id="email-help" *ngIf="form.controls.email.touched && form.controls.email.invalid"
+        >Ingresa un correo válido.</small
+      >
+
+      <label for="password">Contraseña</label>
+      <input
+        id="password"
+        type="password"
+        autocomplete="current-password"
+        formControlName="password"
+        aria-describedby="password-help"
+      />
+      <small
+        id="password-help"
+        *ngIf="form.controls.password.touched && form.controls.password.invalid"
+        >Ingresa tu contraseña.</small
+      >
+
+      <p class="error" aria-live="polite" *ngIf="error()">{{ error() }}</p>
+      <button type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Validando acceso…' : 'Ingresar' }}
+      </button>
+    </form>
+
+    <nav aria-label="Cambiar contexto de demostración">
+      <a routerLink="/login/veterinaria-aurora">Aurora</a>
+      <a routerLink="/login/veterinaria-bosque">Bosque</a>
+    </nav>
+  </section>
+</main>

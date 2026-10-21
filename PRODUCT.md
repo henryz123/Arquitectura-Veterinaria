@@ -2,7 +2,7 @@
 
 ## Estado y autoridad
 
-Este Product Brief deriva exclusivamente de "arquitectura_veterinaria_v1_FINAL/", la línea base funcional V1. Describe producto y límites aprobados; no declara código, arquitectura física, diseño visual definitivo, pruebas ejecutadas ni cumplimiento para operación real.
+Este Product Brief deriva exclusivamente de "arquitectura_veterinaria_v1_FINAL/", la línea base funcional V1. Describe producto y límites aprobados; no amplía el alcance ni convierte el vertical técnico G4-I00 en cumplimiento funcional completo o aptitud para operación real.
 
 ## Producto
 

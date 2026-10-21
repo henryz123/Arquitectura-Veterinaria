@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: arquitectura-veterinaria-backend
+  datasource:
+    url: ${AV_DB_URL:}
+    username: ${AV_DB_USER:}
+    password: ${AV_DB_PASSWORD:}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    user: ${AV_MIGRATION_DB_USER:${AV_DB_USER:}}
+    password: ${AV_MIGRATION_DB_PASSWORD:${AV_DB_PASSWORD:}}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+server:
+  error:
+    include-message: never
+  servlet:
+    session:
+      cookie:
+        name: AV_UNUSED_CONTAINER_SESSION
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+av:
+  security:
+    session-duration: PT8H
+    secure-cookie: ${AV_SECURE_COOKIE:false}

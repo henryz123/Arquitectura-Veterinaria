@@ -1,0 +1,26 @@
+\set ON_ERROR_STOP on
+\echo 'Este procedimiento crea solamente dos organizaciones y cuentas sint\u00e9ticas.'
+\echo 'No ingrese datos personales ni contrase\u00f1as reutilizadas.'
+\prompt 'Contrase\u00f1a sint\u00e9tica para Aurora: ' av_demo_password_aurora
+\prompt 'Contrase\u00f1a sint\u00e9tica para Bosque: ' av_demo_password_bosque
+
+create extension if not exists pgcrypto;
+
+insert into tenancy.tenant (id, slug, commercial_name, status)
+values
+    ('11111111-1111-1111-1111-111111111111', 'veterinaria-aurora', 'Veterinaria Aurora (sint\u00e9tica)', 'ACTIVO'),
+    ('22222222-2222-2222-2222-222222222222', 'veterinaria-bosque', 'Veterinaria Bosque (sint\u00e9tica)', 'ACTIVO')
+on conflict (id) do update set commercial_name = excluded.commercial_name, status = excluded.status;
+
+insert into identity_auth.staff_account (id, tenant_id, normalized_email, password_hash, role_code, status)
+values
+    ('11111111-1111-1111-1111-111111111112', '11111111-1111-1111-1111-111111111111',
+     'administracion@demo.invalid', crypt(:'av_demo_password_aurora', gen_salt('bf', 12)), 'ADMIN_VETERINARIA', 'ACTIVA'),
+    ('22222222-2222-2222-2222-222222222223', '22222222-2222-2222-2222-222222222222',
+     'administracion@demo.invalid', crypt(:'av_demo_password_bosque', gen_salt('bf', 12)), 'ADMIN_VETERINARIA', 'ACTIVA')
+on conflict (tenant_id, normalized_email) do update
+    set password_hash = excluded.password_hash, role_code = excluded.role_code, status = excluded.status;
+
+\unset av_demo_password_aurora
+\unset av_demo_password_bosque
+\echo 'Datos sint\u00e9ticos creados. No se imprimi\u00f3 ninguna contrase\u00f1a.'

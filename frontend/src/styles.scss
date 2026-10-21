@@ -1,0 +1,36 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, 'Segoe UI', sans-serif;
+  --surface-canvas: #f4f6f3;
+  --surface-raised: #ffffff;
+  --ink-strong: #17333a;
+  --ink-muted: #50676b;
+  --accent-teal: #0c7772;
+  --accent-teal-dark: #075a58;
+  --accent-orange: #d26e28;
+  --border-subtle: #d5dfdc;
+  --border-strong: #91aaa8;
+  --focus-ring: #e59d38;
+  --danger: #a63535;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 20rem;
+}
+button,
+input {
+  font: inherit;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

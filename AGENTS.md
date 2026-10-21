@@ -2,7 +2,7 @@
 
 ## Estado y límite de autorización
 
-La especificación funcional V1 está cerrada para una demostración académica con datos sintéticos. P1B, G2 y G3 se documentan de forma controlada; no son evidencia de software construido. No se puede programar la aplicación, crear scaffolding, ejecutar migraciones, desplegar ni publicar cambios hasta que el responsable autorice expresamente una tarea G4 concreta tras su preflight.
+La especificación funcional V1 está cerrada para una demostración académica con datos sintéticos. P1B, G2 y G3 aportan planificación; G4-I00 autorizó únicamente un vertical técnico limitado de sesión laboral y aislamiento tenant. No se puede avanzar a I01–I06, ejecutar migraciones sobre una base no exclusiva, desplegar ni publicar cambios hasta una autorización expresa posterior.
 
 ## Jerarquía documental
 
