@@ -1,0 +1,3 @@
+# El manifiesto funcional V1 verifica hashes de bytes; Git no debe normalizarlo.
+# Sus finales CRLF legítimos no son espacios finales para git diff --check.
+arquitectura_veterinaria_v1_FINAL/** -text whitespace=cr-at-eol

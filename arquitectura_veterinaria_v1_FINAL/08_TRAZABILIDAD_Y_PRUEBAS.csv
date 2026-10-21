@@ -1,0 +1,119 @@
+﻿bloque,requisito,descripcion_requisito,caso_uso,pruebas,fuentes_decision_regla,estado,evidencia
+B01,RF-SAA-01,Permitir registro público de veterinaria con datos comerciales y del administrador inicial.,CU-SAA-01,CA-SAA-01;CA-SAA-02,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-02,"Validar campos, RUC opcional y las reglas de duplicados/reservas.",CU-SAA-01,CA-SAA-03;CA-SAA-14;CA-SAA-02,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-03,Activar automáticamente solo tras correo del administrador verificado y contraseña inicial configurada.,CU-SAA-02,CA-SAA-07;CA-SAA-15;CA-SAA-11,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-04,Consultar organizaciones globalmente solo mediante campos administrativos permitidos.,CU-SAA-03,CA-SAA-06,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-05,"Suspender organizaciones, bloquear operaciones y conservar historial.",CU-SAA-04,CA-SAA-08,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-06,"Reactivar organizaciones cuando corresponda, con resolución previa si hubo conflicto RUC.",CU-SAA-05,CA-SAA-21,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-07,Bloquear registro ordinario de RUC duplicado y ofrecer revisión sin revelar terceros.,CU-SAA-06,CA-SAA-03;CA-SAA-04,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-08,Permitir tramitar revisiones de RUC por administrador SaaS autorizado.,CU-SAA-07,CA-SAA-12;CA-SAA-09;CA-SAA-13,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-09,Impedir reutilizar el correo del administrador registrante inicial para registrar otra veterinaria en V1.,CU-SAA-01,CA-SAA-05,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-10,"Limitar detalle global a nombre comercial, RUC opcional, dirección, teléfono, correo comercial, fecha de registro y estado.",CU-SAA-03,CA-SAA-06,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-11,"Reservar RUC 24 horas y reanudar por acción expresa tras vencimiento, con validación de disponibilidad.",CU-SAA-01;CU-SAA-02,CA-SAA-10;CA-SAA-14;CA-SAA-18;CA-SAA-19,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-12,"Permitir suspensión y liberación excepcional de RUC con justificación, confirmación, aviso y traza, sin transferir datos.",CU-SAA-07,CA-SAA-16;CA-SAA-17;CA-SAA-20,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-SAA-13,"Recuperar excepcionalmente la capacidad administrativa tras verificación manual de legitimidad, decisión trazable y credenciales creadas por titular, sin acceso clínico del admin SaaS.",CU-SAA-08,CA-SAA-22;CA-SAA-23;CA-SAA-24,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-01,Autenticar dentro del contexto de cuenta/tenant.,CU-AUT-01,CA-AUT-09,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-02,Permitir cerrar sesión e invalidar el acceso.,CU-AUT-02,CA-AUT-16,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-03,Ofrecer recuperación de contraseña vinculada a la identidad concreta.,CU-AUT-03,CA-AUT-03,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-04,"Denegar operaciones a cuentas no verificadas, empleados desactivados o tenants suspendidos.",CU-AUT-01,CA-AUT-04;CA-AUT-05,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-05,Impedir que el correo compartido confiera permisos o sesiones entre cuentas.,CU-AUT-01,CA-AUT-01;CA-AUT-02,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-06,Crear primer administrador SaaS mediante inicialización privada.,CU-SAA-08,CA-AUT-06,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-07,Ofrecer rutas separadas para empleados y clientes con credenciales independientes.,CU-AUT-01,CA-AUT-02,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-08,Recuperar cuenta sin modificar otras identidades con mismo correo.,CU-AUT-03,CA-AUT-03,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-09,Establecer contraseña inicial admin solo después de verificar correo con enlace seguro.,CU-SAA-02,CA-AUT-07;CA-AUT-10,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-10,Identificar tipo de cuenta y tenant antes de conceder permisos.,CU-AUT-01,CA-AUT-09,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-11,"Usar enlaces de una sola vez: 24 h para verificación/invitaciones, 30 min recuperación; reenvío invalida anterior.",CU-AUT-03;CU-USR-01;CU-SAA-02;CU-CLI-01,CA-AUT-11;CA-AUT-12;CA-AUT-13;CA-AUT-14;CA-AUT-08,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-12,Limitar intentos abusivos sin facilitar enumeración de usuarios.,CU-AUT-01,CA-AUT-15,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-AUT-13,"Revocar sesiones afectadas por desactivación de empleado, suspensión de tenant o cambio de contraseña, sin afectar cuentas ajenas.",CU-AUT-03;CU-USR-03;CU-SAA-04,CA-AUT-16,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-USR-01,Administración de invitaciones por email para cuentas laborales.,CU-USR-01,CA-USR-01,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-USR-02,Aceptar invitación válida y permitir al empleado definir su contraseña.,CU-USR-01,CA-USR-01;CA-USR-02,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-USR-03,Asignar múltiples roles y bloquear la retirada del último administrador activo.,CU-USR-02,CA-USR-07,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-USR-04,Desactivar trabajadores y revocar accesos con conservación de autorías; proteger último administrador.,CU-USR-03,CA-USR-05;CA-USR-06;CA-USR-08,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-USR-05,"Permitir cuentas laborales separadas entre veterinarias con correo compartido sin compartir credenciales, permisos o sesiones.",CU-USR-01;CU-AUT-01,CA-USR-03;CA-USR-04;CA-USR-05,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-CLI-01,Registrar cuentas independientes de clientes por veterinaria.,CU-CLI-01,CA-CLI-01,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-CLI-02,Verificar correo de clientes antes de operaciones privadas.,CU-CLI-01,CA-AUT-05,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-CLI-03,Permitir solo funciones y datos propios autorizados.,CU-CLI-02,CA-CLI-01,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B01,RF-CLI-04,Impedir compartir permisos/datos privados automáticamente entre clientes de distintos tenants.,CU-CLI-02,CA-CLI-01,DEC-001..DEC-063;RN-001..RN-072,APROBADO_FUNCIONAL,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-001,Permitir registrar propietarios presencialmente sin cuenta digital,CU-B02-01,AT-B02-01,DEC-021,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-002,Permitir crear mascotas básicas con un responsable principal,CU-B02-02,AT-B02-02,DEC-025,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-003,Permitir a un cliente crear/editar solo fichas básicas autorizadas,CU-B02-10,AT-B02-02;AT-B02-08,DEC-018,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-004,Permitir solicitar vinculación sin revelar registros de terceros,CU-B02-03,AT-B02-03;AT-B02-13,DEC-021;DEC-026,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-005,Exigir verificación manual para aprobar vinculación y registrar resultado,CU-B02-04,AT-B02-03;AT-B02-13,DEC-026;DEC-030;DEC-034,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-006,Impedir vínculos digitales contradictorios y aprobaciones repetidas,CU-B02-04,AT-B02-03,DEC-026;DEC-034,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-007,Permitir transferir responsable con autorización e historial inalterable,CU-B02-05,AT-B02-07;AT-B02-09,DEC-027;DEC-025,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-008,Restringir edición clínica a usuarios con rol veterinario,CU-B02-06,AT-B02-04;AT-B02-05,DEC-013,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-009,Registrar episodios clínicos con autor/fecha y vínculo opcional a cita,CU-B02-06,AT-B02-10;AT-B02-14,DEC-013,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-010,Registrar vacuna y próxima dosis opcional,CU-B02-08,AT-B02-11,DEC-013,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-011,Registrar prescripción básica con instrucciones,CU-B02-09,AT-B02-11,DEC-013,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-012,Conservar rectificaciones clínicas y autoría histórica,CU-B02-07,AT-B02-10,PROP-V1-13,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-013,Restringir lectura clínica según el modelo de privacidad aprobado,CU-B02-10,AT-B02-08;AT-B02-12,DEC-064,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-014,Detectar potenciales duplicados sin fusionarlos automáticamente,CU-B02-11,AT-B02-03;AT-B02-13,PROP-V1-03,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-015,Registrar y consultar cambios de responsable sin pérdida de historia,CU-B02-05,AT-B02-07;AT-B02-09,DEC-027,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B02,RF-B02-016,Mantener aislamiento tenant incluso mediante IDs manipulados,CU-B02-07,AT-B02-06,DEC-017;RN-011,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-001,"Gestionar calendarios de disponibilidad, bloqueos y ausencias",CU-B03-01,AT-B03-01;AT-B03-03;AT-B03-04,PROP-V1-05,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-002,Publicar servicios con duración y precio referencial,CU-B03-02,AT-B03-01;AT-B03-09,PROP-V1-05,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-003,Permitir solicitudes de cita clínica sobre mascotas autorizadas,CU-B03-03,AT-B03-01;AT-B03-14;AT-B03-15,DEC-009;DEC-012,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-004,Permitir propuestas de fecha/hora y contrapropuestas,CU-B03-04,AT-B03-05;AT-B03-06,DEC-019;DEC-023,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-005,Exigir aceptación del cliente cuando cambia fecha/hora,CU-B03-05,AT-B03-05;AT-B03-08,DEC-019;DEC-023;DEC-035,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-006,Revalidar disponibilidad al confirmar y aceptar contrapropuestas,CU-B03-04,AT-B03-02;AT-B03-03;AT-B03-05,DEC-028;DEC-031,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-007,Impedir traslapes para un profesional en todos sus roles,CU-B03-01,AT-B03-04;AT-B03-03,DEC-028;DEC-067,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-008,Asignar veterinario al confirmar cita clínica,CU-B03-04,AT-B03-02,DEC-028,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-009,"Permitir reasignación autorizada, notificación y trazabilidad",CU-B03-06,AT-B03-07;AT-B03-08;AT-B03-13,DEC-031,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-010,Permitir solicitud/confirmación de grooming por roles autorizados,CU-B03-08,AT-B03-09,DEC-005;DEC-032,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-011,Permitir registro de atención grooming por el encargado,CU-B03-10,AT-B03-10,DEC-032,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-012,Permitir cancelar pendientes y pedir cancelar confirmadas,CU-B03-11,AT-B03-11;AT-B03-12,DEC-024,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-013,Restringir edición de atenciones clínicas a veterinarios,CU-B03-07,AT-B03-10,DEC-013,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-014,Permitir gestión autorizada de inasistencias y bloqueos,CU-B03-07,AT-B03-13,PROP-V1-05,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-015,Generar notificaciones según cambios válidos de agenda,CU-B03-12,AT-B03-07,DEC-031;PROP-V1-11,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B03,RF-B03-016,"Conservar historial de propuestas, aceptación y cambios",CU-B03-05,AT-B03-05;AT-B03-06;AT-B03-07,DEC-035,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-001,CRUD controlado de productos por administrador,CU-B04-01,AT-B04-06;AT-B04-07,DEC-029,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-002,Stock único por producto y veterinaria para ambos canales,CU-B04-02,AT-B04-02;AT-B04-03,DEC-004;DEC-029,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-003,Registro de stock inicial y ajuste con motivo y auditoría,CU-B04-02,AT-B04-01;AT-B04-13,DEC-029;DEC-033,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-004,Descuento atómico de stock en venta presencial,CU-B04-04,AT-B04-02;AT-B04-04;AT-B04-12,PROP-V1-06,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-005,Concurrencia y prevención de inventario negativo,CU-B04-04,AT-B04-02;AT-B04-03,PROP-V1-06,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-006,Kardex inmutable y conciliable,CU-B04-03,AT-B04-09;AT-B04-10;AT-B04-13,PROP-V1-06,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-007,Registro comercial de ventas y precios congelados,CU-B04-04,AT-B04-07;AT-B04-12,PROP-V1-12,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-008,Venta de servicios no inventariables sin movimiento de stock,CU-B04-04,AT-B04-05;AT-B04-14,PROP-V1-15,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-009,Registro manual de medios y validación de pago,CU-B04-05,AT-B04-12,DEC-066,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-010,"Anulación/devolución auditada y restitución apta, idempotente",CU-B04-06,AT-B04-08;AT-B04-09;AT-B04-10,DEC-014;DEC-020;DEC-033,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-011,Bloquear ajustes manuales por cajero sin rol administrador,CU-B04-02,AT-B04-01,DEC-029,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-012,Ocultar productos inactivos del catálogo sin perder ventas históricas,CU-B04-01,AT-B04-06;AT-B04-07,PROP-V1-14,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-013,Informe simple de ventas y stock con no duplicidad entre canales,CU-B04-08,AT-B04-13,PROP-V1-06,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-014,No exponer precios/stock/ventas internos de otro tenant,CU-B04-03,AT-B04-11,RN-011,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B04,RF-B04-015,Vincular opcionalmente servicios prestados a venta sin cobro duplicado,CU-B04-04,AT-B04-05;AT-B04-14,PROP-V1-15,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-001,Catálogo web público aislado por veterinaria activa,CU-B05-01,AT-B05-17;AT-B05-20,DEC-016;PROP-V1-14,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-002,Carrito sin reserva ni decremento de stock,CU-B05-02,AT-B05-01;AT-B05-02,DEC-004,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-003,Registro de pedido con cuenta cliente verificada y snapshot monetario,CU-B05-03,AT-B05-02;AT-B05-08,DEC-011;PROP-V1-07,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-004,Métodos de entrega RECOJO y DELIVERY con tarifa fija local,CU-B05-12,AT-B05-16,DEC-003;DEC-008,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-005,Validar disponibilidad global al confirmar todas las líneas,CU-B05-04,AT-B05-03;AT-B05-05;AT-B05-06,DEC-004;DEC-007,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-006,Confirmación autorizada y decremento atómico/idempotente,CU-B05-04,AT-B05-03;AT-B05-04;AT-B05-05,DEC-004;DEC-029,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-007,Enviar sin stock a revisión sin descuentos parciales,CU-B05-04,AT-B05-06;AT-B05-07,DEC-007,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-008,Registrar propuestas de cambio y exigir aceptación del cliente,CU-B05-05,AT-B05-07;AT-B05-08,PROP-V1-07,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-009,"Mantener estados de preparación, recojo, reparto y entrega",CU-B05-07,AT-B05-19,DEC-003,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-010,Registrar pago manual independientemente de entrega/stock,CU-B05-06,AT-B05-18,DEC-066,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-011,Cancelación directa de pedidos pendientes por cliente,CU-B05-08,AT-B05-09,DEC-024,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-012,Petición de cancelación de confirmado resuelta por staff,CU-B05-09,AT-B05-10;AT-B05-11;AT-B05-12,DEC-024;DEC-033,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-013,Restituir una vez stock predespacho bajo condiciones válidas,CU-B05-09,AT-B05-10;AT-B05-11,DEC-014;DEC-020,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-014,Posponer restitución post-despacho a devolución física apta,CU-B05-10,AT-B05-12;AT-B05-13,DEC-020,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-015,Registrar devoluciones parciales por línea sin exceder cantidades,CU-B05-10,AT-B05-14;AT-B05-15,DEC-065,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-016,Mantener auditoría y snapshot de precios y tarifas,CU-B05-11,AT-B05-08;AT-B05-16,PROP-V1-07,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-017,Impedir exposición de pedidos de otros clientes/tenants,CU-B05-11,AT-B05-17,DEC-017;RN-011,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-018,Notificaciones de estados importantes sin confiar en entrega del email para persistir la transacción,CU-B05-11,AT-B05-19,PROP-V1-11,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-019,Bloquear operaciones protegidas de veterinarias suspendidas,CU-B05-03,AT-B05-20,DEC-015,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B05,RF-B05-020,Evitar cobro/stock doble por reintentos o integración con POS,CU-B05-04,AT-B05-04;AT-B05-21,PROP-V1-06,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-001,Bloquear operaciones protegidas en veterinaria suspendida sin borrar datos,CU-B06-06,AT-B06-10;AT-B06-16,DEC-015;RN-021,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-002,Enforzar tenant/rol/propiedad de recurso en cada operación,CU-B06-09,AT-B06-01;AT-B06-02;AT-B06-03;AT-B06-08;AT-B06-09,DEC-017;RN-011,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-003,"Unificar contrato de stock entre POS y ecommerce, sin movimientos duplicados",CU-B06-05,AT-B06-05;AT-B06-17,DEC-004;PROP-V1-06,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-004,Aplicar idempotencia a operaciones críticas,CU-B06-09,AT-B06-07,PROP-V1-06,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-005,Revalidar disponibilidad bajo concurrencia en agenda y stock,CU-B06-09,AT-B06-05;AT-B06-17,DEC-067;PROP-V1-06,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-006,Registrar auditoría de operaciones sensibles sin secretos,CU-B06-03,AT-B06-13,PROP-V1-13,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-007,Generar notificaciones mínimas y conservar estado de entrega,CU-B06-02,AT-B06-06,PROP-V1-11,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-008,No revertir transacciones de negocio por fallo de email posterior,CU-B06-04,AT-B06-06,PROP-V1-11,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-009,Proporcionar paneles mínimos por rol/tenant,CU-B06-01,AT-B06-10,PROP-V1-11,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-010,Producir reportes básicos sin doble conteo comercial,CU-B06-01,AT-B06-12,PROP-V1-06,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-011,Operar montos monetarios de precisión exacta en PEN,CU-B06-09,AT-B06-04;AT-B06-12,PROP-V1-12,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-012,Presentar fechas en zona America/Lima y almacenar instantes normalizados,CU-B06-09,AT-B06-11,PROP-V1-12,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-013,Separar claramente datos sintéticos de la información real,CU-B06-08,AT-B06-14,PROP-V1-13,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-014,No llamar comprobante fiscal a constancias internas,CU-B06-09,AT-B06-15,DEC-066,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-015,Conservar historial y autoría en operaciones clínicas y comerciales,CU-B06-03,AT-B06-13;AT-B06-15;AT-B06-18,PROP-V1-13,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA
+B06,RF-B06-016,No ejecutar operaciones irreversibles sin autorización y trazabilidad,CU-B06-09,AT-B06-07;AT-B06-17,PROP-V1-13,CERRADO_FUNCIONAL_V1,DISEÑADA_NO_EJECUTADA

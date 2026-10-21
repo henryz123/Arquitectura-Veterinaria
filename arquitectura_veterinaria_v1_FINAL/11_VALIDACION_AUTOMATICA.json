@@ -1,0 +1,57 @@
+{
+  "fecha": "2026-10-21",
+  "resultado": "VALIDACION_DOCUMENTAL_ESTATICA_APROBADA",
+  "estado_funcional": "CERRADO_V1_ACADEMICA",
+  "bloques": {
+    "B01": {
+      "casos_uso": 16,
+      "requisitos": 35,
+      "pruebas_aceptacion": 49
+    },
+    "B02": {
+      "casos_uso": 11,
+      "requisitos": 16,
+      "pruebas_aceptacion": 14
+    },
+    "B03": {
+      "casos_uso": 12,
+      "requisitos": 16,
+      "pruebas_aceptacion": 15
+    },
+    "B04": {
+      "casos_uso": 8,
+      "requisitos": 15,
+      "pruebas_aceptacion": 14
+    },
+    "B05": {
+      "casos_uso": 12,
+      "requisitos": 20,
+      "pruebas_aceptacion": 21
+    },
+    "B06": {
+      "casos_uso": 9,
+      "requisitos": 16,
+      "pruebas_aceptacion": 18
+    }
+  },
+  "totales": {
+    "casos_de_uso": 68,
+    "requisitos_funcionales": 118,
+    "criterios_aceptacion_disenados": 131,
+    "filas_trazabilidad": 118
+  },
+  "integridad": {
+    "ids_requisitos_unicos": true,
+    "ids_casos_unicos": true,
+    "ids_pruebas_unicos": true,
+    "todos_requisitos_trazados": true,
+    "todas_pruebas_referenciadas": true,
+    "fuentes_md_utf8": true
+  },
+  "limitaciones": [
+    "No se ha implementado el sistema",
+    "No se han ejecutado casos funcionales, tests de seguridad ni carga",
+    "No se ha auditado el repositorio real de Codex",
+    "No se acredita cumplimiento SUNAT ni privacidad para usuarios reales"
+  ]
+}

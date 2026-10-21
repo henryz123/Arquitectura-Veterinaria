@@ -1,0 +1,51 @@
+{
+  "name": "Arquitectura - Veterinaria / Plan Maestro Codex V0.2 refinado",
+  "created": "2026-10-21",
+  "source": "auditoria P0 reportada por usuario; paquete V1 compartido",
+  "files": {
+    "00_LEEME_Y_ORDEN_DE_USO.md": {
+      "sha256": "bbcd45d2cde0beadde4b40097da8fb2724642c2a7bfb08a0d1ed0f80453ad369",
+      "bytes": 3901
+    },
+    "01_ESTADO_Y_RIESGOS_P0.md": {
+      "sha256": "a01b5fbf64c70860660a340e20852ef919adadf369f4b9a7dfcf8e0bf7b337b0",
+      "bytes": 3206
+    },
+    "02_PLAN_MAESTRO_Y_GATES.md": {
+      "sha256": "ab24540cd961ac8bcd4ea2cf74580d5356324c7c99eade0e9669939cf1a673a0",
+      "bytes": 7496
+    },
+    "03_ORQUESTACION_Y_SKILLS.md": {
+      "sha256": "d9829cdaf29b8d5e96a138bd66ff8d5e46ae3af3ff2aa8217babee5f2d20dcf8",
+      "bytes": 4287
+    },
+    "04_PROMPT_CODEX_P1A.md": {
+      "sha256": "c1fa0dd02c11e2f7bf0eb4b83c33041b0ecdcac585197aea1d2af3ae1c02b61b",
+      "bytes": 4259
+    },
+    "05_PROMPT_CODEX_P1B.md": {
+      "sha256": "29ed56986aecf2ae35e457d9cb265b8d6d72564b33089d7642d19bb15035c692",
+      "bytes": 1983
+    },
+    "06_PRODUCT_MD_BORRADOR.md": {
+      "sha256": "c8b28c0a89e8749b0c2f790bbfadd0b6377105f58ff24dcbf044ca0fec1f5d17",
+      "bytes": 3186
+    },
+    "07_AGENTS_MD_BORRADOR.md": {
+      "sha256": "61cb01f05e04abc3e21e0d9372faff509c821d5ee2cb6c96ead72e14d2ee9b0f",
+      "bytes": 2685
+    },
+    "08_CHECKLIST_GATE_G1.md": {
+      "sha256": "371132e7f0241688d31dbad55e2e7c2834b5649ce1efd65c3fef52dc655b09b0",
+      "bytes": 1847
+    },
+    "09_DECISIONES_A_VALIDAR.md": {
+      "sha256": "af1492cd28ce25dbfdb5379b33f4c5e9aa7069b6869f1643ff612f4a45f3c37d",
+      "bytes": 1102
+    },
+    "10_REFERENCIAS_Y_ESTADO.md": {
+      "sha256": "8f88fb2923b35d5cb1c985744f473e1eb27bbc5e0220e8d4ad9ff65e9f7c96c1",
+      "bytes": 1464
+    }
+  }
+}

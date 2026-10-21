@@ -1,0 +1,49 @@
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.p12
+*.pfx
+*.key
+
+# Dependencies, caches and generated outputs
+node_modules/
+.npm/
+.pnpm-store/
+.angular/
+.next/
+dist/
+build/
+coverage/
+.cache/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+target/
+
+# Logs and operating-system noise
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.hook.tmp
+*.hook.log
+Thumbs.db
+.DS_Store
+
+# Agent and design-tool state (machine-local)
+.ecc/
+.impeccable/
+.img2threejs/
+motion-audits/
+.hooks/
+hooks/tmp/
+/.codex/backup/
+
+# Keep project configuration, specifications and legitimate visual evidence.
+# Do not add global rules for *.png, *.webm or *.mp4.
