@@ -12,13 +12,13 @@ La información funcional confirmada se consolidó manualmente en "PRODUCT.md" a
 - Español, PEN y agenda en America/Lima.
 - Planificación técnica aprobada: Java 21, Spring Boot 4.1.1, Maven/Maven Wrapper, Angular 21 con TypeScript, PostgreSQL 18, monolito modular, DDD estratégico y arquitectura hexagonal selectiva.
 
-### Pendientes de G2
+### Pendientes de ejecución o decisión específica
 
-- NFR cuantitativos, privacidad, retención, seguridad de sesiones, ADR, modelo físico, contratos, despliegue, backup/restauración y métricas de la demo.
-- Diseño UX, accesibilidad verificable, voz, marca, activos visuales y "DESIGN.md".
+- Materializar y medir NFR, privacidad, retención, sesiones, ADR, modelo físico, contratos, despliegue, backup/restauración y métricas de la demo descritos en G2/G3.
+- Diseño UX, accesibilidad verificable con aplicación, voz, marca, activos visuales y "DESIGN.md".
 - Infraestructura para URL pública y procedimiento de publicación del repositorio después de la revisión de secretos.
 
-No ejecutar "impeccable init" mientras el motor no esté validado y P1B no sea autorizado. "PRODUCT.md" ya es el brief consolidado y no debe ser reemplazado por un inicializador.
+No ejecutar "impeccable init" mientras el motor no esté validado y no exista aprobación específica. "PRODUCT.md" ya es el brief consolidado y no debe ser reemplazado por un inicializador.
 
 Completa solo hechos confirmados. Las decisiones aún abiertas deben declararse como tales; no deben reemplazarse con supuestos estéticos.
 

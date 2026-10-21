@@ -45,5 +45,8 @@ motion-audits/
 hooks/tmp/
 /.codex/backup/
 
+# Third-party agent bundles stay local until their origin and license are reviewed.
+.agents/
+
 # Keep project configuration, specifications and legitimate visual evidence.
 # Do not add global rules for *.png, *.webm or *.mp4.

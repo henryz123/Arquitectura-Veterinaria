@@ -1,0 +1,305 @@
+openapi: 3.1.0
+info:
+  title: Arquitectura - Veterinaria API
+  version: 0.1.0-design
+  description: |
+    Contrato de diseño G2 para el producto definitivo. No representa endpoints
+    desplegados ni autoriza implementación. Todo dato de ejemplo será sintético.
+servers:
+  - url: https://demo.invalid
+    description: Marcador no desplegado; producción servirá SPA y API en el mismo origen.
+tags:
+  - name: authentication
+  - name: tenant-administration
+  - name: pet-care
+  - name: scheduling
+  - name: inventory
+  - name: commerce
+paths:
+  /api/v1/auth/staff-sessions:
+    post:
+      tags: [authentication]
+      summary: Inicia una sesión laboral contextual
+      x-v1-requirements: [RF-AUT-01, RF-AUT-04, RF-AUT-05, RF-AUT-10]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffLoginRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/SessionCreated' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/auth/client-sessions:
+    post:
+      tags: [authentication]
+      summary: Inicia una sesión de cliente por tenant
+      x-v1-requirements: [RF-CLI-01, RF-CLI-02, RF-CLI-03, RF-CLI-04]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClientLoginRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/SessionCreated' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/auth/session:
+    delete:
+      tags: [authentication]
+      summary: Revoca la sesión actual
+      x-v1-requirements: [RF-AUT-02, RF-AUT-13]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      responses:
+        '204': { description: Sesión revocada }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/tenants:
+    post:
+      tags: [tenant-administration]
+      summary: Registra una solicitud de veterinaria
+      x-v1-requirements: [RF-SAA-01, RF-SAA-02, RF-SAA-09, RF-SAA-11]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TenantRegistrationRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [tenant-administration]
+      summary: Lista organizaciones con proyección administrativa autorizada
+      x-v1-requirements: [RF-SAA-04, RF-SAA-10]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/Collection' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/owners:
+    get:
+      tags: [pet-care]
+      summary: Lista propietarios del tenant autorizado
+      x-v1-requirements: [RF-B02-001, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/Collection' } }
+    post:
+      tags: [pet-care]
+      summary: Crea propietario presencial autorizado
+      x-v1-requirements: [RF-B02-001]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OwnerRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/pets:
+    post:
+      tags: [pet-care]
+      summary: Crea mascota con responsable principal
+      x-v1-requirements: [RF-B02-002, RF-B02-003, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PetRequest' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /api/v1/clinical-episodes:
+    post:
+      tags: [pet-care]
+      summary: Registra episodio clínico o borrador según rol veterinario
+      x-v1-requirements: [RF-B02-008, RF-B02-009, RF-B02-012, RF-B02-013]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClinicalEpisodeRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/appointments:
+    post:
+      tags: [scheduling]
+      summary: Solicita o confirma una cita conforme al rol y transición
+      x-v1-requirements: [RF-B03-003, RF-B03-004, RF-B03-005, RF-B03-006, RF-B03-007]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AppointmentRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/products:
+    get:
+      tags: [inventory]
+      summary: Lista productos internos autorizados
+      x-v1-requirements: [RF-B04-001, RF-B04-012, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/Collection' } }
+    post:
+      tags: [inventory]
+      summary: Crea producto controlado
+      x-v1-requirements: [RF-B04-001, RF-B04-002, RF-B04-003]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductRequest' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /api/v1/pos-sales:
+    post:
+      tags: [commerce]
+      summary: Registra venta presencial idempotente
+      x-v1-requirements: [RF-B04-004, RF-B04-005, RF-B04-007, RF-B04-009, RF-B04-015, RF-B06-004]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PosSaleRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/public/tenants/{tenantSlug}/catalog:
+    get:
+      tags: [commerce]
+      summary: Consulta catálogo público de veterinaria activa
+      x-v1-requirements: [RF-B05-001, RF-B05-017]
+      parameters:
+        - name: tenantSlug
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 80 }
+      responses: { '200': { $ref: '#/components/responses/Collection' }, '404': { $ref: '#/components/responses/NotFound' } }
+  /api/v1/orders:
+    post:
+      tags: [commerce]
+      summary: Crea pedido privado con snapshot monetario
+      x-v1-requirements: [RF-B05-002, RF-B05-003, RF-B05-004, RF-B05-019]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderRequest' }
+      responses: { '201': { $ref: '#/components/responses/Created' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /api/v1/orders/{orderId}/confirmations:
+    post:
+      tags: [commerce]
+      summary: Confirma pedido y solicita decremento atómico de stock
+      x-v1-requirements: [RF-B05-005, RF-B05-006, RF-B05-007, RF-B05-020, RF-B06-003]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses: { '200': { $ref: '#/components/responses/Success' }, '409': { $ref: '#/components/responses/Conflict' } }
+components:
+  securitySchemes:
+    sessionCookie: { type: apiKey, in: cookie, name: AV_SESSION }
+    csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 128 }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    StaffLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, example: personal@veterinaria-sintetica.test }
+        password: { type: string, format: password, writeOnly: true }
+    ClientLoginRequest:
+      allOf: [{ $ref: '#/components/schemas/StaffLoginRequest' }]
+    TenantRegistrationRequest:
+      type: object
+      required: [commercialName, administratorEmail]
+      properties:
+        commercialName: { type: string, minLength: 2, maxLength: 160 }
+        administratorEmail: { type: string, format: email }
+        ruc: { type: string, pattern: '^[0-9]{11}$' }
+    OwnerRequest:
+      type: object
+      required: [displayName]
+      properties: { displayName: { type: string, minLength: 1, maxLength: 160 } }
+    PetRequest:
+      type: object
+      required: [name, ownerId]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        ownerId: { type: string, format: uuid }
+    ClinicalEpisodeRequest:
+      type: object
+      required: [petId, reason, assessment]
+      properties:
+        petId: { type: string, format: uuid }
+        reason: { type: string, minLength: 1 }
+        assessment: { type: string, minLength: 1 }
+        appointmentId: { type: [string, 'null'], format: uuid }
+    AppointmentRequest:
+      type: object
+      required: [petId, startsAt, endsAt]
+      properties:
+        petId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+    ProductRequest:
+      type: object
+      required: [name, pricePen]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        pricePen: { type: string, pattern: '^[0-9]+\\.[0-9]{2}$' }
+    PosSaleRequest:
+      type: object
+      required: [lines, paymentMethod]
+      properties:
+        lines: { type: array, minItems: 1, items: { type: object } }
+        paymentMethod: { type: string, enum: [MANUAL_CASH, MANUAL_TRANSFER, MANUAL_OTHER] }
+    OrderRequest:
+      type: object
+      required: [lines, fulfillmentMethod]
+      properties:
+        lines: { type: array, minItems: 1, items: { type: object } }
+        fulfillmentMethod: { type: string, enum: [RECOJO, DELIVERY] }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, traceId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            traceId: { type: string }
+            fieldErrors: { type: array, items: { type: object } }
+    Data:
+      type: object
+      required: [data]
+      properties: { data: {} }
+  responses:
+    Success: { description: Operación válida, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
+    Created: { description: Recurso creado, headers: { Location: { schema: { type: string } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
+    SessionCreated: { description: Sesión creada por cookie HttpOnly; no expone el token, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
+    Collection: { description: Colección paginada, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
+    Unauthorized: { description: Sesión ausente o inválida, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: Operación no autorizada, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Recurso inexistente o no visible, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Conflicto de estado, concurrencia o idempotencia, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    ValidationError: { description: Validación semántica, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    RateLimited: { description: Límite de intentos, headers: { Retry-After: { schema: { type: integer } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

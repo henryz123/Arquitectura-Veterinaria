@@ -1,4 +1,4 @@
-# Plan Maestro y puertas de control — V0.3
+# Plan Maestro y puertas de control — V0.4
 
 ## Misión
 
@@ -9,27 +9,28 @@ Construir un único SaaS académico para veterinarias independientes del Perú, 
 | Puerta | Alcance | Evidencia mínima | Estado |
 |---|---|---|---|
 | G0 | Auditoría P0 de solo lectura | inventario del entorno, Git y herramientas | completada previamente |
-| G1-A | Documentación, seguridad y staging controlado | diff, integridad V1, revisión de secretos, hook aislado, índice revisado | en curso; sin commit |
-| G1-B | Diagnóstico selectivo del motor Impeccable | procedencia, rollback, prueba no destructiva y aprobación específica | no iniciado |
-| G2 | Arquitectura técnica definitiva sin código de aplicación | ADR, NFR, amenazas, modelo de datos, C4/arc42, contratos, UX, pruebas y operación | pendiente |
-| G3 | Plan de implementación autorizado | backlog vertical, DoD, estrategia TDD/seguridad/E2E y permiso expreso para codificar | pendiente |
+| G1-A/B | Baseline, aislamiento de hook y diagnóstico documental | commit local previo, hash de backup y riesgo de motor documentado | completado documentalmente; hook sigue inactivo |
+| G2 | Arquitectura técnica definitiva sin código de aplicación | ADR, NFR, amenazas, modelo de datos de intención, C4/arc42, contratos, UX, pruebas y operación | completado documentalmente |
+| G3 | Plan de implementación | backlog de 118 RF, DoD, estrategia TDD/seguridad/E2E y primera tarea propuesta | completado documentalmente; no autoriza por sí solo G4 |
 | G4 | Incrementos verificables | diffs, pruebas reproducibles, revisión de seguridad y evidencia real | pendiente |
 | G5 | Presentación pública de avance | URL funcional, repositorio público revisado, datos sintéticos, flujos verticales reales y evidencia | objetivo 26/10/2026 |
 | G6 | Entrega académica V1 | cobertura funcional realmente demostrada, documentación y controles de cierre | objetivo 18/11/2026 |
 
-## G2: decisiones técnicas ya cerradas y decisiones aún pendientes
+## G2/G3: decisiones y pendientes de ejecución
 
 Las tecnologías base ya están aprobadas: Java 21, Spring Boot 4.1.1, Maven y Maven Wrapper, Angular 21 con TypeScript y PostgreSQL 18. G2 no volverá a comparar Next.js/NestJS ni a tratar el stack base como abierto.
 
-G2 aún debe definir, con decisiones revisables y sin escribir la aplicación:
+G2/G3 documentan, sin escribir la aplicación:
 
 - límites de módulos, dependencias permitidas, lenguaje ubicuo, agregados e invariantes;
 - estrategia de tenancy, autorización, autenticación, sesión y auditoría;
 - modelo relacional físico, índices, transacciones, concurrencia e idempotencia;
 - contratos API, manejo de errores y compatibilidad frontend/backend;
 - NFR medibles, amenazas, privacidad, retención, backup/restauración y observabilidad;
-- UX, accesibilidad, diseño visual final y `DESIGN.md`;
-- procedimiento de ejecución local, CI, datos sintéticos, pruebas y publicación S/ 0.
+- UX/accesibilidad técnica (el diseño visual final y `DESIGN.md` permanecen pendientes);
+- procedimiento previsto de ejecución local, CI, datos sintéticos, pruebas y publicación S/ 0.
+
+Permanecen pendientes de evidencia: herramientas locales, DDL/migraciones, contratos materializados, pruebas, CI, backup/restauración ensayada y cualquier publicación.
 
 ## Reglas de implementación futura
 

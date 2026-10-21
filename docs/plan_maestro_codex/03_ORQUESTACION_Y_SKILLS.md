@@ -1,4 +1,4 @@
-# Orquestación y skills — V0.3
+# Orquestación y skills — V0.4
 
 ## Inventario operativo relevante
 
@@ -6,7 +6,7 @@
 |---|---|---|
 | ECC de Affaan Mustafa (`ecc@ecc`) | Plugin nativo presente; skills disponibles en la sesión | planificación, revisión documental y Git por habilidades aplicables |
 | Agentes ECC | Se hallaron plantillas, no registros activos demostrados | no simular ni delegar hasta comprobar un agente invocable |
-| Agent Browser | Instalado, Chromium disponible | solo cuando exista aplicación autorizada para E2E y accesibilidad |
+| Agent Browser | paquete 0.27.0 operativo; Chromium no comprobado | solo cuando exista aplicación autorizada para E2E y accesibilidad |
 | UI UX Pro Max | Disponible; `MASTER.md` existente | referencia para UX posterior, no genera diseño aprobado ahora |
 | Design Motion Principles | Disponible | solo para motion y accesibilidad cuando exista UI |
 | Impeccable | skill/launcher presentes; motor no validado | prohibido ejecutar, activar hook o descargar motor en G1-A |
@@ -16,7 +16,7 @@
 
 Se usa una skill solo si está detectada, es pertinente y su resultado puede validarse. Todo agente, si llega a estar realmente disponible, recibe objetivo, entradas, exclusiones, archivos de lectura/escritura, evidencia esperada y un único propietario de escritura. Las plantillas de caché no cuentan como agentes registrados.
 
-No hay agentes ECC registrados demostrables para invocación en esta tarea; por tanto, G1-A se realiza con revisión directa y el skill de flujo Git de ECC. No se crea ni instala un agente para satisfacer formalmente la orquestación.
+No hay agentes ECC registrados demostrables para invocación en esta tarea. La revisión directa y un subagente real de planificación operaron en solo lectura, sin atribuirlo a ECC. No se crea ni instala un agente para satisfacer formalmente la orquestación.
 
 ## Router para fases posteriores
 

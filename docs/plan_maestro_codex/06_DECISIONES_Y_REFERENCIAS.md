@@ -1,4 +1,4 @@
-# Decisiones, pendientes y referencias — V0.3
+# Decisiones, pendientes y referencias — V0.4
 
 ## Decisiones confirmadas
 
@@ -9,11 +9,11 @@
 - El presupuesto inicial es S/ 0. No se aprueba gasto, proveedor de hosting, dominio o servicio externo por inferencia.
 - El 26/10/2026 es presentación de avance; el 18/11/2026 es entrega académica final.
 
-## Pendientes que sí requieren G2 o autorización posterior
+## Pendientes de ejecución o autorización posterior
 
-- ADR de módulos, tenancy, autenticación/autorización, persistencia, API, eventos y despliegue.
-- NFR cuantitativos, amenaza/privacidad, retención, backup/restauración, disponibilidad y observabilidad.
-- Modelo físico PostgreSQL, contratos Angular/Spring Boot, UX definitivo y `DESIGN.md`.
+- Implementar/validar los ADR de módulos, tenancy, autenticación/autorización, persistencia, API, eventos y despliegue.
+- Ejecutar y evidenciar NFR, amenaza/privacidad, retención, backup/restauración, disponibilidad y observabilidad.
+- Materializar modelo físico PostgreSQL, contratos Angular/Spring Boot, UX definitivo y `DESIGN.md`.
 - Proveedor o mecanismo de URL pública S/ 0, dominio, CI y publicación GitHub pública.
 - P1B para el motor de Impeccable; Taste, Emil adicionales e img2threejs solo si un caso concreto los justifica.
 
@@ -24,4 +24,4 @@
 - Historial: `docs/historial/plan_maestro_codex_v0_2/`.
 - Herramientas que deben revisarse antes de instalar o ejecutar: ECC (`affaan-m/ECC`), Impeccable, Agent Browser, UI UX Pro Max, Design Motion Principles, Taste, Emil Skills e img2threejs.
 
-La presencia de una URL upstream no autoriza descargar, ejecutar ni incorporar su contenido. El primer staging excluye `.agents/` hasta completar revisión de procedencia y licencia.
+La presencia de una URL upstream no autoriza descargar, ejecutar ni incorporar su contenido. `.agents/` permanece ignorado hasta completar revisión de procedencia y licencia.

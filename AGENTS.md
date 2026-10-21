@@ -2,7 +2,7 @@
 
 ## Estado y límite de autorización
 
-La especificación funcional V1 está cerrada para una demostración académica con datos sintéticos. La fase actual es preparación documental y arquitectónica. No se puede programar la aplicación, crear scaffolding, ejecutar migraciones, desplegar ni publicar cambios hasta que el responsable apruebe expresamente G3 y el incremento concreto.
+La especificación funcional V1 está cerrada para una demostración académica con datos sintéticos. P1B, G2 y G3 se documentan de forma controlada; no son evidencia de software construido. No se puede programar la aplicación, crear scaffolding, ejecutar migraciones, desplegar ni publicar cambios hasta que el responsable autorice expresamente una tarea G4 concreta tras su preflight.
 
 ## Jerarquía documental
 
@@ -12,7 +12,7 @@ Ante una contradicción, aplicar este orden y registrar la discrepancia antes de
 2. "arquitectura_veterinaria_v1_FINAL/": línea base funcional inmutable de B01 a B06. Un cambio requiere una nueva versión y control de cambio; nunca se sobrescribe por inferencia técnica.
 3. Decisiones técnicas de planificación aprobadas posteriormente por el responsable.
 4. ADR y documentos arquitectónicos aprobados en fases posteriores.
-5. "docs/plan_maestro_codex/": Plan Maestro Codex V0.3 vigente; no reemplaza la especificación funcional. V0.2 permanece solo como historial en "docs/historial/plan_maestro_codex_v0_2/".
+5. "docs/plan_maestro_codex/": Plan Maestro Codex V0.4 vigente; no reemplaza la especificación funcional. V0.2 permanece solo como historial en "docs/historial/plan_maestro_codex_v0_2/" y V0.3 en el commit documental precedente.
 6. "instrucciones_maestras_chatgpt_v1_1.md" y "manual_protocolo_integral_chatgpt_v1_1.md": método de trabajo.
 7. Este archivo: instrucciones persistentes de ejecución.
 8. "PRODUCT.md": resumen de producto derivado de V1; no añade requisitos.
@@ -43,6 +43,10 @@ La primera demostración pública tiene como objetivo el 26 de octubre de 2026 y
 5. Revisar el diff y ejecutar únicamente verificaciones proporcionales y autorizadas. Registrar limitaciones reales.
 6. Detenerse ante una contradicción funcional, operación irreversible, secreto, permiso insuficiente o requisito legal no resuelto.
 
+### Convención de trabajo integral
+
+Cuando el responsable entregue una instrucción integral explícita, Codex puede ejecutar sus actividades documentales internas dependientes, revisiones independientes, verificaciones y reporte en una sola instrucción maestra, sin pedir autorización repetida para acciones rutinarias ya incluidas. Esta convención nunca amplía alcance: se detiene ante funcionalidad no autorizada, arquitectura contradictoria, operación destructiva, riesgo crítico, permisos, privacidad, coste, publicación externa o un límite expreso.
+
 ## Seguridad, datos y calidad
 
 - No introducir, imprimir, registrar ni versionar contraseñas, tokens, claves, datos personales o datos clínicos reales.
@@ -58,12 +62,13 @@ La primera demostración pública tiene como objetivo el 26 de octubre de 2026 y
 - Usar skills solo cuando sean pertinentes y estén realmente detectadas en la sesión. Las plantillas de agente en la caché de ECC no son agentes registrados ni autorizan a simular subagentes.
 - Asignar agentes solo con objetivo, entradas, exclusiones, archivos, evidencia y propietario de escritura definidos. Las revisiones independientes pueden ser de solo lectura; las escrituras deben tener un único responsable por conjunto de archivos.
 - UI UX Pro Max y Design Motion Principles se aplicarán al diseñar superficies autorizadas. Taste, img2threejs y skills de movimiento adicionales son opcionales hasta que una necesidad concreta los justifique.
-- Impeccable no se ejecuta ni se habilita mientras su motor no esté instalado, validado y aprobado en P1B. Los hooks permanecen aislados durante G1.
+- Impeccable no se ejecuta ni se habilita mientras su motor no esté instalado, validado y aprobado de forma específica. El hook permanece aislado: no existe `.codex/hooks.json` activo y el respaldo se conserva fuera de Git.
+- `.agents/` es contenido local de terceros sin procedencia/licencia integral demostrada; se ignora y no se versiona hasta una revisión expresa.
 
 ## Git y documentación
 
 - Antes de modificar: revisar "git status", archivos existentes y, cuando aplique, el diff.
 - Prohibidos sin autorización específica: "git add .", commits, pushes, cambios de remoto, "git reset --hard", "git clean", rebase de historia compartida y operaciones destructivas.
-- El primer commit requiere revisión humana del diff, análisis de secretos y una lista de rutas explícitas. Después de la línea base, usar ramas "codex/<alcance>" salvo instrucción distinta.
+- La línea base documental ya existe en Git. Todo commit posterior requiere revisión del diff, análisis de secretos y una lista de rutas explícitas; usar ramas "codex/<alcance>" para desarrollo salvo instrucción distinta.
 - Versionar fuentes funcionales, documentación, configuración revisable y evidencias legítimas. Ignorar solo secretos, dependencias, cachés y resultados reproducibles.
 - Mantener "PRODUCT.md", el plan, ADR posteriores y pruebas coherentes con el estado real. No presentar documentos de planificación como software implementado.

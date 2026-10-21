@@ -1,16 +1,16 @@
-# Hoja de ruta: avance público y entrega académica — V0.3
+# Hoja de ruta: avance público y entrega académica — V0.4
 
 ## Hitos y condiciones
 
 | Fecha | Hito | Condición de honestidad técnica |
 |---|---|---|
-| 21/10/2026 | Cierre documental G1-A | no hay commit ni código hasta aprobación posterior |
+| 21/10/2026 | Baseline local, P1B/G2/G3 documental | existe commit de documentación; no hay código ni autorización G4 |
 | 26/10/2026 | Presentación de avance funcional | URL pública y repositorio público solo si pasan revisión de secretos, licencias, datos sintéticos, pruebas y autorización; no equivale a completar V1 |
 | 18/11/2026 | Entrega académica final | V1 solo se declara final cuando sus flujos y criterios estén realmente demostrados |
 
 ## Prioridad de flujos verticales para la demostración
 
-La selección final se confirma en G2/G3, pero el orden de análisis para una demo estable es:
+La ruta G3 priorizada para una demo estable es:
 
 1. Aislamiento de tenant, acceso y rol efectivo como condición transversal.
 2. Propietario y mascota con una cita o solicitud trazable en un tenant autorizado.

@@ -1,37 +1,37 @@
 {
-  "name": "Arquitectura - Veterinaria / Plan Maestro Codex V0.3",
+  "name": "Arquitectura - Veterinaria / Plan Maestro Codex V0.4",
   "created": "2026-10-21",
-  "status": "vigente para G1-A y preparación de G2; no autoriza implementación",
+  "status": "vigente tras P1B/G2/G3 documental; no autoriza implementación G4",
   "historical_predecessor": "docs/historial/plan_maestro_codex_v0_2/",
   "algorithm": "sha256",
   "files": {
     "00_LEEME_Y_AUTORIDAD.md": {
-      "sha256": "08a5449a16fb624cdb9f4d6891818805538824e14670a457b0007c0524f9522f",
-      "bytes": 2348
+      "sha256": "308137ddb53ed13f8d0d5b891f5ea8552a82deb7218842040f31486a5feebe48",
+      "bytes": 2364
     },
     "01_ESTADO_G1_A_Y_RIESGOS.md": {
-      "sha256": "7830048163a7d49a01d1b8c80b35655245c1aa55475ad1d21f786d6dfe452a63",
-      "bytes": 2261
+      "sha256": "8939e078451ee3488548ae9c55afd3726247fe2a83fcba1438f61fb62fe5a8a7",
+      "bytes": 2154
     },
     "02_PLAN_MAESTRO_Y_GATES.md": {
-      "sha256": "fe839a3baeb1c7e912de0ac1c11388b0211857b770eec0990fea504765186159",
-      "bytes": 3283
+      "sha256": "7ac27741cc2a25043e8b7d95603368990729bb95ca1f52a1522f6c28d2f4143b",
+      "bytes": 3391
     },
     "03_ORQUESTACION_Y_SKILLS.md": {
-      "sha256": "f2ee3e9958531ab0ece92d5de2cd2fc0df0088ff00d00a4d5adddced1db5c95f",
-      "bytes": 2458
+      "sha256": "90098ca8ccc4506179c1ea46ae962c9156a3c56ff0366a335bd55b3773676a68",
+      "bytes": 2502
     },
     "04_HOJA_DE_RUTA_DEMO_Y_ENTREGA.md": {
-      "sha256": "0dc0b7c0d80d59458f04335c148cd829553b892ed49d4e102fdebb493f011cf1",
-      "bytes": 2067
+      "sha256": "4a365238995bfd0f270a90588ac33df2f02711335b65a7f6631077a5876a9cd8",
+      "bytes": 2049
     },
     "05_CHECKLIST_CIERRE_G1.md": {
-      "sha256": "a54006f779fb62503442d1ab56cfba6e5f6ef32816c8023fb164b0564808828d",
-      "bytes": 1378
+      "sha256": "f9c74d5af05f465ecdaf7c7cefa30ee7cdc8fe2312c75f30116b3f67a90f659c",
+      "bytes": 1556
     },
     "06_DECISIONES_Y_REFERENCIAS.md": {
-      "sha256": "e12897a53872c6638e36f5f3af462567e483149c071932ae91624cacada62427",
-      "bytes": 1990
+      "sha256": "4ecae4872700977b102e8292d284d097015a7fe4c1f295370563c2a71d750af7",
+      "bytes": 2021
     }
   }
 }

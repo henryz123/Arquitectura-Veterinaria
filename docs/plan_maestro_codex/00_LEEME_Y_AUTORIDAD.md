@@ -1,12 +1,12 @@
-# Plan Maestro Codex V0.3 — Arquitectura - Veterinaria
+# Plan Maestro Codex V0.4 — Arquitectura - Veterinaria
 
-**Estado:** plan de trabajo vigente para cerrar G1 y preparar G2; no es código, arquitectura definitiva ni autorización de implementación.
+**Estado:** plan operativo vigente tras P1B/G2/G3 documental; no es código ni autorización de implementar G4.
 
 ## Autoridad y versión vigente
 
 - La fuente funcional inmutable es `arquitectura_veterinaria_v1_FINAL/`.
 - Las instrucciones de operación son `instrucciones_maestras_chatgpt_v1_1.md`, `manual_protocolo_integral_chatgpt_v1_1.md` y la instrucción expresa más reciente del responsable.
-- Este directorio es el único Plan Maestro operativo vigente. V0.2 se conserva íntegramente como historial en `docs/historial/plan_maestro_codex_v0_2/`; no debe usarse para elegir stack ni reabrir decisiones ya aprobadas.
+- Este directorio es el único Plan Maestro operativo vigente. V0.2 se conserva íntegramente como historial en `docs/historial/plan_maestro_codex_v0_2/`; V0.3 queda preservado en el commit documental anterior. No se usan para reabrir decisiones aprobadas.
 - `design-system/arquitectura-veterinaria/MASTER.md` es una dirección visual provisional, no un diseño UX ni una marca aprobados.
 
 ## Decisiones de planificación confirmadas
@@ -27,13 +27,13 @@ La presentación de octubre es un avance funcional. No exige completar los 118 r
 
 ## Orden de lectura
 
-1. `01_ESTADO_G1_A_Y_RIESGOS.md`
-2. `02_PLAN_MAESTRO_Y_GATES.md`
-3. `04_HOJA_DE_RUTA_DEMO_Y_ENTREGA.md`
-4. `03_ORQUESTACION_Y_SKILLS.md`
-5. `05_CHECKLIST_CIERRE_G1.md`
-6. `06_DECISIONES_Y_REFERENCIAS.md`
+1. `docs/architecture/README.md` y `docs/adr/README.md`
+2. `docs/implementation-plan/README.md`
+3. `01_ESTADO_G1_A_Y_RIESGOS.md`
+4. `02_PLAN_MAESTRO_Y_GATES.md`
+5. `04_HOJA_DE_RUTA_DEMO_Y_ENTREGA.md`
+6. `03_ORQUESTACION_Y_SKILLS.md`
 
 ## Límites inmediatos
 
-G1-A autoriza únicamente documentación, revisión de seguridad y staging explícito. No autoriza commit, remoto GitHub, instalaciones, hooks de Impeccable, scaffolding, migraciones, despliegue ni código de aplicación. La implementación requiere G3 y autorización expresa posterior.
+La línea base Git ya existe y P1B/G2/G3 están documentados. No se autoriza remoto GitHub, instalaciones, hooks de Impeccable, scaffolding, migraciones, despliegue ni código de aplicación. La implementación requiere una tarea G4 expresa y preflight técnico conforme.

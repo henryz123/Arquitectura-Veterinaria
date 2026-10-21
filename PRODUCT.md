@@ -49,7 +49,7 @@ La presentación del 26 de octubre de 2026 es un avance funcional con URL públi
 
 ## Pendiente antes de desarrollo
 
-Definir y aprobar NFR medibles, modelo físico de datos, ADR, C4/arc42, límites de módulos, contratos, autenticación y sesiones, privacidad, retención, backup/restauración, despliegue, estrategia de pruebas, UX y "DESIGN.md". La autorización para programar solo ocurre tras G3.
+La arquitectura G2/G3 define NFR objetivo, modelo físico de intención, ADR, C4/arc42, módulos, contratos, autenticación/sesiones, seguridad, pruebas y operación en `docs/architecture/`, `docs/adr/` y `docs/implementation-plan/`. Permanecen pendientes de ejecución: herramientas locales requeridas, modelo físico ejecutable, contratos materializados, UX/`DESIGN.md` aprobado, backup/restauración ensayado, despliegue y pruebas reales. La autorización para programar ocurre únicamente por una tarea G4 concreta.
 
 ## Fuentes
 

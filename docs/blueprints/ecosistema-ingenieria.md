@@ -4,25 +4,25 @@
 
 Preparar un entorno reproducible de ingeniería, automatización y diseño para definir y construir el producto veterinario, con calidad, accesibilidad y seguridad desde el inicio.
 
-## Conciliación G1-A — 21 de octubre de 2026
+## Conciliación P1B + G2 + G3 — 21 de octubre de 2026
 
 Esta sección prevalece sobre las afirmaciones provisionales del bootstrap que aparecen más abajo, las cuales se conservan como historial.
 
 - La especificación funcional V1 de B01 a B06 está cerrada e inmutable en "arquitectura_veterinaria_v1_FINAL/". Producto, usuarios, reglas y exclusiones funcionales ya no están pendientes de definición.
-- Permanece pendiente: NFR, arquitectura física, ADR, modelo de datos, contratos, UX definitivo, infraestructura, despliegue y pruebas ejecutadas.
+- La arquitectura documental, ADR, modelo físico de intención, contratos previstos, NFR objetivo, seguridad, UX técnico, operación y backlog se encuentran en `docs/architecture/`, `docs/adr/` y `docs/implementation-plan/`. Permanecen pendientes su materialización, UX/`DESIGN.md` final, infraestructura, despliegue y pruebas ejecutadas.
 - La planificación técnica aprobada es Java 21, Spring Boot 4.1.1, Maven/Maven Wrapper, Angular 21 con TypeScript, PostgreSQL 18, monolito modular, DDD estratégico y arquitectura hexagonal selectiva. No existe implementación.
 - ECC nativo es la ruta primaria. Agent Browser, UI UX Pro Max y Design Motion Principles se usarán cuando la tarea lo justifique. Taste, img2threejs y skills adicionales son opcionales.
-- Impeccable conserva skill y launcher, pero su motor no está validado; los hooks quedan aislados hasta P1B. No se ejecutará "impeccable init" como parte de P1A.
+- Impeccable conserva skill y launcher, pero su motor no está validado; los hooks quedan aislados hasta aprobación específica y prueba reversible. No se ejecutará "impeccable init" de forma implícita.
 - "MASTER.md" es una dirección visual provisional. No existe un diseño UX, identidad de marca ni "DESIGN.md" aprobados.
 - El objetivo de demo pública del 26 de octubre de 2026 y la entrega académica del 18 de noviembre de 2026 no eliminan las puertas G2/G3 ni los controles de seguridad.
-- El Plan Maestro Codex vigente es V0.3 en `docs/plan_maestro_codex/`. V0.2 se conserva sin modificar como historial en `docs/historial/plan_maestro_codex_v0_2/`.
+- El Plan Maestro Codex vigente es V0.4 en `docs/plan_maestro_codex/`. V0.2 se conserva sin modificar como historial en `docs/historial/plan_maestro_codex_v0_2/`.
 
 ## Estado confirmado
 
-- Repositorio Git nuevo, sin commits ni código de aplicación.
+- Repositorio Git con baseline documental local y sin código de aplicación.
 - Windows y PowerShell.
 - Node.js 22.20.0; Python 3.12.10 como intérprete canónico del proyecto.
-- Producto, usuarios, reglas y requisitos funcionales: definidos e inmutables en V1. Arquitectura definitiva, NFR, ADR, modelo físico, contratos, UX, infraestructura y pruebas ejecutadas: pendientes de G2/G3.
+- Producto, usuarios, reglas y requisitos funcionales: definidos e inmutables en V1. Arquitectura/ADR/NFR objetivo y plan: documentados; ejecución, UX definitivo, infraestructura y pruebas: pendientes de G4.
 
 ## Decisiones de herramienta
 
@@ -37,7 +37,7 @@ El Product Brief funcional ya está consolidado. `design-system/arquitectura-vet
 
 ## Secuencia de implantación
 
-La secuencia histórica siguiente no autoriza instalaciones ni inicializadores. La secuencia vigente es: proteger la línea base y revisar el diff; resolver hooks y motor de Impeccable solo en P1B; completar G2; obtener G3; y recién entonces implementar con TDD, seguridad, E2E y accesibilidad.
+La secuencia histórica siguiente no autoriza instalaciones ni inicializadores. La secuencia vigente es: proteger la línea base y revisar el diff; mantener aislado Impeccable; autorizar una tarea G4; y recién entonces implementar con TDD, seguridad, E2E y accesibilidad.
 
 1. Validar binarios, Git y árbol de trabajo.
 2. Mantener un `.gitignore` limitado a artefactos efímeros de agentes.
