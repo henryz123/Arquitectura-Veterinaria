@@ -19,7 +19,7 @@ Monolito modular académico para veterinarias independientes en Perú. La especi
 - Node.js 22.20.0.
 - PostgreSQL 18.6, cliente en `C:\Program Files\PostgreSQL\18\bin\psql.exe`.
 
-El servicio PostgreSQL está activo, pero la creación de la base exclusiva requiere una sesión administrativa interactiva. Sigue el [runbook local](docs/runbooks/G4-I00_ENTORNO_LOCAL.md); no proporciones contraseñas en chat, archivos ni comandos.
+La base exclusiva local y sus roles mínimos ya se verificaron para G4-I00. Para reproducirla o revisarla, sigue el [runbook local](docs/runbooks/G4-I00_ENTORNO_LOCAL.md); no proporciones contraseñas en chat, archivos ni comandos.
 
 ## Instalación y verificación
 
@@ -29,7 +29,7 @@ En `frontend/`, usa Corepack/pnpm 11.25.0 y respeta `pnpm-workspace.yaml`, que b
 corepack pnpm install
 ```
 
-Con JDK 21 disponible en `JAVA_HOME`, desde la raíz:
+Con JDK 21 y las variables `AV_DB_*`, `AV_MIGRATION_DB_*` y `AV_DEMO_*` disponibles solo en el entorno local, desde la raíz:
 
 ```powershell
 .\scripts\verify-g4-i00.cmd
@@ -37,13 +37,14 @@ Con JDK 21 disponible en `JAVA_HOME`, desde la raíz:
 
 La política de ejecución actual bloquea scripts `.ps1`; el lanzador `.cmd` evita modificar o eludir dicha política.
 
-El backend no debe considerarse integrado hasta seguir el runbook, migrar la base exclusiva y ejecutar las pruebas PostgreSQL, de autenticación y de aislamiento tenant. Los comandos de ejecución se mantienen locales: no existe remoto Git ni despliegue autorizado.
+Los comandos de ejecución se mantienen locales: no existe remoto Git ni despliegue autorizado. No reutilices una base de otro proyecto ni copies secretos a los comandos.
 
 ## Estado G4-I00
 
-- Compilación y pruebas unitarias backend: verificadas localmente.
-- Compilación y prueba de servicio frontend: verificadas localmente.
-- Validación de OpenAPI: ejecutada con Redocly antes de materializar el proveedor; el contrato no cambió después de esa validación.
-- Integración PostgreSQL, E2E de navegador y verificación de migraciones: pendientes de una base exclusiva con acceso administrativo local.
+- Flyway V001, privilegios de `av_app`, RLS y datos sintéticos: verificados en la base exclusiva.
+- Autenticación API, CSRF, logout y rechazo cross-tenant: verificados con Aurora y Bosque.
+- Compilación y pruebas backend: 5/5; compilación frontend y prueba de servicio: correctas.
+- Agent Browser verificó la pantalla no autenticada y sus controles estructurales. Su comando `a11y` no está disponible y el login UI autenticado no se automatizó para no persistir ni pasar contraseñas.
+- La validación actual de OpenAPI queda pendiente: el binario local de Redocly no existe y no se instaló nada.
 
 No se declara B01 completa ni se avanza a I01–I06.

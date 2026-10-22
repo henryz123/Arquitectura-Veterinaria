@@ -2,6 +2,7 @@ package pe.arquitecturaveterinaria.identityaccess.infrastructure;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +42,7 @@ public class JdbcIdentityRepository {
 				insert into identity_auth.user_session
 				(id, account_id, tenant_id, account_type, role_code, token_hash, csrf_hash, expires_at)
 				values (?, ?, ?, 'STAFF', ?, ?, ?, ?)
-				""", sessionId, accountId, tenantId, roleCode, sessionTokenHash, csrfTokenHash, expiresAt);
+				""", sessionId, accountId, tenantId, roleCode, sessionTokenHash, csrfTokenHash, Timestamp.from(expiresAt));
 	}
 
 	public Optional<TenantSession> findActiveSession(String sessionTokenHash) {

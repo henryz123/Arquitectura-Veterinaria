@@ -2,7 +2,7 @@
 
 ## Estado de esta guía
 
-Este procedimiento prepara una base local exclusiva. No se ejecutó durante G4-I00 porque el acceso administrador de PostgreSQL exige una contraseña que no debe proporcionarse a Codex, guardarse en un archivo ni aparecer en el historial.
+Este procedimiento se ejecutó y verificó localmente para G4-I00 sobre la base exclusiva `arquitectura_veterinaria`. Sigue siendo la referencia para reproducir el entorno; no contiene ni debe recibir contraseñas, cookies, tokens o CSRF.
 
 ## Roles mínimos
 
@@ -29,7 +29,9 @@ No reutilice estos roles, la base ni contraseñas de otro proyecto. La cuenta de
 Inicie una sesión como `av_schema_owner` para que Flyway cree `tenancy` e `identity_auth` desde `database/migration/`. Después de la migración, otorgue al rol de runtime únicamente lo necesario:
 
 ```sql
-GRANT CONNECT ON DATABASE arquitectura_veterinaria TO av_app;
+REVOKE ALL ON DATABASE arquitectura_veterinaria FROM PUBLIC;
+GRANT CONNECT, TEMPORARY ON DATABASE arquitectura_veterinaria TO av_schema_owner, av_app;
+REVOKE ALL ON SCHEMA tenancy, identity_auth FROM PUBLIC;
 GRANT USAGE ON SCHEMA tenancy, identity_auth TO av_app;
 GRANT SELECT ON tenancy.tenant TO av_app;
 GRANT SELECT, INSERT, UPDATE ON identity_auth.user_session TO av_app;
@@ -40,7 +42,7 @@ La función de login es `SECURITY DEFINER`, parametrizada y con `search_path` fi
 
 ## Datos de demostración
 
-Como `av_schema_owner`, sobre la base exclusiva y después de la migración:
+Como `av_schema_owner`, sobre la base exclusiva y después de la migración, ejecute el script existente una única vez. Introduzca las dos contraseñas sintéticas en la consola local cuando el script las solicite; no las pase como argumentos ni las copie en el historial:
 
 ```powershell
 & 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -U av_schema_owner -W -d arquitectura_veterinaria -f database\demo\seed-synthetic.psql
@@ -50,7 +52,7 @@ El archivo pide dos contraseñas sintéticas en la consola, crea solo `veterinar
 
 ## Variables de ejecución
 
-Defina los nombres de conexión solo en su sesión local o mecanismo de secretos aprobado. Nunca los guarde en Git:
+Defina los nombres de conexión solo en la sesión local o en `.env.local` ignorado. Nunca los guarde en Git ni los imprima:
 
 ```text
 AV_DB_URL=jdbc:postgresql://localhost:5432/arquitectura_veterinaria
@@ -61,8 +63,30 @@ AV_MIGRATION_DB_PASSWORD=<secreto local>
 AV_SECURE_COOKIE=false
 ```
 
-En desarrollo local, el backend se inicia con `backend\mvnw.cmd spring-boot:run`; Angular usa el proxy `/api` a `http://localhost:8080`. Para una ejecución sin migración automática una vez preparada la base, añada `SPRING_FLYWAY_ENABLED=false` a la configuración local del proceso.
+Para iniciar el backend con la versión correcta de Java en la consola actual:
+
+```powershell
+$env:JAVA_HOME = 'C:\Users\HNR05\.jdks\ms-21.0.12.1'
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+Set-Location backend
+.\mvnw.cmd spring-boot:run
+```
+
+Angular usa el proxy `/api` a `http://localhost:8080`:
+
+```powershell
+Set-Location frontend
+.\node_modules\.bin\ng.cmd serve --host 127.0.0.1 --port 4200
+```
+
+`AV_SECURE_COOKIE=false` solo corresponde a HTTP local. Para una futura URL HTTPS autorizada deberá ser `true`. Para una ejecución local posterior sin Flyway automático, añada `SPRING_FLYWAY_ENABLED=false` únicamente al proceso después de comprobar la versión de esquema.
 
 ## Verificación obligatoria posterior
 
-Antes de declarar el vertical integrado: ejecutar Flyway en la base exclusiva, cargar los datos sintéticos, iniciar backend y frontend, probar ambas sesiones, `GET /api/v1/tenant-profile/{slug}` propio y el rechazo 404 para el slug ajeno. Conservar evidencias sin cookies, CSRF ni contraseñas.
+Antes de declarar el vertical integrado, ejecute desde la raíz, con las variables locales disponibles:
+
+```powershell
+.\scripts\verify-g4-i00.cmd
+```
+
+Compruebe además: una sola V001 exitosa, ambas cuentas sintéticas, login de Aurora y Bosque, perfil propio 200, slug ajeno 404, logout sin CSRF 403, logout con CSRF 204 y cero sesiones activas después del cierre. Conserve solo códigos y conteos: nunca cookies, hashes, CSRF ni contraseñas.

@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -13,6 +15,18 @@ import pe.arquitecturaveterinaria.shared.api.ApiErrorWriter;
 
 @Configuration
 class SecurityConfiguration {
+
+	/**
+	 * The application authenticates only through the opaque staff session flow. This
+	 * explicit service prevents Spring Boot from creating a generated development
+	 * password and an unintended in-memory account.
+	 */
+	@Bean
+	UserDetailsService noInteractiveUserDetailsService() {
+		return username -> {
+			throw new UsernameNotFoundException("No hay autenticación interactiva configurada.");
+		};
+	}
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http, OpaqueSessionAuthenticationFilter sessionFilter,
