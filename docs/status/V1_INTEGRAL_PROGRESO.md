@@ -30,7 +30,7 @@ fuera de V1.
 | Fase | Estado | Resultado verificable siguiente |
 |---|---|---|
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
-| B01 — Administración, identidad y acceso | En curso | El defecto SQL y la reemisión CSRF tras recarga están resueltos; existen verticales Angular de equipo, roles, administración SaaS y acceso CLIENT al espacio privado. Quedan el registro/verificación/recuperación por interfaz y dependencias reales de B02–B05. |
+| B01 — Administración, identidad y acceso | En curso | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. Falta ejecutar la semilla y el E2E autenticado CLIENT: sus cuatro variables locales sintéticas no están configuradas. |
 | B02 — Propietarios, mascotas y clínica | Pendiente | Vertical navegador → API → PostgreSQL con aislamiento por tenant y permisos clínicos. |
 | B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
@@ -115,6 +115,30 @@ fuera de V1.
 
 ## Próxima operación concreta
 
-Implementar las interfaces públicas B01 de registro, verificación y
-recuperación de cliente sin exponer enlaces opacos; preparar después un E2E
-CLIENT con semilla sintética controlada antes de iniciar B02.
+Configurar exclusivamente en `.env.local` las cuatro variables CLIENT sintéticas
+requeridas por `scripts/invoke-client-synthetic-seed.ps1`, ejecutar la semilla
+transaccional y completar el E2E autenticado CLIENT. En paralelo, iniciar el
+vertical B02 propietario → mascota → atención → historial.
+
+## Checkpoint CLIENT público 2026-10-23
+
+- Angular incorpora registro de cliente por tenant, verificación/reenvío de
+  correo y recuperación/restablecimiento de contraseña. Todos usan los
+  endpoints B01 existentes; no se agregó una API de depuración para revelar
+  enlaces opacos.
+- El adaptador local de enlaces dirige verificación CLIENT a
+  `/client/verify-email` y recuperación a `/client/reset-password`. Los
+  enlaces siguen existiendo solo en memoria del proceso para pruebas de
+  integración; no se registran ni se exponen por HTTP.
+- `ng test --watch=false`: 4 archivos y 9 pruebas correctas. `ng build`:
+  correcto (367.12 kB de salida inicial). Redocly validó el contrato OpenAPI.
+  La integración B01 afectada se ejecutó con Java 21 y Flyway desactivado,
+  sin fallos.
+- Agent Browser comprobó los formularios de registro y recuperación en
+  `127.0.0.1`, incluidos `main`, encabezados, etiquetas visibles, campos
+  nativos y acciones navegables. La versión 0.27.0 no tiene subcomando
+  automático `a11y`.
+- Se incorporó un fixture CLIENT separado, transaccional e idempotente, que
+  utiliza las funciones de registro y verificación ya auditadas. Su preflight
+  se detuvo antes de PostgreSQL porque faltan las cuatro variables CLIENT
+  locales; no se crearon cuentas ni se registraron secretos.

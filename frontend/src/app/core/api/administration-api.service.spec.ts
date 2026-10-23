@@ -82,6 +82,36 @@ describe('AdministrationApiService', () => {
     const clientSpace = http.expectOne('/api/v1/client-space');
     expect(clientSpace.request.method).toBe('GET');
     clientSpace.flush({ data: { tenantSlug: 'veterinaria-aurora', commercialName: 'Aurora', message: 'Espacio protegido.' } });
+
+    service.registerClient('veterinaria-aurora', 'cliente@demo.invalid', 'ClaveSintetica123').subscribe();
+    const registration = http.expectOne('/api/v1/tenants/veterinaria-aurora/client-registrations');
+    expect(registration.request.method).toBe('POST');
+    expect(registration.request.body).toEqual({ email: 'cliente@demo.invalid', password: 'ClaveSintetica123' });
+    registration.flush(null);
+
+    service.resendClientVerification('veterinaria-aurora', 'cliente@demo.invalid').subscribe();
+    const resend = http.expectOne('/api/v1/tenants/veterinaria-aurora/client-verification-resends');
+    expect(resend.request.method).toBe('POST');
+    expect(resend.request.body).toEqual({ email: 'cliente@demo.invalid' });
+    resend.flush(null);
+
+    service.verifyEmail('opaque-test-token').subscribe();
+    const verification = http.expectOne('/api/v1/email-verifications');
+    expect(verification.request.method).toBe('POST');
+    expect(verification.request.body).toEqual({ token: 'opaque-test-token' });
+    verification.flush({ data: { status: 'ACTIVA', accountType: 'CLIENT', relatedId: 'client-1' } });
+
+    service.requestClientPasswordRecovery('veterinaria-aurora', 'cliente@demo.invalid').subscribe();
+    const recovery = http.expectOne('/api/v1/auth/password-recovery-requests');
+    expect(recovery.request.method).toBe('POST');
+    expect(recovery.request.body).toEqual({ accountType: 'CLIENT', tenantSlug: 'veterinaria-aurora', email: 'cliente@demo.invalid' });
+    recovery.flush(null);
+
+    service.resetPassword('opaque-test-token', 'ClaveNuevaSintetica123').subscribe();
+    const completion = http.expectOne('/api/v1/auth/password-recoveries');
+    expect(completion.request.method).toBe('POST');
+    expect(completion.request.body).toEqual({ token: 'opaque-test-token', password: 'ClaveNuevaSintetica123' });
+    completion.flush(null);
   });
 
   afterEach(() => http.verify());

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdministrativeRecovery, ApiEnvelope, ClientSpace, Organization, RucReview, StaffAccount, StaffInvitation, StaffRole } from './api.models';
+import { AdministrativeRecovery, ApiEnvelope, ClientSpace, Organization, RucReview, StaffAccount, StaffInvitation, StaffRole, VerificationStatus } from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdministrationApiService {
@@ -69,5 +69,29 @@ export class AdministrationApiService {
 
   clientSpace(): Observable<ApiEnvelope<ClientSpace>> {
     return this.http.get<ApiEnvelope<ClientSpace>>(`${this.apiBaseUrl}/client-space`);
+  }
+
+  registerClient(tenantSlug: string, email: string, password: string): Observable<void> {
+    return this.http.post<void>(`${this.apiBaseUrl}/tenants/${encodeURIComponent(tenantSlug)}/client-registrations`, { email, password });
+  }
+
+  resendClientVerification(tenantSlug: string, email: string): Observable<void> {
+    return this.http.post<void>(`${this.apiBaseUrl}/tenants/${encodeURIComponent(tenantSlug)}/client-verification-resends`, { email });
+  }
+
+  verifyEmail(token: string): Observable<ApiEnvelope<VerificationStatus>> {
+    return this.http.post<ApiEnvelope<VerificationStatus>>(`${this.apiBaseUrl}/email-verifications`, { token });
+  }
+
+  requestClientPasswordRecovery(tenantSlug: string, email: string): Observable<void> {
+    return this.http.post<void>(`${this.apiBaseUrl}/auth/password-recovery-requests`, {
+      accountType: 'CLIENT',
+      tenantSlug,
+      email,
+    });
+  }
+
+  resetPassword(token: string, password: string): Observable<void> {
+    return this.http.post<void>(`${this.apiBaseUrl}/auth/password-recoveries`, { token, password });
   }
 }

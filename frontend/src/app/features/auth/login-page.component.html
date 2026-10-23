@@ -43,9 +43,16 @@
     </form>
 
     <nav aria-label="Cambiar contexto de demostración">
-      <a routerLink="/login/veterinaria-aurora">Aurora</a>
-      <a routerLink="/login/veterinaria-bosque">Bosque</a>
-      <a [routerLink]="['/client/login', tenantSlug()]">Acceso cliente</a>
+      <ng-container *ngIf="isClient(); else staffNavigation">
+        <a [routerLink]="['/client/register', tenantSlug()]">Crear cuenta</a>
+        <a [routerLink]="['/client/recover', tenantSlug()]">Recuperar acceso</a>
+        <a [routerLink]="['/login', tenantSlug()]">Acceso al personal</a>
+      </ng-container>
+      <ng-template #staffNavigation>
+        <a routerLink="/login/veterinaria-aurora">Aurora</a>
+        <a routerLink="/login/veterinaria-bosque">Bosque</a>
+        <a [routerLink]="['/client/login', tenantSlug()]">Acceso cliente</a>
+      </ng-template>
     </nav>
   </section>
 </main>

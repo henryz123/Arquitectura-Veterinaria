@@ -441,9 +441,11 @@ class B01AdministrationDatabaseIntegrationTest {
 		String originalPassword = generatedPassword();
 		String replacementPassword = generatedPassword();
 		ClientRegistrationResult client = administrationService.registerClient("veterinaria-aurora", clientEmail, originalPassword);
+		assertEquals("/client/verify-email", localMailbox.requireLatest(client.principalId()).link().getPath());
 		administrationService.verifyEmailLink(tokenFor(client.principalId()));
 		var clientSession = identityAccessService.authenticateClient("veterinaria-aurora", clientEmail, originalPassword);
 		administrationService.requestPasswordRecovery(AccountType.CLIENT, "veterinaria-aurora", clientEmail);
+		assertEquals("/client/reset-password", localMailbox.requireLatest(client.principalId()).link().getPath());
 		administrationService.resetPassword(tokenFor(client.principalId()), replacementPassword);
 
 		assertTrue(identityAccessService.resolve(clientSession.sessionToken()).isEmpty());

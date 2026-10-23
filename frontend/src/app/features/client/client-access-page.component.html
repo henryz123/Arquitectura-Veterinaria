@@ -1,0 +1,81 @@
+<main class="client-access-shell" aria-labelledby="client-access-title">
+  <section class="client-access-panel">
+    <p class="eyebrow">Arquitectura - Veterinaria</p>
+    <h1 id="client-access-title">{{ pageTitle() }}</h1>
+
+    <p class="context" *ngIf="mode() === 'REGISTER' || mode() === 'RECOVER'">
+      Veterinaria: <strong>{{ tenantSlug().replaceAll('-', ' ') }}</strong>
+    </p>
+    <p class="context" *ngIf="mode() === 'VERIFY' || mode() === 'RESET'">
+      El enlace se valida una única vez y no se almacena en esta pantalla.
+    </p>
+
+    <p class="feedback feedback-success" aria-live="polite" *ngIf="success()">{{ success() }}</p>
+    <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
+
+    <form *ngIf="mode() === 'REGISTER'" [formGroup]="registrationForm" (ngSubmit)="register()" novalidate>
+      <label for="registration-email">Correo electrónico</label>
+      <input id="registration-email" type="email" autocomplete="email" formControlName="email" />
+      <small class="field-error" role="alert" *ngIf="registrationForm.controls.email.touched && registrationForm.controls.email.invalid">Ingresa un correo válido.</small>
+
+      <label for="registration-password">Contraseña</label>
+      <input id="registration-password" type="password" autocomplete="new-password" formControlName="password" aria-describedby="password-policy" />
+      <small id="password-policy" class="helper">Usa 12 a 72 caracteres, con mayúscula, minúscula y número.</small>
+      <small class="field-error" role="alert" *ngIf="registrationForm.controls.password.touched && registrationForm.controls.password.invalid">La contraseña no cumple la política indicada.</small>
+
+      <label for="registration-password-confirmation">Confirmar contraseña</label>
+      <input id="registration-password-confirmation" type="password" autocomplete="new-password" formControlName="passwordConfirmation" />
+      <small class="field-error" role="alert" *ngIf="registrationForm.touched && registrationForm.hasError('passwordMismatch')">Las contraseñas deben coincidir.</small>
+
+      <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Registrando…' : 'Crear cuenta' }}</button>
+    </form>
+
+    <section *ngIf="mode() === 'VERIFY'" aria-label="Verificación de correo">
+      <form [formGroup]="tokenForm" (ngSubmit)="verify()" novalidate>
+        <label for="verification-token">Enlace o token de verificación</label>
+        <textarea id="verification-token" rows="4" autocomplete="one-time-code" formControlName="token"></textarea>
+        <small class="helper">Pega el enlace completo o el token recibido; se procesa localmente y no queda guardado en el navegador.</small>
+        <small class="field-error" role="alert" *ngIf="tokenForm.controls.token.touched && tokenForm.controls.token.invalid">Indica el enlace de verificación.</small>
+        <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Verificando…' : 'Verificar correo' }}</button>
+      </form>
+
+      <form class="secondary-form" [formGroup]="emailForm" (ngSubmit)="resendVerification()" novalidate>
+        <h2>¿Necesitas otro enlace?</h2>
+        <label for="resend-email">Correo de cliente</label>
+        <input id="resend-email" type="email" autocomplete="email" formControlName="email" />
+        <small class="field-error" role="alert" *ngIf="emailForm.controls.email.touched && emailForm.controls.email.invalid">Ingresa un correo válido.</small>
+        <button class="button-secondary" type="submit" [disabled]="submitting()">Reenviar verificación</button>
+      </form>
+    </section>
+
+    <form *ngIf="mode() === 'RECOVER'" [formGroup]="emailForm" (ngSubmit)="requestRecovery()" novalidate>
+      <label for="recovery-email">Correo de cliente</label>
+      <input id="recovery-email" type="email" autocomplete="email" formControlName="email" />
+      <small class="helper">Por privacidad, el resultado no confirma si el correo está registrado.</small>
+      <small class="field-error" role="alert" *ngIf="emailForm.controls.email.touched && emailForm.controls.email.invalid">Ingresa un correo válido.</small>
+      <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Solicitando…' : 'Solicitar recuperación' }}</button>
+    </form>
+
+    <form *ngIf="mode() === 'RESET'" [formGroup]="resetForm" (ngSubmit)="resetPassword()" novalidate>
+      <label for="reset-token">Enlace o token de recuperación</label>
+      <textarea id="reset-token" rows="3" autocomplete="one-time-code" formControlName="token"></textarea>
+      <small class="field-error" role="alert" *ngIf="resetForm.controls.token.touched && resetForm.controls.token.invalid">Indica el enlace de recuperación.</small>
+
+      <label for="reset-password">Nueva contraseña</label>
+      <input id="reset-password" type="password" autocomplete="new-password" formControlName="password" aria-describedby="reset-password-policy" />
+      <small id="reset-password-policy" class="helper">Usa 12 a 72 caracteres, con mayúscula, minúscula y número.</small>
+      <small class="field-error" role="alert" *ngIf="resetForm.controls.password.touched && resetForm.controls.password.invalid">La contraseña no cumple la política indicada.</small>
+
+      <label for="reset-password-confirmation">Confirmar nueva contraseña</label>
+      <input id="reset-password-confirmation" type="password" autocomplete="new-password" formControlName="passwordConfirmation" />
+      <small class="field-error" role="alert" *ngIf="resetForm.touched && resetForm.hasError('passwordMismatch')">Las contraseñas deben coincidir.</small>
+      <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Actualizando…' : 'Actualizar contraseña' }}</button>
+    </form>
+
+    <nav aria-label="Acciones de acceso cliente">
+      <a [routerLink]="['/client/login', tenantSlug()]">Iniciar sesión</a>
+      <a [routerLink]="['/client/register', tenantSlug()]" *ngIf="mode() !== 'REGISTER'">Crear cuenta</a>
+      <a [routerLink]="['/client/recover', tenantSlug()]" *ngIf="mode() !== 'RECOVER'">Recuperar acceso</a>
+    </nav>
+  </section>
+</main>

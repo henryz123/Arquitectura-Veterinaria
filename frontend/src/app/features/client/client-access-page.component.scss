@@ -1,0 +1,46 @@
+.client-access-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: var(--surface-canvas);
+  color: var(--ink-strong);
+}
+
+.client-access-panel {
+  width: min(100%, 34rem);
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  border: 1px solid var(--border-subtle);
+  border-top: 4px solid var(--accent-teal);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
+}
+
+.eyebrow { margin: 0; color: var(--accent-teal); font-size: .75rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+h1 { margin: .4rem 0 .75rem; font-size: clamp(1.85rem, 7vw, 2.7rem); line-height: 1.08; }
+h2 { margin: 0 0 .75rem; font-size: 1.1rem; }
+.context, .helper { color: var(--ink-muted); line-height: 1.55; }
+.context { margin: 0 0 1.5rem; text-transform: capitalize; }
+form { display: grid; gap: .55rem; }
+label { margin-top: .5rem; font-weight: 700; }
+input, textarea { width: 100%; min-height: 2.8rem; border: 1px solid var(--border-strong); border-radius: .45rem; padding: .65rem .75rem; color: var(--ink-strong); background: var(--surface-raised); font: inherit; }
+textarea { resize: vertical; overflow-wrap: anywhere; }
+input:focus-visible, textarea:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.helper, .field-error { margin: 0; font-size: .88rem; }
+.field-error { color: var(--danger); }
+.feedback { margin: 0 0 1rem; padding: .85rem 1rem; border-radius: .45rem; line-height: 1.5; }
+.feedback-success { border: 1px solid #9cd8cf; color: var(--accent-teal-dark); background: var(--accent-teal-soft); }
+.feedback-error { border: 1px solid #f2b8b5; color: var(--danger-dark); background: #fff4f2; }
+button { min-height: 2.9rem; margin-top: 1rem; border: 1px solid transparent; border-radius: .45rem; padding: .65rem 1rem; color: #fff; background: var(--accent-teal); font: inherit; font-weight: 750; cursor: pointer; transition: background-color 180ms ease, box-shadow 180ms ease; }
+button:hover:not(:disabled) { background: var(--accent-teal-dark); box-shadow: 0 3px 8px rgb(7 90 88 / 22%); }
+button:disabled { cursor: progress; opacity: .65; }
+.button-secondary { color: var(--accent-teal-dark); border-color: var(--accent-teal); background: transparent; }
+.button-secondary:hover:not(:disabled) { background: var(--accent-teal-soft); }
+.secondary-form { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle); }
+nav { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; margin-top: 1.75rem; }
+a { color: var(--accent-teal-dark); font-weight: 700; }
+
+@media (max-width: 28rem) {
+  .client-access-panel { padding: 1.5rem 1.1rem; }
+  button { width: 100%; }
+}

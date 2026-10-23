@@ -29,6 +29,12 @@ export interface ClientSpace {
   message: string;
 }
 
+export interface VerificationStatus {
+  status: string;
+  accountType: string;
+  relatedId: string;
+}
+
 export type StaffRole = 'ADMIN_VETERINARIA' | 'RECEPCION' | 'VETERINARIO' | 'CAJERO' | 'GROOMING';
 
 export interface StaffAccount {

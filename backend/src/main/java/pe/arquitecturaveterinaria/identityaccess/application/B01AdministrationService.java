@@ -147,7 +147,7 @@ public class B01AdministrationService {
 		String rawToken = TokenHasher.newOpaqueToken();
 		repository.requestPasswordRecovery(accountType, tenantSlug, CredentialNormalizer.normalizeEmail(email), TokenHasher.sha256(rawToken),
 				transactionNow.plus(PASSWORD_RECOVERY_DURATION)).ifPresent(target ->
-				acceptLocalLink(target.principalId(), "PASSWORD_RECOVERY", rawToken));
+				acceptLocalLink(target.principalId(), "PASSWORD_RECOVERY", rawToken, accountType));
 	}
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
@@ -319,7 +319,16 @@ public class B01AdministrationService {
 	}
 
 	private void acceptLocalLink(UUID relatedResourceId, String purpose, String rawToken) {
-		localMailbox.accept(relatedResourceId, purpose, URI.create(localLinkBaseUrl + "/verify-email?token=" + rawToken));
+		acceptLocalLink(relatedResourceId, purpose, rawToken, null);
+	}
+
+	private void acceptLocalLink(UUID relatedResourceId, String purpose, String rawToken, AccountType recoveryAccountType) {
+		String path = switch (purpose) {
+			case "CLIENT_EMAIL_VERIFICATION" -> "/client/verify-email";
+			case "PASSWORD_RECOVERY" -> recoveryAccountType == AccountType.CLIENT ? "/client/reset-password" : "/verify-email";
+			default -> "/verify-email";
+		};
+		localMailbox.accept(relatedResourceId, purpose, URI.create(localLinkBaseUrl + path + "?token=" + rawToken));
 	}
 
 	private String rolesJson(Set<String> roles) {

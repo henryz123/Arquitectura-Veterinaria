@@ -1,0 +1,159 @@
+\set ON_ERROR_STOP on
+\getenv av_demo_client_aurora_email AV_DEMO_CLIENT_AURORA_EMAIL
+\getenv av_demo_client_aurora_password AV_DEMO_CLIENT_AURORA_PASSWORD
+\getenv av_demo_client_bosque_email AV_DEMO_CLIENT_BOSQUE_EMAIL
+\getenv av_demo_client_bosque_password AV_DEMO_CLIENT_BOSQUE_PASSWORD
+
+\if :{?av_demo_client_aurora_email}
+\else
+  \echo 'Falta AV_DEMO_CLIENT_AURORA_EMAIL en el entorno local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+\endif
+\if :{?av_demo_client_aurora_password}
+\else
+  \echo 'Falta AV_DEMO_CLIENT_AURORA_PASSWORD en el entorno local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+\endif
+\if :{?av_demo_client_bosque_email}
+\else
+  \echo 'Falta AV_DEMO_CLIENT_BOSQUE_EMAIL en el entorno local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+\endif
+\if :{?av_demo_client_bosque_password}
+\else
+  \echo 'Falta AV_DEMO_CLIENT_BOSQUE_PASSWORD en el entorno local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+\endif
+
+select
+    lower(:'av_demo_client_aurora_email') ~ '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$'
+    and length(:'av_demo_client_aurora_password') between 12 and 72
+    and :'av_demo_client_aurora_password' ~ '[A-Z]'
+    and :'av_demo_client_aurora_password' ~ '[a-z]'
+    and :'av_demo_client_aurora_password' ~ '[0-9]'
+    as av_client_aurora_valid \gset
+\if :av_client_aurora_valid
+\else
+  \echo 'Las credenciales sintéticas de Aurora no cumplen la política local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+\endif
+
+select
+    lower(:'av_demo_client_bosque_email') ~ '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$'
+    and length(:'av_demo_client_bosque_password') between 12 and 72
+    and :'av_demo_client_bosque_password' ~ '[A-Z]'
+    and :'av_demo_client_bosque_password' ~ '[a-z]'
+    and :'av_demo_client_bosque_password' ~ '[0-9]'
+    as av_client_bosque_valid \gset
+\if :av_client_bosque_valid
+\else
+  \echo 'Las credenciales sintéticas de Bosque no cumplen la política local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+\endif
+
+select exists (
+    select 1
+      from identity_auth.account_profile account
+      join tenancy.tenant tenant on tenant.id = account.tenant_id
+     where tenant.slug = 'veterinaria-aurora'
+       and account.account_type = 'CLIENT'
+       and account.normalized_email = lower(:'av_demo_client_aurora_email')
+) as av_client_aurora_exists \gset
+
+select coalesce((
+    select account.status = 'ACTIVA'
+      from identity_auth.account_profile account
+      join tenancy.tenant tenant on tenant.id = account.tenant_id
+     where tenant.slug = 'veterinaria-aurora'
+       and account.account_type = 'CLIENT'
+       and account.normalized_email = lower(:'av_demo_client_aurora_email')
+), false) as av_client_aurora_active \gset
+
+select exists (
+    select 1
+      from identity_auth.account_profile account
+      join tenancy.tenant tenant on tenant.id = account.tenant_id
+     where tenant.slug = 'veterinaria-bosque'
+       and account.account_type = 'CLIENT'
+       and account.normalized_email = lower(:'av_demo_client_bosque_email')
+) as av_client_bosque_exists \gset
+
+select coalesce((
+    select account.status = 'ACTIVA'
+      from identity_auth.account_profile account
+      join tenancy.tenant tenant on tenant.id = account.tenant_id
+     where tenant.slug = 'veterinaria-bosque'
+       and account.account_type = 'CLIENT'
+       and account.normalized_email = lower(:'av_demo_client_bosque_email')
+), false) as av_client_bosque_active \gset
+
+\if :av_client_aurora_exists
+  \if :av_client_aurora_active
+    \echo 'La cuenta CLIENT sintética de Aurora ya existe; se conserva sin cambios.'
+  \else
+    \echo 'La cuenta CLIENT sintética de Aurora existe en un estado incompatible; no se alteró.'
+    DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+  \endif
+\else
+  select encode(gen_random_bytes(32), 'hex') as av_client_aurora_token \gset
+  select identity_auth.register_client(
+      'veterinaria-aurora',
+      lower(:'av_demo_client_aurora_email'),
+      crypt(:'av_demo_client_aurora_password', gen_salt('bf', 12)),
+      encode(digest(:'av_client_aurora_token', 'sha256'), 'hex'),
+      statement_timestamp() + interval '24 hours'
+  ) as av_client_aurora_principal \gset
+  select verification_status, verified_account_type, resource_id
+    from identity_auth.verify_email_link(
+      encode(digest(:'av_client_aurora_token', 'sha256'), 'hex'),
+      repeat('0', 64),
+      statement_timestamp() + interval '1 minute'
+    ) \gset
+  \if :{?verified_account_type}
+  \else
+    \echo 'No fue posible activar la cuenta CLIENT sintética de Aurora.'
+    DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+  \endif
+\endif
+
+\if :av_client_bosque_exists
+  \if :av_client_bosque_active
+    \echo 'La cuenta CLIENT sintética de Bosque ya existe; se conserva sin cambios.'
+  \else
+    \echo 'La cuenta CLIENT sintética de Bosque existe en un estado incompatible; no se alteró.'
+    DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+  \endif
+\else
+  select encode(gen_random_bytes(32), 'hex') as av_client_bosque_token \gset
+  select identity_auth.register_client(
+      'veterinaria-bosque',
+      lower(:'av_demo_client_bosque_email'),
+      crypt(:'av_demo_client_bosque_password', gen_salt('bf', 12)),
+      encode(digest(:'av_client_bosque_token', 'sha256'), 'hex'),
+      statement_timestamp() + interval '24 hours'
+  ) as av_client_bosque_principal \gset
+  select verification_status, verified_account_type, resource_id
+    from identity_auth.verify_email_link(
+      encode(digest(:'av_client_bosque_token', 'sha256'), 'hex'),
+      repeat('0', 64),
+      statement_timestamp() + interval '1 minute'
+    ) \gset
+  \if :{?verified_account_type}
+  \else
+    \echo 'No fue posible activar la cuenta CLIENT sintética de Bosque.'
+    DO $seed_abort$ BEGIN RAISE EXCEPTION 'CLIENT_SEED_ABORTED'; END $seed_abort$;
+  \endif
+\endif
+
+\unset av_demo_client_aurora_email
+\unset av_demo_client_aurora_password
+\unset av_demo_client_bosque_email
+\unset av_demo_client_bosque_password
+\unset av_client_aurora_token
+\unset av_client_bosque_token
+\unset av_client_aurora_principal
+\unset av_client_bosque_principal
+\unset verified_account_type
+\unset verification_status
+\unset resource_id
+\echo 'Semilla CLIENT sintética verificada. No se imprimieron credenciales, enlaces ni tokens.'

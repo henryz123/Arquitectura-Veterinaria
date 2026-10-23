@@ -5,6 +5,7 @@ import { LoginPageComponent } from './features/auth/login-page.component';
 import { SaasLoginPageComponent } from './features/saas/saas-login-page.component';
 import { SaasConsolePageComponent } from './features/saas/saas-console-page.component';
 import { ClientSpacePageComponent } from './features/client/client-space-page.component';
+import { ClientAccessPageComponent } from './features/client/client-access-page.component';
 
 export const routes: Routes = [
   {
@@ -18,6 +19,30 @@ export const routes: Routes = [
     component: LoginPageComponent,
     data: { accountType: 'CLIENT' },
     title: 'Acceso cliente | Arquitectura Veterinaria',
+  },
+  {
+    path: 'client/register/:tenantSlug',
+    component: ClientAccessPageComponent,
+    data: { clientAccessMode: 'REGISTER' },
+    title: 'Registro cliente | Arquitectura Veterinaria',
+  },
+  {
+    path: 'client/verify-email',
+    component: ClientAccessPageComponent,
+    data: { clientAccessMode: 'VERIFY' },
+    title: 'Verificar correo | Arquitectura Veterinaria',
+  },
+  {
+    path: 'client/recover/:tenantSlug',
+    component: ClientAccessPageComponent,
+    data: { clientAccessMode: 'RECOVER' },
+    title: 'Recuperar acceso | Arquitectura Veterinaria',
+  },
+  {
+    path: 'client/reset-password',
+    component: ClientAccessPageComponent,
+    data: { clientAccessMode: 'RESET' },
+    title: 'Nueva contraseña | Arquitectura Veterinaria',
   },
   {
     path: 'workspace',
