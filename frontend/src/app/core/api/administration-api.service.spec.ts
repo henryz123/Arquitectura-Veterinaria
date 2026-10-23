@@ -77,6 +77,11 @@ describe('AdministrationApiService', () => {
     expect(recoveryReview.request.method).toBe('PATCH');
     expect(recoveryReview.request.body).toEqual({ status: 'VERIFICANDO', reason: 'Evidencia en revisión', legitimacyChecked: false });
     recoveryReview.flush(null);
+
+    service.clientSpace().subscribe();
+    const clientSpace = http.expectOne('/api/v1/client-space');
+    expect(clientSpace.request.method).toBe('GET');
+    clientSpace.flush({ data: { tenantSlug: 'veterinaria-aurora', commercialName: 'Aurora', message: 'Espacio protegido.' } });
   });
 
   afterEach(() => http.verify());

@@ -45,6 +45,21 @@ export class AuthStateService {
       );
   }
 
+  loginClient(tenantSlug: string, request: LoginRequest): Observable<ApiEnvelope<LoginResult>> {
+    return this.http
+      .post<ApiEnvelope<LoginResult>>(
+        `${this.apiBaseUrl}/auth/tenants/${encodeURIComponent(tenantSlug)}/client-sessions`,
+        request,
+        { withCredentials: true },
+      )
+      .pipe(
+        tap((response) => {
+          this.context.set(response.data.context);
+          this.csrfToken.set(response.data.csrfToken);
+        }),
+      );
+  }
+
   restoreContext(): Observable<ApiEnvelope<SessionContext>> {
     return this.http
       .get<ApiEnvelope<SessionContext>>(`${this.apiBaseUrl}/session-context`, {

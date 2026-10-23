@@ -36,3 +36,19 @@ export const saasSessionGuard: CanActivateFn = () => {
     }),
   );
 };
+
+export const clientSessionGuard: CanActivateFn = () => {
+  const auth = inject(AuthStateService);
+  const router = inject(Router);
+  const isAuthorized = () => auth.context()?.accountType === 'CLIENT';
+  if (auth.context()) {
+    return isAuthorized() ? true : router.createUrlTree(['/client/login/veterinaria-aurora']);
+  }
+  return auth.restoreContext().pipe(
+    map(() => isAuthorized() ? true : router.createUrlTree(['/client/login/veterinaria-aurora'])),
+    catchError(() => {
+      auth.clear();
+      return of(router.createUrlTree(['/client/login/veterinaria-aurora']));
+    }),
+  );
+};

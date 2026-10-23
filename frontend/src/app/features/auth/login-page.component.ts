@@ -23,9 +23,14 @@ export class LoginPageComponent {
     this.route.paramMap.pipe(map((params) => params.get('tenantSlug') ?? 'veterinaria-aurora')),
     { initialValue: 'veterinaria-aurora' },
   );
+  readonly accountType = toSignal(
+    this.route.data.pipe(map((data) => data['accountType'] === 'CLIENT' ? 'CLIENT' : 'STAFF')),
+    { initialValue: 'STAFF' },
+  );
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
   readonly tenantLabel = computed(() => this.tenantSlug().replaceAll('-', ' '));
+  readonly isClient = computed(() => this.accountType() === 'CLIENT');
   readonly form = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(12)]],
@@ -38,8 +43,11 @@ export class LoginPageComponent {
     }
     this.error.set(null);
     this.submitting.set(true);
-    this.auth.loginStaff(this.tenantSlug(), this.form.getRawValue()).subscribe({
-      next: () => this.router.navigateByUrl('/workspace'),
+    const login = this.isClient()
+      ? this.auth.loginClient(this.tenantSlug(), this.form.getRawValue())
+      : this.auth.loginStaff(this.tenantSlug(), this.form.getRawValue());
+    login.subscribe({
+      next: () => this.router.navigateByUrl(this.isClient() ? '/client-space' : '/workspace'),
       error: () => {
         this.error.set('No fue posible iniciar sesión. Verifica tus datos e inténtalo nuevamente.');
         this.submitting.set(false);

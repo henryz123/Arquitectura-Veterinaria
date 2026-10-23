@@ -1,0 +1,21 @@
+<main class="client-shell" aria-labelledby="client-space-title">
+  <header>
+    <p class="eyebrow">Arquitectura - Veterinaria</p>
+    <button type="button" (click)="logout()">Cerrar sesión</button>
+  </header>
+
+  <section *ngIf="loading()" aria-live="polite">Cargando tu información autorizada…</section>
+  <section class="feedback" role="alert" *ngIf="error()">{{ error() }}</section>
+
+  <section class="client-panel" *ngIf="space() as clientSpace">
+    <p class="eyebrow">Espacio privado</p>
+    <h1 id="client-space-title">{{ clientSpace.commercialName }}</h1>
+    <p>{{ clientSpace.message }}</p>
+    <dl>
+      <div><dt>Veterinaria</dt><dd>{{ clientSpace.tenantSlug }}</dd></div>
+      <div><dt>Acceso actual</dt><dd>Solo información propia autorizada</dd></div>
+    </dl>
+    <p class="notice">Las mascotas, citas, grooming y pedidos se incorporarán aquí cuando sus verticales B02–B05 estén implementados.</p>
+    <a [routerLink]="['/client/login', clientSpace.tenantSlug]">Cambiar de sesión</a>
+  </section>
+</main>

@@ -23,6 +23,12 @@ export interface CsrfToken {
   csrfToken: string;
 }
 
+export interface ClientSpace {
+  tenantSlug: string;
+  commercialName: string;
+  message: string;
+}
+
 export type StaffRole = 'ADMIN_VETERINARIA' | 'RECEPCION' | 'VETERINARIO' | 'CAJERO' | 'GROOMING';
 
 export interface StaffAccount {

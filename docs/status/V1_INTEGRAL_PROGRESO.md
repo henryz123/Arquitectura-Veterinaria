@@ -30,7 +30,7 @@ fuera de V1.
 | Fase | Estado | Resultado verificable siguiente |
 |---|---|---|
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
-| B01 — Administración, identidad y acceso | En curso | El defecto SQL y la reemisión CSRF tras recarga están resueltos; existen verticales Angular de equipo, roles y administración SaaS. Quedan los canales B01 de clientes y recuperación, además de dependencias reales de B02–B05. |
+| B01 — Administración, identidad y acceso | En curso | El defecto SQL y la reemisión CSRF tras recarga están resueltos; existen verticales Angular de equipo, roles, administración SaaS y acceso CLIENT al espacio privado. Quedan el registro/verificación/recuperación por interfaz y dependencias reales de B02–B05. |
 | B02 — Propietarios, mascotas y clínica | Pendiente | Vertical navegador → API → PostgreSQL con aislamiento por tenant y permisos clínicos. |
 | B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
@@ -85,6 +85,12 @@ fuera de V1.
   etiquetas nativas de correo/contraseña, botón de ingreso y cambio de
   contexto. La versión instalada no expone un subcomando `a11y`; no se declara
   una auditoría automática de accesibilidad como ejecutada.
+- Vertical CLIENT: la ruta independiente de autenticación usa el endpoint
+  contextual de cliente, la guardia niega una sesión STAFF y `/client-space`
+  proyecta solo el espacio propio autorizado. Angular actualizó 9/9 pruebas y
+  el build; Agent Browser confirmó el formulario con etiquetas nativas. Falta
+  una cuenta CLIENT sintética activa para un E2E autenticado sin exponer enlaces
+  opacos, además de las interfaces públicas de registro y recuperación.
 - El contrato OpenAPI ya no declara como bloqueadas las rutas de reemplazo de
   roles ni de revisión de recuperación administrativa: ambas son compatibles
   con V012 y V013 y tienen cobertura de integración B01.
@@ -109,6 +115,6 @@ fuera de V1.
 
 ## Próxima operación concreta
 
-Implementar los canales B01 de clientes y recuperación de acceso mediante un
-vertical navegador → API existente → PostgreSQL, sin alterar
-`frontend/angular.json`; después iniciar B02 por propietarios y mascotas.
+Implementar las interfaces públicas B01 de registro, verificación y
+recuperación de cliente sin exponer enlaces opacos; preparar después un E2E
+CLIENT con semilla sintética controlada antes de iniciar B02.

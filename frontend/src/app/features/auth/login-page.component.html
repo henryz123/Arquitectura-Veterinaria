@@ -1,13 +1,13 @@
 <main class="login-shell" aria-labelledby="page-title">
   <section class="login-panel">
     <p class="eyebrow">Arquitectura - Veterinaria</p>
-    <h1 id="page-title">Acceso al espacio de trabajo</h1>
+    <h1 id="page-title">{{ isClient() ? 'Acceso al espacio de cliente' : 'Acceso al espacio de trabajo' }}</h1>
     <p class="context">
       Contexto solicitado: <strong>{{ tenantLabel() }}</strong>
     </p>
 
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <label for="email">Correo institucional</label>
+      <label for="email">{{ isClient() ? 'Correo de cliente' : 'Correo institucional' }}</label>
       <input
         id="email"
         type="email"
@@ -45,6 +45,7 @@
     <nav aria-label="Cambiar contexto de demostración">
       <a routerLink="/login/veterinaria-aurora">Aurora</a>
       <a routerLink="/login/veterinaria-bosque">Bosque</a>
+      <a [routerLink]="['/client/login', tenantSlug()]">Acceso cliente</a>
     </nav>
   </section>
 </main>

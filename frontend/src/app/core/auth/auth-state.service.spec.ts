@@ -51,6 +51,20 @@ describe('AuthStateService', () => {
     expect(service.context()).toEqual({ accountType: 'SAAS', tenant: null, roles: ['ADMIN_SAAS'] });
   });
 
+  it('uses the CLIENT route without inheriting a STAFF context', () => {
+    service.loginClient('veterinaria-aurora', { email: 'cliente@demo.invalid', password: 'synthetic-password' }).subscribe();
+    const request = http.expectOne('/api/v1/auth/tenants/veterinaria-aurora/client-sessions');
+    expect(request.request.withCredentials).toBe(true);
+    request.flush({
+      data: {
+        csrfToken: 'csrf-memory-only',
+        context: { accountType: 'CLIENT', tenant: { slug: 'veterinaria-aurora', commercialName: 'Aurora', status: 'ACTIVO' }, roles: [] },
+      },
+    });
+    expect(service.context()?.accountType).toBe('CLIENT');
+    expect(service.context()?.roles).toEqual([]);
+  });
+
   it('restores an authenticated session and refreshes its CSRF token only in memory', () => {
     let restored;
     service.restoreContext().subscribe((response) => restored = response);

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdministrativeRecovery, ApiEnvelope, Organization, RucReview, StaffAccount, StaffInvitation, StaffRole } from './api.models';
+import { AdministrativeRecovery, ApiEnvelope, ClientSpace, Organization, RucReview, StaffAccount, StaffInvitation, StaffRole } from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdministrationApiService {
@@ -65,5 +65,9 @@ export class AdministrationApiService {
       reason,
       legitimacyChecked,
     });
+  }
+
+  clientSpace(): Observable<ApiEnvelope<ClientSpace>> {
+    return this.http.get<ApiEnvelope<ClientSpace>>(`${this.apiBaseUrl}/client-space`);
   }
 }

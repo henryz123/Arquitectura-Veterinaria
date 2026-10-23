@@ -1,0 +1,9 @@
+.client-shell { min-height: 100dvh; padding: clamp(1rem, 4vw, 3rem); background: var(--surface-canvas); color: var(--ink-strong); }
+header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; max-width: 62rem; margin: auto; }
+button { min-height: 2.6rem; border: 1px solid var(--border-strong); border-radius: .35rem; background: var(--surface-raised); padding: .45rem .8rem; font: inherit; }
+.eyebrow { color: var(--accent-teal); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .75rem; }
+.client-panel, .feedback { max-width: 42rem; margin: 3rem auto; padding: clamp(1.5rem, 4vw, 2.5rem); border-top: 4px solid var(--accent-teal); background: var(--surface-raised); box-shadow: 0 18px 45px rgb(22 42 45 / 12%); }
+h1 { margin: .35rem 0 .75rem; font-size: clamp(1.8rem, 5vw, 2.6rem); }
+dl { display: grid; gap: .8rem; margin: 1.5rem 0; } dt { color: var(--ink-muted); } dd { margin: .2rem 0 0; font-weight: 700; }
+.notice { padding: 1rem; border-left: 3px solid var(--accent-warm); background: var(--surface-canvas); }
+a { color: var(--accent-teal-dark); font-weight: 700; }
