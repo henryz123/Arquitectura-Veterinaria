@@ -1,6 +1,6 @@
 # Arquitectura - Veterinaria
 
-Monolito modular académico para veterinarias independientes en Perú. La especificación funcional V1 permanece inmutable en `arquitectura_veterinaria_v1_FINAL/`. G4-I00 aportó un vertical técnico de sesión laboral y aislamiento de tenant; G4-I01 está en curso y no se declara cerrado mientras la suite B01 no sea verde.
+Monolito modular académico para veterinarias independientes en Perú. La especificación funcional V1 permanece inmutable en `arquitectura_veterinaria_v1_FINAL/`. G4-I00 aportó un vertical técnico de sesión laboral y aislamiento de tenant; G4-I01 mantiene un riesgo crítico abierto de concurrencia de recuperación y no se declara cerrado.
 
 ## Estructura
 
@@ -45,9 +45,10 @@ Los comandos de ejecución se mantienen locales: no existe remoto Git ni desplie
 - Autenticación API, CSRF, logout y rechazo cross-tenant: verificados con Aurora y Bosque.
 - Compilación y pruebas backend: 23/23; compilación Angular: correcta (bundle inicial 276.55 kB).
 - Bootstrap SaaS privado: ejecutado una sola vez bajo `av_schema_owner`; `PUBLIC` y `av_app` siguen sin `EXECUTE`. B01 y HTTP cubrieron sesión SaaS, suspensión/reactivación, aislamiento tenant, CSRF y logout.
-- Agent Browser 0.27.0 está bloqueado por una sesión Chromium huérfana: no se declaró un E2E UI autenticado ni una auditoría `a11y` como superados. Su versión no ofrece el subcomando `a11y`.
-- El contrato OpenAPI pasó sintaxis YAML y 29 referencias internas con SnakeYAML. Falta un validador OpenAPI semántico: el binario local de Redocly no existe y no se instaló nada.
+- E2E autenticado Angular → Spring Boot → PostgreSQL: superado con Playwright Core 1.58.2 y Chromium local; cubre login STAFF, perfil protegido, logout CSRF y denegación posterior. Agent Browser 0.27.0 sigue bloqueándose al cerrar y su versión no ofrece el subcomando `a11y`.
+- Redocly CLI 2.67.1 validó formalmente OpenAPI 3.1. El contrato tiene drift pendiente: no describe aún 23 endpoints B01 reales y modela de forma incompleta la sesión SaaS.
 - Flyway V008, V009 y V010 se aplicaron una vez mediante procedimientos autorizados. V010 corrigió la ambigüedad de `principal_id` en recuperación de contraseña; no existe V011 ni se habilitó Flyway para ejecución ordinaria.
 - La trazabilidad de los 35 requisitos B01 está en [G4-I01](docs/implementation-plan/06_TRAZABILIDAD_B01_G4_I01.md): 19 verificados puntualmente, 9 parciales y 7 sin verificar. Esto no equivale a B01 completa.
+- La auditoría con dos `COMMIT` concurrentes detectó dos enlaces de recuperación activos y utilizables para un mismo principal sintético. La limpieza pasó y no se creó V011; consulta el [diagnóstico](docs/audits/G4-I01_CONCURRENCIA_RECUPERACION.md) antes de habilitar cualquier URL pública.
 
 No se declara B01 completa ni se avanza a G4-I02–I06.

@@ -18,22 +18,25 @@
 
 | Grupo | Resultado | Limitación |
 |---|---|---|
-| Flyway V010 | 10 migraciones validadas; V010 aplicada una vez desde V009. | No sustituye pruebas de negocio. |
+| Flyway V010 | Flyway validó formalmente las 10 migraciones; esquema local en V010 y sin migración nueva necesaria. | No sustituye pruebas de negocio. |
 | B01 | 17 pruebas: 17 superadas, sin omisiones. Incluye bootstrap autenticable, suspensión, reactivación y denegación de administración tenant a SaaS. | Las operaciones transaccionales de la suite se revierten. |
 | Backend completo | 23 pruebas: 23 superadas, sin omisiones. | Flyway permaneció desactivado durante la suite. |
-| Build Angular | `npm.cmd run build` superado; bundle inicial 276.55 kB. | Requirió ejecución local fuera del sandbox por `spawn EPERM`. |
-| OpenAPI | Sintaxis YAML y 29 referencias locales superadas con SnakeYAML; `npm run validate:contract` no pudo iniciar porque falta el binario Redocly. | Falta validación semántica por un validador OpenAPI instalado/autorizado; no se instaló nada. |
-| E2E autenticado | Bloqueado. Agent Browser 0.27.0 tiene doce Chromium huérfanos sin ventana ni puerto; no se ejecutó login UI ni snapshot. | Requiere autorización separada para limpiar exactamente esa sesión o usar CDP temporal. |
+| Build Angular | `corepack pnpm run build` superado; bundle inicial 276.55 kB. | Requirió ejecución local fuera del sandbox por `spawn EPERM`. |
+| OpenAPI | Redocly CLI 2.67.1 validó formalmente `openapi-v1.yaml` como OpenAPI 3.1. | El documento sigue con drift: 23 endpoints B01 reales no están descritos y sesión SaaS es incompleta. |
+| E2E autenticado | Superado con Playwright Core 1.58.2 y Chromium instalado por Agent Browser: login STAFF, perfil protegido, logout CSRF y denegación posterior. | Agent Browser CLI 0.27.0 se bloquea al cerrar, por lo que su auditoría propia no se declara superada. |
 | CSRF HTTP | Superado. SaaS y STAFF: logout sin token 403, con token 204 y contexto posterior 401. | Ejecución HTTP real contra backend local con Flyway desactivado. |
-| Concurrencia de recuperación | Superado como ensayo reversible: dos conexiones `av_app` completaron en 2.34 s y ambas revirtieron; cero tokens activos residuales. | No demuestra una política de unicidad al confirmar dos transacciones; ese riesgo continúa. |
+| Concurrencia de recuperación | Defecto reproducido con fixture aislado y `COMMIT`: dos conexiones `av_app` dejaron 2 tokens activos y ambos se consumieron secuencialmente; limpieza confirmada. | Riesgo crítico. No se creó V011 ni se modificó V001–V010. |
 
 ## Riesgos activos
 
 1. La cuenta SaaS existe exclusivamente por el bootstrap privado; no se debe
    crear otra por HTTP ni mediante `av_app`.
-2. La carrera de dos tokens activos no está eliminada: el ensayo reversible no
-   equivale a una restricción de unicidad al hacer `COMMIT`.
-3. La validación semántica OpenAPI y el E2E autenticado con Agent Browser siguen
-   bloqueados por herramientas/sesión local; no se declaran superados.
-4. G4-I01 permanece parcial: 16 de los 35 RF B01 siguen parciales o sin
+2. La carrera de dos tokens activos está reproducida al hacer `COMMIT`: ambos
+   enlaces de recuperación fueron utilizables en el fixture aislado.
+3. El contrato OpenAPI es sintácticamente válido, pero no está alineado con
+   todos los endpoints B01 reales ni representa completamente la sesión SaaS.
+4. Agent Browser 0.27.0 continúa bloqueándose al cerrar sesiones locales;
+   Playwright compatible aportó la E2E, pero el CLI no tiene evidencia propia
+   de accesibilidad o regresión visual.
+5. G4-I01 permanece parcial: 16 de los 35 RF B01 siguen parciales o sin
    verificar.

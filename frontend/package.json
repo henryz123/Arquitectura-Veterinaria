@@ -7,6 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:e2e:g4-i01": "node e2e/g4-i01-authenticated.e2e.mjs",
     "validate:contract": "redocly lint ../docs/contracts/openapi-v1.yaml --extends=spec"
   },
   "private": true,
@@ -26,6 +27,7 @@
     "@angular/cli": "^21.2.27",
     "@angular/compiler-cli": "^21.2.0",
     "jsdom": "^28.0.0",
+    "playwright-core": "1.58.2",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8",

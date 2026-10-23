@@ -62,10 +62,44 @@ incompleta) y **No verificado** (sin evidencia suficiente).
 B01 ejecutó 17 pruebas: 17 superadas, sin omisiones. El backend completo
 ejecutó 23: 23 superadas, sin omisiones. Las pruebas HTTP reales cubrieron
 sesión SaaS y STAFF, CSRF, logout y la denegación de perfil tenant/administración
-laboral para SaaS. La concurrencia de recuperación se ejecutó con dos conexiones
-`av_app` y `ROLLBACK`, sin token activo residual.
+laboral para SaaS. Flyway validó V001–V010 contra la base local sin aplicar
+una migración nueva.
 
-G4-I01 permanece parcial: faltan 16 RF parciales/no verificados, la prueba de
-RUC, una revocación de sesión ya activa, un validador semántico OpenAPI y el E2E
-de navegador autenticado. La sintaxis YAML y las 29 referencias internas del
-contrato pasaron, pero no sustituyen un validador OpenAPI completo.
+Redocly CLI 2.67.1 validó formalmente la sintaxis semántica OpenAPI 3.1. El
+contrato conserva drift funcional: no describe aún 23 endpoints B01 reales y
+modela de forma incompleta la sesión SaaS. La validación del documento no se
+interpreta como conformidad de implementación.
+
+La E2E autenticada real Angular → Spring Boot → PostgreSQL superó login STAFF,
+carga de perfil tenant protegido, logout con `X-CSRF-Token` y denegación de
+`/workspace` tras revocar la sesión. Playwright Core 1.58.2 reutilizó el
+Chromium instalado por Agent Browser; las credenciales quedaron solo en el
+entorno del proceso. Agent Browser 0.27.0 sigue bloqueándose al cerrar su
+sesión local, por lo que no se declara una auditoría propia de ese CLI como
+superada.
+
+## Revisión individual de los 16 RF incompletos
+
+| RF | Diagnóstico de G4-I01 | Decisión de cierre de incremento |
+|---|---|---|
+| RF-SAA-02 | Hay validaciones y ruta de registro, pero no una prueba completa de RUC opcional, duplicados y reserva. | Pendiente: cubrir el ciclo RUC sin cambiar la V1. |
+| RF-SAA-05 | La suspensión bloquea autenticación de Aurora y conserva la evidencia acotada; no hay módulos operativos B02–B05 que prueben todas las operaciones. | Parcial por límite de vertical. |
+| RF-SAA-06 | La reactivación restaura Aurora sin afectar Bosque; falta el prerrequisito de resolución de conflicto RUC. | Pendiente RUC. |
+| RF-SAA-07 | No se ejecutó un caso integrado de RUC duplicado con respuesta opaca. | Pendiente prueba de no filtración. |
+| RF-SAA-08 | La ruta de revisión existe, pero no hay expediente completo con resolución SaaS verificado. | Pendiente prueba integrada. |
+| RF-SAA-09 | La unicidad del administrador inicial está modelada, pero no hay prueba de una segunda solicitud. | Pendiente prueba negativa. |
+| RF-SAA-11 | No se verificaron la reserva exacta de 24 horas, vencimiento y reanudación expresa. | Pendiente ciclo temporal RUC. |
+| RF-SAA-12 | No se verificó la liberación excepcional con justificación, aviso y traza sin transferencia de datos. | Pendiente procedimiento excepcional. |
+| RF-SAA-13 | No existe evidencia de recuperación administrativa excepcional con legitimidad y credencial creada por el titular. | Fuera del vertical actual; requiere expediente y aprobación posterior. |
+| RF-AUT-04 | Se cubren algunos estados suspendidos/contextuales, no todas las combinaciones de no verificada, desactivada y tenant suspendido. | Pendiente matriz de estados negativa. |
+| RF-AUT-11 | Vencimientos y reenvío tienen cobertura parcial; la auditoría concurrente con COMMIT detectó dos recuperaciones activas utilizables. | Riesgo crítico pendiente; no declarar cerrado. |
+| RF-AUT-13 | Logout y parte de suspensión están cubiertos, pero falta prueba completa de revocación de sesiones activas ante todos los disparadores. | Pendiente tras corregir concurrencia. |
+| RF-USR-04 | Se protege el último administrador, pero no hay evidencia integral de desactivación, revocación y conservación de autoría. | Pendiente caso completo. |
+| RF-USR-05 | No se probó el mismo correo laboral en dos tenants con credenciales, roles y sesiones separadas. | Pendiente prueba multi-tenant. |
+| RF-CLI-03 | Se separan autenticación y roles, pero las funciones/datos propios del portal dependen de B02–B05 no implementados. | Parcial por alcance protegido. |
+| RF-CLI-04 | La recuperación es aislada por tenant, pero no hay datos privados del portal B02–B05 contra los cuales ejecutar la negativa. | Parcial por alcance protegido. |
+
+G4-I01 permanece parcial: 16 RF siguen parciales/no verificados y el control de
+concurrencia de recuperación tiene un defecto reproducido. No se autorizó ni se
+aplicó V011; la corrección debe pasar por una nueva propuesta de migración y
+pruebas de regresión antes de continuar a G4-I02.
