@@ -75,7 +75,7 @@ function Complete-PostgresSql {
     if ($Process.ExitCode -ne 0) {
         throw "$Operation no se completó (psql exit $($Process.ExitCode))."
     }
-    return $stdout
+    return "$stdout`n$stderr"
 }
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
@@ -193,15 +193,39 @@ where purpose = 'PASSWORD_RECOVERY' and principal_id = $principalLiteral::uuid
     $activeLookup = Start-PostgresSql $psqlPath $databaseUrl $values['AV_MIGRATION_DB_USER'] $values['AV_MIGRATION_DB_PASSWORD'] $activeSql
     $activeCount = [int](Complete-PostgresSql $activeLookup 'El conteo de tokens activos').Trim()
 
-    $resetASql = "select identity_auth.reset_password_with_recovery($recoveryLiteralA, 'g4-i01-synthetic-reset-a');"
-    $resetBSql = "select identity_auth.reset_password_with_recovery($recoveryLiteralB, 'g4-i01-synthetic-reset-b');"
+    $resetASql = @"
+do `$`$
+begin
+    begin
+        if identity_auth.reset_password_with_recovery($recoveryLiteralA, 'g4-i01-synthetic-reset-a') then
+            raise notice 'RESET_OK';
+        end if;
+    exception when sqlstate '22023' then
+        raise notice 'RESET_REJECTED';
+    end;
+end;
+`$`$;
+"@
+    $resetBSql = @"
+do `$`$
+begin
+    begin
+        if identity_auth.reset_password_with_recovery($recoveryLiteralB, 'g4-i01-synthetic-reset-b') then
+            raise notice 'RESET_OK';
+        end if;
+    exception when sqlstate '22023' then
+        raise notice 'RESET_REJECTED';
+    end;
+end;
+`$`$;
+"@
     $resetA = Start-PostgresSql $psqlPath $databaseUrl $values['AV_DB_USER'] $values['AV_DB_PASSWORD'] $resetASql
     $resetAOutput = Complete-PostgresSql $resetA 'El consumo del primer token de recuperación'
     $resetB = Start-PostgresSql $psqlPath $databaseUrl $values['AV_DB_USER'] $values['AV_DB_PASSWORD'] $resetBSql
     $resetBOutput = Complete-PostgresSql $resetB 'El consumo del segundo token de recuperación'
     $usableCount = 0
     foreach ($resetOutput in @($resetAOutput, $resetBOutput)) {
-        if ($resetOutput -match '(?m)^t\s*$') {
+        if ($resetOutput -match 'RESET_OK') {
             $usableCount++
         }
     }

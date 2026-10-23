@@ -1,52 +1,83 @@
 # G4-I01 — auditoría de concurrencia de recuperación
 
-## Resultado
+## Dictamen vigente
 
-**Defecto reproducido; no corregido en esta instrucción.**
+**Control efectivo tras V011.** La vulnerabilidad reproducida el 2026-10-22 se
+corrigió exclusivamente en la base local `arquitectura_veterinaria` mediante
+`V011__g4_i01_serialize_password_recovery_tokens.sql`.
 
-El 2026-10-22 se ejecutó `scripts/audit-g4-i01-token-concurrency.ps1` contra
-`arquitectura_veterinaria` local, con dos conexiones independientes de `av_app`
-y `COMMIT` real. El resultado fue:
+- SHA-256 de V011: `508A558B90F33C74B1382696214DC45D167E389DED59E0A7F10B63968700167E`.
+- Flyway la registró una vez como versión `011`, checksum `-1337847367`.
+- No se alteraron V001–V010 ni se utilizó `flyway repair`.
+
+El hallazgo histórico se conserva como evidencia de la causa:
 
 ```text
 G4_I01_TOKEN_CONCURRENCY=DEFECT_REPRODUCED;ACTIVE_TOKENS=2;SEQUENTIALLY_USABLE=2;CLEANUP=PASS
 ```
 
+La misma regresión, ejecutada tras V011 con conexiones independientes de
+`av_app` y `COMMIT` real, produjo:
+
+```text
+G4_I01_TOKEN_CONCURRENCY=CONTROL_EFFECTIVE;ACTIVE_TOKENS=1;SEQUENTIALLY_USABLE=1;CLEANUP=PASS
+```
+
 No se imprimieron credenciales, hashes, tokens, UUID ni correos sintéticos.
 
-## Aislamiento y limpieza
+## Causa raíz confirmada
 
-- El script crea un tenant y un cliente sintéticos con identificadores aleatorios.
-- No consulta ni modifica las cuentas de Aurora, Bosque o SaaS.
-- La preparación y las dos solicitudes usan funciones públicas autorizadas de
-  `av_app`; la creación y limpieza del fixture usan solamente `av_schema_owner`.
-- La limpieza elimina tokens, perfil, principal, auditoría, notificación y tenant
-  únicamente por los identificadores aleatorios del fixture y se confirma antes
-  de que el script termine.
+La versión anterior de `identity_auth.request_password_recovery` invalidaba
+tokens activos e insertaba el nuevo token sin bloquear una fila estable del
+principal ni imponer una invariante de filas activas. Dos transacciones podían
+observar el mismo estado inicial, insertar hashes diferentes y confirmar; el
+consumo posterior validaba el hash proporcionado y ambos enlaces eran usables.
 
-## Causa técnica comprobada
+## Diseño aplicado
 
-`identity_auth.request_password_recovery` invalida los tokens activos existentes
-y después inserta un token nuevo. Dos transacciones concurrentes que no encuentran
-una fila activa al inicio pueden ejecutar ambos `UPDATE`, insertar hashes
-distintos y confirmar. No existe un bloqueo de la identidad ni una invariante de
-base que impida dos filas activas de propósito `PASSWORD_RECOVERY` para el mismo
-principal. `reset_password_with_recovery` consume sólo el hash recibido; por eso
-ambos enlaces confirmados resultaron utilizables secuencialmente.
+V011 establece dos defensas complementarias, acotadas solo a
+`PASSWORD_RECOVERY`:
 
-## Propuesta para una autorización posterior
+1. `request_password_recovery` bloquea primero la fila estable de
+   `identity_auth.principal`, después invalida el token anterior y crea el
+   nuevo, dentro de la misma transacción.
+2. El índice único parcial
+   `uq_one_time_token_password_recovery_active_principal` impide más de una
+   fila no consumida y no invalidada por `principal_id` para ese propósito.
+   Su predicado usa únicamente estados persistentes; no depende del reloj.
+3. `reset_password_with_recovery` toma el mismo orden `principal →
+   one_time_token`: localiza el candidato, bloquea el principal y vuelve a
+   validar/consumir con un `UPDATE` condicionado. Así evita el orden inverso
+   que habría creado un deadlock con la emisión concurrente.
+4. La vigencia se compara con `statement_timestamp()`. Conserva la ventana
+   funcional de 30 minutos y no convierte una transacción larga en una
+   extensión de vigencia.
 
-No se creó V011. Si se autoriza una corrección, preparar una nueva migración
-auditada que, como mínimo:
+El preflight encontró cero grupos duplicados activos y cero recuperaciones sin
+principal. Por ello la migración no eliminó ni alteró registros existentes para
+poder crear el índice.
 
-1. serialice la emisión mediante bloqueo de la identidad objetivo antes de
-   invalidar e insertar;
-2. añada una invariante de defensa en profundidad para un único token activo por
-   `(principal_id, purpose)`, comprobando primero los datos existentes;
-3. preserve `SECURITY DEFINER`, propietario, `search_path`, RLS y privilegios
-   mínimos vigentes;
-4. añada pruebas con dos `COMMIT`, consumo del token más reciente, rechazo del
-   previo, rollback y limpieza verificable.
+## Pruebas reales posteriores
 
-Hasta esa autorización, RF-AUT-11 y RF-AUT-13 no pueden declararse cerrados y
-G4-I01 no debe avanzar a G4-I02.
+`scripts/verify-g4-i01-v011-password-recovery.ps1`, contra fixture aislado y
+limpiado por identificadores aleatorios, reportó:
+
+```text
+G4_I01_V011_PASSWORD_RECOVERY=PASS;COMMIT_2=PASS;COMMIT_5=PASS;TENANT_ISOLATION=PASS;ROLLBACK=PASS;ERROR_ROLLBACK=PASS;EXPIRY=PASS;REUSE=PASS;DEADLOCK=PASS;REPEAT=PASS;CLEANUP=PASS
+```
+
+La ejecución cubrió dos y cinco `COMMIT` simultáneos sobre el mismo principal,
+principales distintos, CLIENT con el mismo correo en Aurora/Bosque, `ROLLBACK`,
+error controlado después de invalidar antes de insertar, enlace anterior/nuevo,
+reutilización, límites de 30 minutos, expiración, orden concurrente
+emisión/consumo y tres repeticiones. Cada comprobación dejó cero fixtures.
+
+## Límites y riesgo residual
+
+- La garantía aplicada cubre exclusivamente recuperación de contraseña. Otros
+  propósitos de `one_time_token` no se ampliaron sin autorización.
+- `CREATE UNIQUE INDEX` no concurrente puede esperar escrituras; es aceptable
+  para la base local exclusiva y mantiene la migración atómica. No se infiere
+  aptitud para una base compartida sin una ventana operativa revisada.
+- RF-AUT-11 y RF-AUT-13 conservan evidencias pendientes ajenas a esta carrera;
+  la corrección no los convierte automáticamente en requisitos cerrados.
