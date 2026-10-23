@@ -6,19 +6,23 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
-class TenantContextJdbc {
+public class TenantContextJdbc {
 
 	private final JdbcTemplate jdbcTemplate;
 
-	TenantContextJdbc(JdbcTemplate jdbcTemplate) {
+	public TenantContextJdbc(JdbcTemplate jdbcTemplate) {
 		this.jdbcTemplate = jdbcTemplate;
 	}
 
-	void setSessionHash(String sessionHash) {
+	public void setSessionHash(String sessionHash) {
 		jdbcTemplate.queryForObject("select set_config('app.session_hash', ?, true)", String.class, sessionHash);
 	}
 
-	void setTenantId(UUID tenantId) {
+	public void setTenantId(UUID tenantId) {
 		jdbcTemplate.queryForObject("select set_config('app.tenant_id', ?, true)", String.class, tenantId.toString());
+	}
+
+	public void setPrincipalId(UUID principalId) {
+		jdbcTemplate.queryForObject("select set_config('app.principal_id', ?, true)", String.class, principalId.toString());
 	}
 }

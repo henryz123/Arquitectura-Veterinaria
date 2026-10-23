@@ -3,24 +3,20 @@ package pe.arquitecturaveterinaria.identityaccess.application;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.UUID;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import pe.arquitecturaveterinaria.identityaccess.domain.AccountType;
 import pe.arquitecturaveterinaria.identityaccess.domain.CredentialNormalizer;
 import pe.arquitecturaveterinaria.identityaccess.domain.TokenHasher;
 import pe.arquitecturaveterinaria.identityaccess.infrastructure.JdbcIdentityRepository;
-import pe.arquitecturaveterinaria.identityaccess.infrastructure.JdbcIdentityRepository.StaffIdentity;
 import pe.arquitecturaveterinaria.shared.api.ApiException;
 
 @Service
 public class IdentityAccessService {
 
-	private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 	private final JdbcIdentityRepository identityRepository;
 	private final LoginAttemptThrottle throttle;
 	private final Duration sessionDuration;
@@ -32,47 +28,61 @@ public class IdentityAccessService {
 		this.sessionDuration = sessionDuration;
 	}
 
-	@Transactional
+	@Transactional(transactionManager = "jdbcTransactionManager")
 	public CreatedSession authenticateStaff(String tenantSlug, String email, String password) {
-		String normalizedEmail = CredentialNormalizer.normalizeEmail(email);
-		String throttleKey = tenantSlug + ':' + normalizedEmail;
-		throttle.assertAllowed(throttleKey);
-		Optional<StaffIdentity> identity = identityRepository.lookupStaff(tenantSlug, normalizedEmail);
-		if (identity.isEmpty() || !isActive(identity.get()) || !PASSWORD_ENCODER.matches(password, identity.get().passwordHash())) {
-			throttle.registerFailure(throttleKey);
-			throw invalidCredentials();
-		}
+		return authenticate(AccountType.STAFF, tenantSlug, email, password);
+	}
 
-		StaffIdentity staff = identity.get();
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public CreatedSession authenticateClient(String tenantSlug, String email, String password) {
+		return authenticate(AccountType.CLIENT, tenantSlug, email, password);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public CreatedSession authenticateSaas(String email, String password) {
+		return authenticate(AccountType.SAAS, null, email, password);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public Optional<TenantSession> resolve(String sessionToken) {
+		String sessionTokenHash = TokenHasher.sha256(sessionToken);
+		return identityRepository.findActiveSession(sessionTokenHash);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public void logout(SessionPrincipal principal) {
+		identityRepository.revokeSession(principal.session().sessionTokenHash());
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public boolean isCsrfTokenValid(SessionPrincipal principal, String csrfToken) {
+		if (csrfToken == null || csrfToken.isBlank()) {
+			return false;
+		}
+		return identityRepository.isCsrfTokenValid(principal.session().sessionTokenHash(), TokenHasher.sha256(csrfToken));
+	}
+
+	private CreatedSession authenticate(AccountType accountType, String tenantSlug, String email, String password) {
+		String normalizedEmail = CredentialNormalizer.normalizeEmail(email);
+		String throttleKey = accountType + ":" + (tenantSlug == null ? "global" : tenantSlug) + ':' + normalizedEmail;
+		throttle.assertAllowed(throttleKey);
 		String sessionToken = TokenHasher.newOpaqueToken();
 		String csrfToken = TokenHasher.newOpaqueToken();
 		Instant expiresAt = Instant.now().plus(sessionDuration);
-		UUID sessionId = UUID.randomUUID();
-		identityRepository.createSession(sessionId, staff.accountId(), staff.tenantId(), TokenHasher.sha256(sessionToken),
-				TokenHasher.sha256(csrfToken), staff.roleCode(), expiresAt);
+		String sessionTokenHash = TokenHasher.sha256(sessionToken);
+		String csrfTokenHash = TokenHasher.sha256(csrfToken);
+		Optional<TenantSession> session = identityRepository.authenticateAndCreateSession(accountType, tenantSlug, normalizedEmail, password,
+				sessionTokenHash, csrfTokenHash, expiresAt);
+		if (session.isEmpty()) {
+			throttle.registerFailure(throttleKey);
+			throw invalidCredentials();
+		}
 		throttle.clear(throttleKey);
-		return new CreatedSession(sessionToken, csrfToken, new TenantSession(
-				sessionId, staff.accountId(), staff.tenantId(), staff.tenantSlug(), staff.tenantCommercialName(),
-				staff.tenantStatus(), pe.arquitecturaveterinaria.identityaccess.domain.AccountType.STAFF,
-				java.util.List.of(staff.roleCode()), "", expiresAt), expiresAt);
-	}
-
-	@Transactional(readOnly = true)
-	public Optional<TenantSession> resolve(String sessionToken) {
-		return identityRepository.findActiveSession(TokenHasher.sha256(sessionToken));
-	}
-
-	@Transactional
-	public void logout(SessionPrincipal principal) {
-		identityRepository.revokeSession(principal.session().sessionId(), principal.session().tenantId());
-	}
-
-	private boolean isActive(StaffIdentity identity) {
-		return "ACTIVO".equals(identity.tenantStatus()) && "ACTIVA".equals(identity.accountStatus());
+		return new CreatedSession(sessionToken, csrfToken, session.get(), expiresAt);
 	}
 
 	private ApiException invalidCredentials() {
-		return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "No fue posible iniciar sesi\u00f3n con las credenciales proporcionadas.");
+		return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "No fue posible iniciar sesión con las credenciales proporcionadas.");
 	}
 
 	public record CreatedSession(String sessionToken, String csrfToken, TenantSession context, Instant expiresAt) {

@@ -11,6 +11,8 @@ G3 define una ruta para implementar el producto definitivo. No equivale a autori
 3. `03_CONTRATO_DE_TAREA.md`: plantilla obligatoria de 18 campos.
 4. `04_TRAZABILIDAD_Y_GAPS.md`: controles de cobertura, incluidos tres gaps heredados.
 5. `05_ORQUESTACION_Y_OWNERSHIP.md`: responsables, skills y exclusión de escrituras incompatibles.
+6. `06_TRAZABILIDAD_B01_G4_I01.md`: estado verificable de los 35 RF de B01
+   durante G4-I01; no sustituye la matriz funcional inmutable ni declara cierre.
 
 ## Definición de terminado transversal
 

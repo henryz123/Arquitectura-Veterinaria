@@ -6,10 +6,15 @@ spring:
     username: ${AV_DB_USER:}
     password: ${AV_DB_PASSWORD:}
   flyway:
-    enabled: true
+    # Runtime and ordinary tests never change a persistent schema implicitly.
+    # A migration requires a scoped, approved launcher and an explicit opt-in.
+    enabled: ${AV_FLYWAY_ENABLED:false}
     locations: classpath:db/migration
-    user: ${AV_MIGRATION_DB_USER:${AV_DB_USER:}}
-    password: ${AV_MIGRATION_DB_PASSWORD:${AV_DB_PASSWORD:}}
+    user: ${AV_MIGRATION_DB_USER:__migration_user_required__}
+    password: ${AV_MIGRATION_DB_PASSWORD:__migration_password_required__}
+    target: ${AV_FLYWAY_TARGET:010}
+    validate-on-migrate: true
+    clean-disabled: true
   jpa:
     open-in-view: false
     hibernate:
@@ -37,3 +42,5 @@ av:
   security:
     session-duration: PT8H
     secure-cookie: ${AV_SECURE_COOKIE:false}
+  notifications:
+    local-link-base-url: ${AV_LOCAL_LINK_BASE_URL:http://localhost:4200}

@@ -15,6 +15,6 @@ public record TenantSession(
 		String tenantStatus,
 		AccountType accountType,
 		List<String> roles,
-		String csrfHash,
+		String sessionTokenHash,
 		Instant expiresAt) {
 }

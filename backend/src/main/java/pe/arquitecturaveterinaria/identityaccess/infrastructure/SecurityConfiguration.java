@@ -2,6 +2,7 @@ package pe.arquitecturaveterinaria.identityaccess.infrastructure;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -36,7 +37,12 @@ class SecurityConfiguration {
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-						.requestMatchers("/api/v1/auth/tenants/*/staff-sessions", "/api/v1/auth/tenants/*/client-sessions").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/v1/auth/tenants/*/staff-sessions", "/api/v1/auth/tenants/*/client-sessions",
+								"/api/v1/auth/saas-sessions", "/api/v1/auth/password-recovery-requests",
+								"/api/v1/auth/password-recoveries", "/api/v1/tenant-registrations/**",
+								"/api/v1/email-verifications", "/api/v1/tenants/*/client-registrations",
+								"/api/v1/tenants/*/client-verification-resends", "/api/v1/tenants/*/administrative-recoveries",
+								"/api/v1/ruc-reviews", "/api/v1/staff-invitations/acceptance").permitAll()
 						.anyRequest().authenticated())
 				.exceptionHandling(exceptions -> exceptions.authenticationEntryPoint((request, response, exception) ->
 						apiErrorWriter.write(response, org.springframework.http.HttpStatus.UNAUTHORIZED,

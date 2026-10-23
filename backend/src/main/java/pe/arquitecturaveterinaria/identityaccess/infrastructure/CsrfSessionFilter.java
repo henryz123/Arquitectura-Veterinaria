@@ -14,16 +14,18 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import pe.arquitecturaveterinaria.identityaccess.application.IdentityAccessService;
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
-import pe.arquitecturaveterinaria.identityaccess.domain.TokenHasher;
 import pe.arquitecturaveterinaria.shared.api.ApiErrorWriter;
 
 @Component
 public class CsrfSessionFilter extends OncePerRequestFilter {
 	private final ApiErrorWriter apiErrorWriter;
+	private final IdentityAccessService identityAccessService;
 
-	public CsrfSessionFilter(ApiErrorWriter apiErrorWriter) {
+	public CsrfSessionFilter(ApiErrorWriter apiErrorWriter, IdentityAccessService identityAccessService) {
 		this.apiErrorWriter = apiErrorWriter;
+		this.identityAccessService = identityAccessService;
 	}
 
 	@Override
@@ -36,7 +38,7 @@ public class CsrfSessionFilter extends OncePerRequestFilter {
 				return;
 			}
 			String header = request.getHeader("X-CSRF-Token");
-			if (header == null || !TokenHasher.matches(header, principal.session().csrfHash())) {
+			if (!identityAccessService.isCsrfTokenValid(principal, header)) {
 				apiErrorWriter.write(response, HttpStatus.FORBIDDEN, "CSRF_INVALID", "La solicitud no fue aceptada.");
 				return;
 			}
@@ -46,7 +48,16 @@ public class CsrfSessionFilter extends OncePerRequestFilter {
 
 	private boolean requiresCsrf(HttpServletRequest request) {
 		String method = request.getMethod();
-		return !(HttpMethod.GET.matches(method) || HttpMethod.HEAD.matches(method) || HttpMethod.OPTIONS.matches(method)
-				|| request.getRequestURI().contains("/auth/tenants/"));
+		if (HttpMethod.GET.matches(method) || HttpMethod.HEAD.matches(method) || HttpMethod.OPTIONS.matches(method)) {
+			return false;
+		}
+		String uri = request.getRequestURI();
+		return !(uri.startsWith("/api/v1/auth/tenants/") || uri.equals("/api/v1/auth/saas-sessions")
+				|| uri.equals("/api/v1/auth/password-recovery-requests") || uri.equals("/api/v1/auth/password-recoveries")
+				|| uri.startsWith("/api/v1/tenant-registrations/") || uri.equals("/api/v1/tenant-registrations")
+				|| uri.equals("/api/v1/email-verifications") || uri.matches("/api/v1/tenants/[^/]+/client-registrations")
+				|| uri.matches("/api/v1/tenants/[^/]+/client-verification-resends")
+				|| uri.matches("/api/v1/tenants/[^/]+/administrative-recoveries") || uri.equals("/api/v1/ruc-reviews")
+				|| uri.equals("/api/v1/staff-invitations/acceptance"));
 	}
 }

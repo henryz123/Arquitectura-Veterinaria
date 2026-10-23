@@ -4,110 +4,85 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import pe.arquitecturaveterinaria.identityaccess.application.TenantSession;
 import pe.arquitecturaveterinaria.identityaccess.domain.AccountType;
 
+/**
+ * Identity authentication is delegated to bounded PostgreSQL routines. The
+ * runtime role never reads stored password hashes or writes session rows.
+ */
 @Repository
 public class JdbcIdentityRepository {
 
 	private final JdbcTemplate jdbcTemplate;
-	private final TenantContextJdbc tenantContext;
 
-	public JdbcIdentityRepository(JdbcTemplate jdbcTemplate, TenantContextJdbc tenantContext) {
+	public JdbcIdentityRepository(JdbcTemplate jdbcTemplate) {
 		this.jdbcTemplate = jdbcTemplate;
-		this.tenantContext = tenantContext;
 	}
 
-	public Optional<StaffIdentity> lookupStaff(String tenantSlug, String normalizedEmail) {
-		List<StaffIdentity> identities = jdbcTemplate.query("""
-				select account_id, tenant_id, tenant_slug, tenant_commercial_name, tenant_status,
-				       account_status, password_hash, role_code
-				from identity_auth.lookup_staff_identity(?, ?)
-				""", this::mapStaffIdentity, tenantSlug, normalizedEmail);
-		return identities.stream().findFirst();
-	}
-
-	public void createSession(UUID sessionId, UUID accountId, UUID tenantId, String sessionTokenHash,
-			String csrfTokenHash, String roleCode, Instant expiresAt) {
-		tenantContext.setTenantId(tenantId);
-		jdbcTemplate.update("""
-				insert into identity_auth.user_session
-				(id, account_id, tenant_id, account_type, role_code, token_hash, csrf_hash, expires_at)
-				values (?, ?, ?, 'STAFF', ?, ?, ?, ?)
-				""", sessionId, accountId, tenantId, roleCode, sessionTokenHash, csrfTokenHash, Timestamp.from(expiresAt));
+	public Optional<TenantSession> authenticateAndCreateSession(AccountType accountType, String tenantSlug, String normalizedEmail,
+			String password, String sessionTokenHash, String csrfTokenHash, Instant expiresAt) {
+		List<TenantSession> sessions = jdbcTemplate.query("""
+				select session_id, principal_id, tenant_id, tenant_slug, tenant_commercial_name, tenant_status,
+				       account_type, roles, expires_at
+				from identity_auth.authenticate_and_create_session(?, ?, ?, ?, ?, ?, ?)
+				""", (resultSet, rowNum) -> mapSession(resultSet, rowNum, sessionTokenHash), accountType.name(), tenantSlug,
+				normalizedEmail, password, sessionTokenHash, csrfTokenHash, Timestamp.from(expiresAt));
+		return sessions.stream().findFirst();
 	}
 
 	public Optional<TenantSession> findActiveSession(String sessionTokenHash) {
-		tenantContext.setSessionHash(sessionTokenHash);
-		List<SessionRow> sessions = jdbcTemplate.query("""
-				select id, account_id, tenant_id, account_type, role_code, csrf_hash, expires_at
-				from identity_auth.user_session
-				where token_hash = ? and revoked_at is null and expires_at > current_timestamp
-				""", this::mapSessionRow, sessionTokenHash);
-		return sessions.stream().findFirst().flatMap(session -> findTenantSession(session));
+		List<TenantSession> sessions = jdbcTemplate.query("""
+				select session_id, principal_id, tenant_id, tenant_slug, tenant_commercial_name, tenant_status,
+				       account_type, roles, expires_at
+				from identity_auth.resolve_active_session_context(?)
+				""", (resultSet, rowNum) -> mapSession(resultSet, rowNum, sessionTokenHash), sessionTokenHash);
+		return sessions.stream().findFirst();
 	}
 
-	public void revokeSession(UUID sessionId, UUID tenantId) {
-		tenantContext.setTenantId(tenantId);
-		jdbcTemplate.update("update identity_auth.user_session set revoked_at = current_timestamp where id = ?", sessionId);
+	public boolean isCsrfTokenValid(String sessionTokenHash, String csrfTokenHash) {
+		Boolean valid = jdbcTemplate.queryForObject(
+				"select identity_auth.is_csrf_token_valid(?, ?)", Boolean.class, sessionTokenHash, csrfTokenHash);
+		return Boolean.TRUE.equals(valid);
 	}
 
-	private Optional<TenantSession> findTenantSession(SessionRow session) {
-		tenantContext.setTenantId(session.tenantId());
-		List<TenantRow> tenants = jdbcTemplate.query("""
-				select id, slug, commercial_name, status
-				from tenancy.tenant
-				where id = ? and status = 'ACTIVO'
-				""", this::mapTenantRow, session.tenantId());
-		return tenants.stream().findFirst().map(tenant -> new TenantSession(
-				session.id(), session.accountId(), tenant.id(), tenant.slug(), tenant.commercialName(), tenant.status(),
-				session.accountType(), List.of(session.roleCode()), session.csrfHash(), session.expiresAt()));
+	public void revokeSession(String sessionTokenHash) {
+		jdbcTemplate.queryForObject("select identity_auth.revoke_session_by_token(?)", Boolean.class, sessionTokenHash);
 	}
 
-	private StaffIdentity mapStaffIdentity(ResultSet resultSet, int rowNum) throws SQLException {
-		return new StaffIdentity(
-				resultSet.getObject("account_id", UUID.class),
+	private TenantSession mapSession(ResultSet resultSet, int rowNum, String sessionTokenHash) throws SQLException {
+		return new TenantSession(
+				resultSet.getObject("session_id", UUID.class),
+				resultSet.getObject("principal_id", UUID.class),
 				resultSet.getObject("tenant_id", UUID.class),
 				resultSet.getString("tenant_slug"),
 				resultSet.getString("tenant_commercial_name"),
 				resultSet.getString("tenant_status"),
-				resultSet.getString("account_status"),
-				resultSet.getString("password_hash"),
-				resultSet.getString("role_code"));
-	}
-
-	private SessionRow mapSessionRow(ResultSet resultSet, int rowNum) throws SQLException {
-		return new SessionRow(
-				resultSet.getObject("id", UUID.class),
-				resultSet.getObject("account_id", UUID.class),
-				resultSet.getObject("tenant_id", UUID.class),
 				AccountType.valueOf(resultSet.getString("account_type")),
-				resultSet.getString("role_code"),
-				resultSet.getString("csrf_hash"),
+				readRoles(resultSet.getString("roles")),
+				sessionTokenHash,
 				resultSet.getTimestamp("expires_at").toInstant());
 	}
 
-	private TenantRow mapTenantRow(ResultSet resultSet, int rowNum) throws SQLException {
-		return new TenantRow(resultSet.getObject("id", UUID.class), resultSet.getString("slug"),
-				resultSet.getString("commercial_name"), resultSet.getString("status"));
-	}
-
-	public record StaffIdentity(UUID accountId, UUID tenantId, String tenantSlug, String tenantCommercialName,
-			String tenantStatus, String accountStatus, String passwordHash, String roleCode) {
-	}
-
-	private record SessionRow(UUID id, UUID accountId, UUID tenantId, AccountType accountType, String roleCode,
-			String csrfHash, Instant expiresAt) {
-	}
-
-	private record TenantRow(UUID id, String slug, String commercialName, String status) {
+	private List<String> readRoles(String json) throws SQLException {
+		String normalizedJson = json == null ? null : json.trim();
+		if (normalizedJson == null || "[]".equals(normalizedJson)) {
+			return List.of();
+		}
+		if (!normalizedJson.matches("^\\[(?:\\s*\\\"[A-Z_]+\\\"\\s*)(?:,\\s*\\\"[A-Z_]+\\\"\\s*)*\\]$")) {
+			throw new SQLException("No fue posible interpretar los roles de sesión.");
+		}
+		return Arrays.stream(normalizedJson.substring(1, normalizedJson.length() - 1).split(","))
+				.map(String::trim)
+				.map(value -> value.substring(1, value.length() - 1))
+				.toList();
 	}
 }

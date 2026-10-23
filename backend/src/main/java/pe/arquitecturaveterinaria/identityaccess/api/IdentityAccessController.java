@@ -55,6 +55,18 @@ public class IdentityAccessController {
 				.body(ApiEnvelope.of(new LoginResult(created.csrfToken(), toContext(created.context()))));
 	}
 
+	@PostMapping("/auth/tenants/{tenantSlug}/client-sessions")
+	ResponseEntity<ApiEnvelope<LoginResult>> createClientSession(@PathVariable @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") String tenantSlug,
+			@Valid @RequestBody LoginRequest request) {
+		IdentityAccessService.CreatedSession created = identityAccessService.authenticateClient(tenantSlug, request.email(), request.password());
+		return sessionCreated(created);
+	}
+
+	@PostMapping("/auth/saas-sessions")
+	ResponseEntity<ApiEnvelope<LoginResult>> createSaasSession(@Valid @RequestBody LoginRequest request) {
+		return sessionCreated(identityAccessService.authenticateSaas(request.email(), request.password()));
+	}
+
 	@GetMapping("/session-context")
 	ApiEnvelope<SessionContext> sessionContext(@AuthenticationPrincipal SessionPrincipal principal) {
 		return ApiEnvelope.of(toContext(principal.session()));
@@ -64,7 +76,7 @@ public class IdentityAccessController {
 	ApiEnvelope<TenantProfile> tenantProfile(@PathVariable @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") String tenantSlug,
 			@AuthenticationPrincipal SessionPrincipal principal) {
 		TenantSession session = principal.session();
-		if (!session.tenantSlug().equals(tenantSlug)) {
+		if (session.tenantSlug() == null || !session.tenantSlug().equals(tenantSlug)) {
 			throw new ApiException(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "El recurso solicitado no est\u00e1 disponible.");
 		}
 		return ApiEnvelope.of(new TenantProfile(session.tenantSlug(), session.tenantCommercialName(), session.tenantStatus()));
@@ -79,8 +91,18 @@ public class IdentityAccessController {
 	}
 
 	private SessionContext toContext(TenantSession session) {
-		return new SessionContext(session.accountType().name(),
-				new TenantProfile(session.tenantSlug(), session.tenantCommercialName(), session.tenantStatus()), session.roles());
+		TenantProfile tenant = session.tenantSlug() == null ? null
+				: new TenantProfile(session.tenantSlug(), session.tenantCommercialName(), session.tenantStatus());
+		return new SessionContext(session.accountType().name(), tenant, session.roles());
+	}
+
+	private ResponseEntity<ApiEnvelope<LoginResult>> sessionCreated(IdentityAccessService.CreatedSession created) {
+		ResponseCookie cookie = ResponseCookie.from("AV_SESSION", created.sessionToken())
+				.httpOnly(true).secure(secureCookie).sameSite("Lax").path("/")
+				.maxAge(Duration.between(java.time.Instant.now(), created.expiresAt())).build();
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.header(HttpHeaders.SET_COOKIE, cookie.toString())
+				.body(ApiEnvelope.of(new LoginResult(created.csrfToken(), toContext(created.context()))));
 	}
 
 	public record LoginRequest(@NotBlank @Email String email, @NotBlank String password) {
