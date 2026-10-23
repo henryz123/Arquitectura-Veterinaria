@@ -1,58 +1,84 @@
-# G4-I01 — evaluación de preparación de demostración
+# G4-I01 - preparacion de demostracion y propuesta S/ 0
 
 ## Dictamen al 2026-10-23
 
-**Preparación local parcial; no apta todavía para una URL pública.** El vertical
-local demuestra autenticación STAFF, CLIENT y SaaS, perfil/espacio protegido,
-logout con CSRF, administración SaaS acotada y recuperación de contraseña con
-invariante concurrente verificada. No representa B02–B06 ni una entrega final.
+**La demostracion local es parcial y no esta autorizada ni lista para URL
+publica.** El vertical autentica STAFF, CLIENT y SaaS con datos sinteticos,
+mantiene aislamiento tenant y comprueba logout/CSRF. No representa B02-B06. Dos
+operaciones B01 que se podrian mostrar (reemplazo de roles y recuperacion
+administrativa aprobada) estan bloqueadas por defectos de V004/V005 y no deben
+demostrarse como funcionales.
 
-## Evidencia local disponible
+## Evidencia local vigente
 
-1. Backend: 23/23 pruebas superadas; B01: 17/17 superadas.
-2. Recuperación: V011 aplicada una vez y regresión de concurrencia con dos y
-   cinco `COMMIT` simultáneos superada, sin residuos.
-3. HTTP: SaaS y STAFF devuelven 403 sin CSRF en logout, 204 con token y 401
-   después de cerrar sesión.
-4. E2E: la evidencia previa de Playwright Core cubre Angular → Spring Boot →
-   PostgreSQL para login STAFF, perfil protegido, logout y denegación posterior
-   de `/workspace`. La reejecución del 2026-10-23 quedó bloqueada porque Angular
-   no expuso su puerto local después de dos arranques temporales y un diagnóstico
-   de 64 s; no se registra como una nueva ejecución exitosa.
-5. Contrato: OpenAPI 3.1 validado por Redocly y 29 operaciones de controlador
-   contrastadas contra 29 operaciones contractuales, sin diferencias.
+1. B01 integrado: 28/28 pruebas superadas; dos casos diagnostican, sin ocultar,
+   los defectos SQL de V004/V005.
+2. Backend temporal y Angular local: E2E post-cambio
+   `G4_I01_AUTHENTICATED_BROWSER_E2E=PASS` con login STAFF Aurora/Bosque,
+   perfil propio, 404 cross-tenant, logout y CSRF SaaS/STAFF.
+3. Angular: build superado y 1/1 prueba unitaria superada.
+4. Agent Browser 0.27.0: arbol semantico y foco `email -> password` verificados
+   a 375, 768 y 1440 px mediante `agent-browser.cmd`.
+5. Accesibilidad acotada: labels nativos, landmark `main`, heading, navegacion,
+   errores `role=alert` y foco visible. El token de foco ahora es `#9c4e13`
+   (5.98:1 sobre blanco y 5.64:1 sobre canvas); no sustituye auditoria WCAG
+   completa ni linea visual comparativa.
 
-## Precondiciones locales
+## Guion local permitido
 
-- Java 21, Node 22 y PostgreSQL 18 con la base exclusiva
-  `arquitectura_veterinaria`.
-- `.env.local` presente, ignorado por Git y limitado a credenciales sintéticas.
-- Flyway desactivado para la operación ordinaria; V011 ya está registrada y no
-  requiere reejecución.
+1. Confirmar que Flyway esta desactivado y que se usa la base local exclusiva.
+2. Iniciar backend con JDK 21 y Angular con `ng.cmd serve --host 127.0.0.1
+   --port 4200 --proxy-config proxy.conf.json`.
+3. Entrar a Aurora como STAFF sintetico y mostrar el nombre del tenant propio.
+4. Cerrar sesion y comprobar que el area protegida devuelve denegacion.
+5. Repetir el acceso con Bosque solo para evidenciar contexto distinto; no
+   revelar cookies, CSRF, tokens ni contrasenas.
+6. Declarar explicitamente que CLIENT solo tiene el contexto B01 y que las
+   funciones de mascotas, agenda, grooming, POS y pedidos pertenecen a bloques
+   aun no implementados.
 
-## Recorrido verificable
+No mostrar como exito: reemplazo de roles de una cuenta activa, aprobacion de
+recuperacion administrativa, notificacion real por correo, pagos, datos reales
+ni supuestas funciones de B02-B06.
 
-1. Iniciar backend con `AV_FLYWAY_ENABLED=false`.
-2. Iniciar Angular local con el proxy configurado hacia backend.
-3. Usar solo las credenciales sintéticas locales a través del flujo STAFF.
-4. Verificar espacio de trabajo y perfil del tenant propio.
-5. Cerrar sesión con el token CSRF devuelto al iniciar; comprobar denegación de
-   `/workspace` después del logout.
+## Propuesta tecnica S/ 0 para una futura URL publica
 
-La E2E equivalente está en
-`frontend/e2e/g4-i01-authenticated.e2e.mjs`. Los secretos se leen solo desde el
-entorno del proceso; no se incluyen en este documento, capturas ni commits.
+**Opcion propuesta, sujeta a autorizacion posterior:** un unico Web Service
+Free de Render que entregue Spring Boot y los artefactos Angular en el mismo
+origen, con PostgreSQL Free de Neon. Mantiene un solo producto y evita redisenar
+la autenticacion actual basada en cookie/CSRF para dos origenes distintos.
 
-## Bloqueos antes del 26 de octubre
+- Render ofrece Web Services gratuitos con URL `onrender.com`, TLS gestionado y
+  hasta 750 horas de instancia al mes; se suspenden tras 15 minutos sin trafico
+  y el primer acceso posterior puede tardar alrededor de un minuto. Es aceptable
+  solo como avance academico, no como produccion. [Limitaciones Free de
+  Render](https://render.com/docs/free)
+- No usar Render Postgres Free para la entrega final: su propia documentacion
+  indica expiracion a los 30 dias. [Limitaciones de almacenamiento de
+  Render](https://render.com/docs/free)
+- Neon anuncio para su plan Free 1 GB por proyecto y 100 CU-hours mensuales por
+  proyecto. Es la propuesta de persistencia sin costo, condicionada a revisar
+  sus limites al crear la cuenta. [Plan Free de Neon, octubre de
+  2026](https://neon.com/blog/neon-free-plan-1-gb-per-project)
 
-- No existe despliegue, URL pública ni remoto autorizados.
-- G4-I01 mantiene 16 RF B01 parciales o no verificados; no deben presentarse
-  como funcionalidades completas.
-- Agent Browser CLI 0.27.0 se bloquea al cierre y no hay evidencia de su
-  auditoría de accesibilidad o regresión visual. Playwright es evidencia E2E,
-  no cierre de a11y.
-- Resolver el arranque local de Angular y repetir la E2E antes de basar una
-  presentación en una regresión de navegador reciente.
-- Antes de publicar: revisión independiente de secretos, dependencias/licencias,
-  datos sintéticos, configuración de producción, adaptador de notificaciones y
-  aprobación expresa de despliegue/repositorio público.
+Una separacion inmediata Angular estatico + API en otro origen se **descarta por
+ahora**: exigiría revisar cookies `Secure`/`SameSite`, CORS y CSRF. La opcion de
+mismo origen solo requiere una futura integracion aprobada del build Angular en
+el empaquetado del backend; hoy esa integracion no existe y no se ha creado
+scaffolding ni configuracion de despliegue.
+
+## Puerta previa a cualquier despliegue
+
+1. Autorizar y auditar una migracion nueva que corrija V004/V005; aplicar solo
+   en la base autorizada y repetir B01, seguridad y concurrencia.
+2. Decidir y probar el empaquetado Angular -> Spring Boot en el mismo origen,
+   con health check, `PORT` de plataforma y `AV_SECURE_COOKIE=true` solo bajo
+   HTTPS.
+3. Sustituir o aislar `LocalNotificationMailbox`; nunca exponer enlaces opacos
+   en logs o interfaz publica.
+4. Ejecutar revision de secretos, licencias, datos sinteticos, OpenAPI, E2E y
+   accesibilidad antes de crear remoto/publicar GitHub.
+5. Despertar el servicio antes de la exposicion academica y preparar una
+   contingencia local por el cold start del plan Free.
+
+No se creo cuenta, remoto, servicio, URL ni despliegue durante G4-I01.

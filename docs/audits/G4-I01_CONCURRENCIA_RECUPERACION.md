@@ -23,6 +23,10 @@ La misma regresión, ejecutada tras V011 con conexiones independientes de
 G4_I01_TOKEN_CONCURRENCY=CONTROL_EFFECTIVE;ACTIVE_TOKENS=1;SEQUENTIALLY_USABLE=1;CLEANUP=PASS
 ```
 
+El 2026-10-23 se repitió el guion contra un fixture sintético nuevo, tras los
+cambios de aplicación post-V011, con el mismo resultado exacto. La limpieza fue
+confirmada por el propio script antes de devolver `PASS`.
+
 No se imprimieron credenciales, hashes, tokens, UUID ni correos sintéticos.
 
 ## Causa raíz confirmada

@@ -66,8 +66,9 @@ AV_SECURE_COOKIE=false
 Para iniciar el backend con la versión correcta de Java en la consola actual:
 
 ```powershell
-$env:JAVA_HOME = 'C:\Users\HNR05\.jdks\ms-21.0.12.1'
+$env:JAVA_HOME = '<ruta-local-a-jdk-21>'
 $env:Path = "$env:JAVA_HOME\bin;$env:Path"
+$env:AV_FLYWAY_ENABLED = 'false'
 Set-Location backend
 .\mvnw.cmd spring-boot:run
 ```
@@ -76,10 +77,17 @@ Angular usa el proxy `/api` a `http://localhost:8080`:
 
 ```powershell
 Set-Location frontend
-.\node_modules\.bin\ng.cmd serve --host 127.0.0.1 --port 4200
+.\node_modules\.bin\ng.cmd serve --host 127.0.0.1 --port 4200 --proxy-config proxy.conf.json
 ```
 
-`AV_SECURE_COOKIE=false` solo corresponde a HTTP local. Para una futura URL HTTPS autorizada deberá ser `true`. Para una ejecución local posterior sin Flyway automático, añada `SPRING_FLYWAY_ENABLED=false` únicamente al proceso después de comprobar la versión de esquema.
+`AV_SECURE_COOKIE=false` solo corresponde a HTTP local. Para una futura URL HTTPS autorizada deberá ser `true`. Para una ejecución local posterior mantenga `AV_FLYWAY_ENABLED=false` únicamente en el proceso después de comprobar la versión de esquema.
+
+Use un JDK 21 real: el `java.exe` antiguo que aparezca primero en `PATH` no
+sirve para compilar. No use `corepack pnpm start` para el diagnóstico local:
+puede intentar descargar un gestor de paquetes y heredar proxies no funcionales.
+El binario local `ng.cmd` usa las dependencias ya instaladas. En PowerShell,
+invoque Agent Browser como `agent-browser.cmd`; el shim `.ps1` puede estar
+bloqueado por la ExecutionPolicy.
 
 ## Verificación obligatoria posterior
 

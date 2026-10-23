@@ -43,6 +43,23 @@ de enlace anterior/reutilizado, vigencia exacta y cero fixtures residuales. Los
 detalles reproducibles están en
 `G4-I01_CONCURRENCIA_RECUPERACION.md`.
 
+## Validacion post-V011 del 2026-10-23
+
+La ronda posterior no altero V011 ni ejecuto Flyway. Se corrigio en la capa
+JDBC un defecto distinto: los TTL de 24 h, 30 min y 15 min se calculaban con el
+reloj Java justo en el maximo aceptado por PostgreSQL. Una diferencia de reloj
+permitia que PostgreSQL rechazara una solicitud valida como excedida. El
+adaptador B01 ahora obtiene `current_timestamp` dentro de la misma transaccion
+y usa ese valor para los limites que las funciones verifican. La prueba B01
+ampliada supero 28/28 casos con Flyway desactivado.
+
+La misma ampliacion descubrio dos defectos no relacionados con V011 en
+migraciones inmutables: V004 (`replace_staff_roles`, salida
+`normalized_email`) y V005 (`review_administrative_recovery_for_session`,
+salida `principal_id`) tienen referencias ambiguas. Se conservan como pruebas
+diagnosticas, no como rutas aprobadas. Una correccion exige migracion nueva y
+autorizacion especifica; no se editaron migraciones ya aplicadas.
+
 ## Riesgo residual
 
 El índice no concurrente puede bloquear escrituras en una base compartida. Esa

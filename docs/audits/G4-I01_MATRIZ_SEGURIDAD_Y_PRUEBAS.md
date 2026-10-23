@@ -1,41 +1,51 @@
-# G4-I01 — matriz de seguridad y pruebas
+# G4-I01 - matriz de seguridad y pruebas
 
 ## Controles verificados
 
 | Control | Resultado vigente | Evidencia |
 |---|---|---|
-| Historial Flyway | V001–V011 aplicadas una vez y exitosas; V011 checksum `-1337847367`. | Consulta local de `flyway_schema_history` posterior a Flyway. |
-| Fuente V011 | SHA-256 `508A558B90F33C74B1382696214DC45D167E389DED59E0A7F10B63968700167E`. | Preflight, dry-run transaccional y archivo aplicado. |
-| Roles | `av_app` y `av_schema_owner` no son superusuarios ni tienen `BYPASSRLS`. | `pg_roles` local. |
-| Funciones V011 | `request_password_recovery` y `reset_password_with_recovery`: owner `av_schema_owner`, `SECURITY DEFINER`, `search_path=pg_catalog, tenancy, identity_auth, tenant_admin, pg_temp`. | `pg_proc` posterior. |
-| ACL V011 | `PUBLIC=false`, `av_app=true`; `av_app` sin DML/lectura directa de `principal` ni `one_time_token`. | `has_function_privilege` y `has_table_privilege`. |
-| Integridad recuperación | Índice parcial único activo y cero grupos duplicados tras aplicar. | Catálogo PostgreSQL y regresión concurrente. |
-| RLS y acceso indirecto | RLS/contexto se conservan; las identidades sensibles siguen expuestas solo mediante funciones parametrizadas. | Catálogo local y pruebas B01. |
-| Bootstrap SaaS | Privado, `SECURITY INVOKER`, sin `PUBLIC` ni `av_app`; una sola inicialización. | Catálogo y regresión B01 previa. |
-| Flyway ordinario | Desactivado por defecto; target defensivo continúa en `010`. | `application.yml` y runbook; V011 solo por launcher autorizado. |
+| Historial Flyway | V001-V011 aplicadas una vez; ninguna fuente local difiere de su checksum esperado. | Consulta local de `flyway_schema_history` y manifiesto de fuentes. |
+| Fuente V011 | SHA-256 `508A558B90F33C74B1382696214DC45D167E389DED59E0A7F10B63968700167E`. | Archivo aplicado y auditoria previa. |
+| Roles y RLS | `av_app` y `av_schema_owner` no son superusuarios ni tienen `BYPASSRLS`; RLS permanece activa. | Catalogo PostgreSQL local previo y posterior a V011. |
+| Funciones V011 | Owner `av_schema_owner`, `SECURITY DEFINER`, `search_path` fijo y sin `PUBLIC EXECUTE`. | `pg_proc` y ACL local. |
+| Acceso a identidades | `av_app` usa funciones acotadas; no lee ni modifica hashes, `principal` u `one_time_token` directamente. | ACL y pruebas B01. |
+| Flyway ordinario | Desactivado por defecto con `AV_FLYWAY_ENABLED=false`; target defensivo `010`. | `application.yml` y runbook. |
+| Vigencias acotadas | El servicio B01 obtiene `current_timestamp` de PostgreSQL dentro de la transaccion antes de calcular TTL. | Adaptador JDBC y B01 28/28. |
+| CSRF y sesiones | Logout sin token: 403; con token: 204; contexto posterior: 401. | E2E autenticada local. |
+| Aislamiento tenant | Perfil ajeno oculta existencia con 404; sesiones Aurora/Bosque y CLIENT/STAFF se separan. | E2E y pruebas B01. |
 
-## Resultados reales
+## Resultados ejecutados el 2026-10-23
 
-| Grupo | Resultado | Limitación conocida |
+| Grupo | Resultado | Limite o advertencia |
 |---|---|---|
-| Flyway V011 | Validó 11 migraciones y aplicó V011 una vez, desde V010. | Advertencia no bloqueante de metadatos remotos Flyway (401); no sustituye pruebas de negocio. |
-| Concurrencia recuperación | `COMMIT_2`, `COMMIT_5`, aislamiento, rollback, fallo/rollback, expiración, reutilización, deadlock, repetición y limpieza: PASS. | La invariante está deliberadamente limitada a `PASSWORD_RECOVERY`. |
-| B01 | 17 pruebas: 17 superadas, sin omisiones. | No cubre por sí sola los 35 RF completos. |
-| Backend completo | 23 pruebas: 23 superadas, sin omisiones; Flyway desactivado durante la suite. | Advertencia no bloqueante de Mockito sobre agente dinámico. |
-| Build y prueba Angular | Última evidencia G4-I01: build superado y 1 prueba Angular superada. | V011 no modifica frontend; se revalida antes del commit de cierre. |
-| HTTP / CSRF | Logout SaaS y STAFF: sin token 403, con token 204 y contexto posterior 401. | V011 no cambia las rutas HTTP. |
-| OpenAPI | Redocly validó OpenAPI 3.1 y el contraste de rutas reportó 29 operaciones de controlador y 29 de contrato, sin diferencias. | El contrato cubre B01 implementado; B02–B06 siguen fuera de implementación. |
-| E2E autenticado | Evidencia previa: Playwright Core ejecutó login STAFF, perfil protegido, logout CSRF y denegación posterior. | La reejecución 2026-10-23 quedó bloqueada: Angular no expuso el puerto local tras dos arranques temporales y un diagnóstico de 64 s; no se declara una nueva E2E superada. Agent Browser CLI sigue bloqueado al cierre. |
+| B01 integrado | 28/28 superadas, 0 omitidas. | Dos son diagnosticos de defectos V004/V005; no son exito de los RF afectados. |
+| Backend | 34/34 pruebas superadas, 0 omitidas, con Java 21 y Flyway desactivado. | Mockito informa carga dinamica de agente; es advertencia no bloqueante que debe atenderse al actualizar dependencias. |
+| Angular | 1/1 prueba superada; `ng build` superado (276.93 kB iniciales, 73.33 kB estimados). | Sin linea visual versionada, regresion visual comparativa es inconclusa. |
+| E2E autenticada | `G4_I01_AUTHENTICATED_BROWSER_E2E=PASS`. | Playwright Core con Chrome local; no sustituye una auditoria WCAG completa. |
+| Agent Browser | 0.27.0 funciona mediante `agent-browser.cmd`; snapshot semantico y foco email -> password comprobados a 375, 768 y 1440 px. | El shim `.ps1` queda bloqueado por ExecutionPolicy; `agent-browser a11y` no existe en esta version. |
+| Accesibilidad manual | Labels nativos, `main`, heading, navegacion, orden de foco y errores `role=alert` comprobados. | Se corrigio el foco de `#e59d38` a `#9c4e13`; contraste minimo contra blanco/canvas: 5.98:1/5.64:1. |
+| Concurrencia V011 | `CONTROL_EFFECTIVE; ACTIVE_TOKENS=1; SEQUENTIALLY_USABLE=1; CLEANUP=PASS` en fixture nuevo. | No se repitio una migracion ni se altero V011 en esta ronda. |
 
-## Riesgos activos
+## Hallazgos abiertos
 
-1. `LocalNotificationMailbox` conserva enlaces opacos en memoria para el
-   entorno sintético local; debe sustituirse o aislarse antes de URL pública.
-2. Agent Browser 0.27.0 conserva procesos Chromium huérfanos y no aporta
-   evidencia propia de accesibilidad o regresión visual. Playwright es la
-   evidencia E2E disponible, no un reemplazo automático de una auditoría a11y.
-3. G4-I01 continúa parcial: 16 de 35 requisitos B01 permanecen parciales o no
-   verificados. La corrección V011 elimina la carrera, no cierra alcance B01 no
-   probado.
-4. No existe despliegue, URL pública ni remoto configurado; su preparación
-   exige revisión de secretos, licencias, datos sintéticos y autorización.
+1. **Bloqueante funcional de administracion laboral:** V004 tiene una referencia
+   ambigua a `normalized_email` en `replace_staff_roles`. No se puede modificar
+   V004; una V012 auditada seria la via de correccion.
+2. **Bloqueante funcional de recuperacion administrativa:** V005 tiene una
+   referencia ambigua a `principal_id` en
+   `review_administrative_recovery_for_session`. La aprobacion con atestacion
+   humana no llega a emitir la invitacion hasta una migracion nueva auditada.
+3. `LocalNotificationMailbox` es valido solo para el entorno sintetico local;
+   no sirve como adaptador de notificaciones para URL publica.
+4. B02-B06 no estan implementados. El portal CLIENT actual solo verifica el
+   contexto B01 y no muestra datos clinicos ni comerciales.
+5. No existe despliegue, URL publica ni remoto configurado. Su preparacion
+   requiere revisiones de secretos, licencias, datos sinteticos y autorizacion.
+
+## Decisiones de seguridad mantenidas
+
+- No se aplicaron ni editaron migraciones V001-V011.
+- No se uso superusuario ni se amplio el privilegio de `av_app`.
+- No se imprimieron contrasenas, hashes, tokens, UUID ni correos secretos.
+- Los datos creados por las pruebas B01 se ejecutaron bajo transaccion de prueba
+  y rollback; no se declara evidencia de residuos persistentes.

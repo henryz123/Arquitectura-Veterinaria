@@ -28,7 +28,8 @@ se pasan como argumentos, no se imprimen ni se añaden a scripts versionados.
 ## Pruebas ordinarias
 
 ```powershell
-$env:JAVA_HOME = 'C:\Users\HNR05\.jdks\ms-21.0.12.1'
+$env:JAVA_HOME = '<ruta-local-a-jdk-21>'
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
 $env:AV_FLYWAY_ENABLED = 'false'
 Set-Location backend
 .\mvnw.cmd test
@@ -50,3 +51,9 @@ y `GRANT` son transaccionales en PostgreSQL 18 local.
 Antes de V012 o posterior: comprobar historial, hashes fuente, propietarios,
 ACL, RLS, atomicidad, dependencias, suite afectada y autorización específica.
 No se permite ejecutar una versión futura dentro de G4-I01.
+
+Al cierre de G4-I01 se identificaron dos defectos de funciones aplicadas que
+requieren precisamente ese proceso: `identity_auth.replace_staff_roles` (V004)
+y `tenant_admin.review_administrative_recovery_for_session` (V005) tienen
+referencias ambiguas a parámetros de salida. No se corrigen editando una fuente
+ya registrada ni mediante `repair`.
