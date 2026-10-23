@@ -35,7 +35,49 @@ describe('AuthStateService', () => {
       },
     });
     expect(service.csrfToken()).toBe('csrf-memory-only');
-    expect(service.context()?.tenant.slug).toBe('veterinaria-aurora');
+    expect(service.context()?.tenant?.slug).toBe('veterinaria-aurora');
+  });
+
+  it('represents a SaaS session without inventing a tenant context', () => {
+    service.loginSaas({ email: 'saas@demo.invalid', password: 'synthetic-password' }).subscribe();
+    const request = http.expectOne('/api/v1/auth/saas-sessions');
+    expect(request.request.method).toBe('POST');
+    request.flush({
+      data: {
+        csrfToken: 'csrf-memory-only',
+        context: { accountType: 'SAAS', tenant: null, roles: ['ADMIN_SAAS'] },
+      },
+    });
+    expect(service.context()).toEqual({ accountType: 'SAAS', tenant: null, roles: ['ADMIN_SAAS'] });
+  });
+
+  it('restores an authenticated session and refreshes its CSRF token only in memory', () => {
+    let restored;
+    service.restoreContext().subscribe((response) => restored = response);
+    const contextRequest = http.expectOne('/api/v1/session-context');
+    expect(contextRequest.request.method).toBe('GET');
+    contextRequest.flush({
+      data: {
+        accountType: 'STAFF',
+        tenant: { slug: 'veterinaria-aurora', commercialName: 'Aurora', status: 'ACTIVO' },
+        roles: ['ADMIN_VETERINARIA'],
+      },
+    });
+
+    const csrfRequest = http.expectOne('/api/v1/auth/session-csrf-token');
+    expect(csrfRequest.request.method).toBe('POST');
+    expect(csrfRequest.request.headers.get('X-AV-CSRF-Bootstrap')).toBe('1');
+    expect(csrfRequest.request.withCredentials).toBe(true);
+    csrfRequest.flush({ data: { csrfToken: 'fresh-csrf-memory-only' } });
+
+    expect(restored).toEqual({
+      data: {
+        accountType: 'STAFF',
+        tenant: { slug: 'veterinaria-aurora', commercialName: 'Aurora', status: 'ACTIVO' },
+        roles: ['ADMIN_VETERINARIA'],
+      },
+    });
+    expect(service.csrfToken()).toBe('fresh-csrf-memory-only');
   });
 
   afterEach(() => http.verify());

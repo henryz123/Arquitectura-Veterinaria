@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { finalize, forkJoin, of } from 'rxjs';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
-import { StaffAccount, StaffRole, TenantProfile } from '../../core/api/api.models';
+import { SessionContext, StaffAccount, StaffRole, TenantProfile } from '../../core/api/api.models';
 
 const STAFF_ROLE_OPTIONS: ReadonlyArray<{ code: StaffRole; label: string }> = [
   { code: 'ADMIN_VETERINARIA', label: 'Administración de veterinaria' },
@@ -14,6 +14,8 @@ const STAFF_ROLE_OPTIONS: ReadonlyArray<{ code: StaffRole; label: string }> = [
   { code: 'CAJERO', label: 'Caja' },
   { code: 'GROOMING', label: 'Grooming' },
 ];
+
+type TenantScopedSession = SessionContext & { tenant: TenantProfile };
 
 @Component({
   selector: 'app-workspace-page',
@@ -39,6 +41,12 @@ export class WorkspacePageComponent implements OnInit {
   readonly pendingDeactivation = signal<StaffAccount | null>(null);
   readonly roleOptions = STAFF_ROLE_OPTIONS;
   readonly context = this.auth.context;
+  readonly tenantSession = computed<TenantScopedSession | null>(() => {
+    const context = this.context();
+    return context?.tenant ? { ...context, tenant: context.tenant } : null;
+  });
+  readonly tenantCommercialName = computed(() => this.tenantSession()?.tenant.commercialName ?? '');
+  readonly tenantStatus = computed(() => this.tenantSession()?.tenant.status ?? 'SUSPENDIDO');
   readonly canManageStaff = computed(() => {
     const context = this.context();
     return context?.accountType === 'STAFF' && context.roles.includes('ADMIN_VETERINARIA');

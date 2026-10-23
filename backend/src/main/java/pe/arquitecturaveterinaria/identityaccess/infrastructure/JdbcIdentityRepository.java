@@ -54,6 +54,12 @@ public class JdbcIdentityRepository {
 		return Boolean.TRUE.equals(valid);
 	}
 
+	public boolean rotateCsrfToken(String sessionTokenHash, String csrfTokenHash) {
+		Boolean rotated = jdbcTemplate.queryForObject(
+				"select identity_auth.rotate_csrf_token(?, ?)", Boolean.class, sessionTokenHash, csrfTokenHash);
+		return Boolean.TRUE.equals(rotated);
+	}
+
 	public void revokeSession(String sessionTokenHash) {
 		jdbcTemplate.queryForObject("select identity_auth.revoke_session_by_token(?)", Boolean.class, sessionTokenHash);
 	}

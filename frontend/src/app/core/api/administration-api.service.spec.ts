@@ -38,6 +38,45 @@ describe('AdministrationApiService', () => {
     expect(deactivation.request.method).toBe('POST');
     expect(deactivation.request.body).toEqual({});
     deactivation.flush(null);
+
+    service.listOrganizations().subscribe();
+    const organizations = http.expectOne('/api/v1/tenants');
+    expect(organizations.request.method).toBe('GET');
+    organizations.flush({ data: [] });
+
+    service.suspendOrganization('tenant-1', 'Incumplimiento documentado').subscribe();
+    const suspension = http.expectOne('/api/v1/tenants/tenant-1/suspensions');
+    expect(suspension.request.method).toBe('POST');
+    expect(suspension.request.body).toEqual({ reason: 'Incumplimiento documentado', confirmed: true });
+    suspension.flush(null);
+
+    service.reactivateOrganization('tenant-1', 'Revisión aprobada').subscribe();
+    const reactivation = http.expectOne('/api/v1/tenants/tenant-1/reactivations');
+    expect(reactivation.request.method).toBe('POST');
+    expect(reactivation.request.body).toEqual({ reason: 'Revisión aprobada', confirmed: true });
+    reactivation.flush(null);
+
+    service.listRucReviews().subscribe();
+    const rucReviews = http.expectOne('/api/v1/ruc-reviews');
+    expect(rucReviews.request.method).toBe('GET');
+    rucReviews.flush({ data: [] });
+
+    service.resolveRucReview('review-1', 'ACREDITADA', 'Documentación validada', false).subscribe();
+    const rucResolution = http.expectOne('/api/v1/ruc-reviews/review-1');
+    expect(rucResolution.request.method).toBe('PATCH');
+    expect(rucResolution.request.body).toEqual({ status: 'ACREDITADA', reason: 'Documentación validada', releaseRuc: false, confirmed: true });
+    rucResolution.flush(null);
+
+    service.listAdministrativeRecoveries().subscribe();
+    const recoveries = http.expectOne('/api/v1/administrative-recoveries');
+    expect(recoveries.request.method).toBe('GET');
+    recoveries.flush({ data: [] });
+
+    service.reviewAdministrativeRecovery('recovery-1', 'VERIFICANDO', 'Evidencia en revisión', false).subscribe();
+    const recoveryReview = http.expectOne('/api/v1/administrative-recoveries/recovery-1');
+    expect(recoveryReview.request.method).toBe('PATCH');
+    expect(recoveryReview.request.body).toEqual({ status: 'VERIFICANDO', reason: 'Evidencia en revisión', legitimacyChecked: false });
+    recoveryReview.flush(null);
   });
 
   afterEach(() => http.verify());

@@ -1,0 +1,121 @@
+<div class="workspace-shell" *ngIf="isSaasAdministrator()">
+  <a class="skip-link" href="#saas-main">Saltar al contenido</a>
+  <aside class="sidebar" aria-label="Navegación de administración SaaS">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">AV</span>
+      <div><strong>Arquitectura</strong><span>Veterinaria</span></div>
+    </div>
+    <nav>
+      <a href="#organizations" aria-current="page">Organizaciones</a>
+      <a href="#ruc-reviews">Solicitudes RUC</a>
+      <a href="#recoveries">Recuperaciones</a>
+    </nav>
+    <p class="sidebar-note">Sesión SaaS global protegida y sin contexto de tenant.</p>
+  </aside>
+
+  <div class="workspace-body">
+    <header class="topbar">
+      <div><p class="eyebrow">Control de plataforma</p><p class="topbar-title">Administración SaaS autorizada</p></div>
+      <button class="button button-quiet" type="button" (click)="logout()">Cerrar sesión</button>
+    </header>
+
+    <main id="saas-main" class="workspace-content" aria-labelledby="saas-title">
+      <div class="page-heading" id="organizations">
+        <div>
+          <p class="eyebrow">Administración global</p>
+          <h1 id="saas-title">Organizaciones y revisiones</h1>
+          <p>Las operaciones se confirman en el servidor y no conceden acceso a los datos internos de cada veterinaria.</p>
+        </div>
+        <span class="status-pill status-ok">ADMIN SAAS</span>
+      </div>
+
+      <p class="loading" *ngIf="loading()">Cargando datos globales autorizados…</p>
+      <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
+      <p class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</p>
+
+      <section class="summary-grid" *ngIf="!loading()">
+        <article class="summary-card"><p>Organizaciones</p><strong>{{ organizations().length }}</strong><span>visibles para la sesión SaaS</span></article>
+        <article class="summary-card"><p>Solicitudes RUC</p><strong>{{ rucReviews().length }}</strong><span>pendientes o resueltas</span></article>
+        <article class="summary-card"><p>Recuperaciones</p><strong>{{ recoveries().length }}</strong><span>revisiones administrativas</span></article>
+      </section>
+
+      <section class="panel staff-panel" *ngIf="!loading()">
+        <div class="panel-heading">
+          <div><p class="eyebrow">Tenants</p><h2>Organizaciones registradas</h2></div>
+          <span class="panel-caption">Las suspensiones requieren motivo y confirmación</span>
+        </div>
+        <div class="empty-state" *ngIf="organizations().length === 0"><h3>No hay organizaciones</h3><p>Cuando existan registros aprobados aparecerán aquí.</p></div>
+        <div class="table-wrap" *ngIf="organizations().length > 0">
+          <table>
+            <caption>Organizaciones disponibles para administración SaaS</caption>
+            <thead><tr><th scope="col">Organización</th><th scope="col">Contacto</th><th scope="col">Estado</th><th scope="col"><span class="visually-hidden">Acción</span></th></tr></thead>
+            <tbody>
+              <tr *ngFor="let organization of organizations(); trackBy: trackById">
+                <td><strong>{{ organization.commercialName }}</strong><span class="id-hint">{{ organization.ruc || 'Sin RUC registrado' }}</span></td>
+                <td>{{ organization.commercialEmail }}</td>
+                <td><span class="status-pill" [class.status-ok]="organization.status === 'ACTIVO'">{{ statusLabel(organization.status) }}</span></td>
+                <td class="row-actions"><button class="button" [class.button-danger]="organization.status === 'ACTIVO'" [class.button-secondary]="organization.status !== 'ACTIVO'" type="button" (click)="openOrganizationAction(organization)">{{ organization.status === 'ACTIVO' ? 'Suspender' : 'Reactivar' }}</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel staff-panel" id="ruc-reviews" *ngIf="!loading()">
+        <div class="panel-heading"><div><p class="eyebrow">RUC</p><h2>Solicitudes de revisión</h2></div><span class="panel-caption">Decisiones auditadas por sesión SaaS</span></div>
+        <div class="empty-state" *ngIf="rucReviews().length === 0"><h3>No hay solicitudes de RUC</h3><p>Las nuevas solicitudes aparecerán para revisión aquí.</p></div>
+        <div class="table-wrap" *ngIf="rucReviews().length > 0">
+          <table>
+            <caption>Solicitudes de validación de RUC</caption>
+            <thead><tr><th scope="col">RUC</th><th scope="col">Canal</th><th scope="col">Estado</th><th scope="col"><span class="visually-hidden">Acción</span></th></tr></thead>
+            <tbody><tr *ngFor="let review of rucReviews(); trackBy: trackById"><td><strong>{{ review.ruc }}</strong><span class="id-hint">{{ review.requesterEmail }}</span></td><td>{{ review.contactChannel }}</td><td><span class="status-pill">{{ statusLabel(review.status) }}</span></td><td class="row-actions"><button class="button button-secondary" type="button" (click)="openRucReview(review)">Revisar</button></td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel staff-panel" id="recoveries" *ngIf="!loading()">
+        <div class="panel-heading"><div><p class="eyebrow">Acceso</p><h2>Recuperaciones administrativas</h2></div><span class="panel-caption">La aprobación exige comprobación de legitimidad</span></div>
+        <div class="empty-state" *ngIf="recoveries().length === 0"><h3>No hay recuperaciones pendientes</h3><p>Las solicitudes administrativas aparecerán aquí para revisión.</p></div>
+        <div class="table-wrap" *ngIf="recoveries().length > 0">
+          <table>
+            <caption>Solicitudes de recuperación administrativa</caption>
+            <thead><tr><th scope="col">Solicitante</th><th scope="col">Evidencia</th><th scope="col">Estado</th><th scope="col"><span class="visually-hidden">Acción</span></th></tr></thead>
+            <tbody><tr *ngFor="let recovery of recoveries(); trackBy: trackById"><td>{{ recovery.applicantEmail }}</td><td>{{ recovery.evidenceReference }}</td><td><span class="status-pill">{{ statusLabel(recovery.status) }}</span></td><td class="row-actions"><button class="button button-secondary" type="button" (click)="openRecoveryReview(recovery)">Revisar</button></td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="inline-dialog danger-dialog" *ngIf="selectedOrganization() as organization" aria-labelledby="organization-action-title">
+        <div><p class="eyebrow">Operación sensible</p><h2 id="organization-action-title">{{ organizationAction() === 'SUSPENDER' ? 'Suspender' : 'Reactivar' }} {{ organization.commercialName }}</h2><p>La decisión será validada por el servidor y registrada con la sesión SaaS actual.</p></div>
+        <form [formGroup]="organizationForm" (ngSubmit)="submitOrganizationAction()" novalidate>
+          <label for="organization-reason">Motivo</label><input id="organization-reason" type="text" formControlName="reason" maxlength="500" />
+          <label><input type="checkbox" formControlName="confirmed" /> Confirmo esta operación administrativa.</label>
+          <p class="field-error" role="alert" *ngIf="organizationForm.touched && organizationForm.invalid">Indica un motivo válido y confirma la acción.</p>
+          <div class="dialog-actions"><button class="button button-danger" type="submit" [disabled]="actionPending()">Confirmar</button><button class="button button-quiet" type="button" (click)="cancelOrganizationAction()" [disabled]="actionPending()">Cancelar</button></div>
+        </form>
+      </section>
+
+      <section class="inline-dialog" *ngIf="selectedRucReview() as review" aria-labelledby="ruc-action-title">
+        <div><p class="eyebrow">Revisión RUC</p><h2 id="ruc-action-title">Resolver solicitud {{ review.ruc }}</h2><p>{{ review.requestReason }}</p></div>
+        <form [formGroup]="rucResolutionForm" (ngSubmit)="submitRucReview()" novalidate>
+          <label for="ruc-status">Decisión</label><select id="ruc-status" formControlName="status"><option value="ACREDITADA">Acreditada</option><option value="INFO_REQUERIDA">Información requerida</option><option value="RECHAZADA">Rechazada</option></select>
+          <label for="ruc-reason">Motivo</label><input id="ruc-reason" type="text" formControlName="reason" maxlength="500" />
+          <label><input type="checkbox" formControlName="releaseRuc" /> Liberar RUC reservado si corresponde.</label><label><input type="checkbox" formControlName="confirmed" /> Confirmo la revisión.</label>
+          <p class="field-error" role="alert" *ngIf="rucResolutionForm.touched && rucResolutionForm.invalid">Completa el motivo y confirma la decisión.</p>
+          <div class="dialog-actions"><button class="button button-primary" type="submit" [disabled]="actionPending()">Guardar decisión</button><button class="button button-quiet" type="button" (click)="cancelRucReview()" [disabled]="actionPending()">Cancelar</button></div>
+        </form>
+      </section>
+
+      <section class="inline-dialog" *ngIf="selectedRecovery() as recovery" aria-labelledby="recovery-action-title">
+        <div><p class="eyebrow">Recuperación</p><h2 id="recovery-action-title">Revisar acceso de {{ recovery.applicantEmail }}</h2><p>Una aprobación crea la invitación solo desde el procedimiento privado autorizado.</p></div>
+        <form [formGroup]="recoveryReviewForm" (ngSubmit)="submitRecoveryReview()" novalidate>
+          <label for="recovery-status">Estado</label><select id="recovery-status" formControlName="status"><option value="VERIFICANDO">Verificando</option><option value="INFO_REQUERIDA">Información requerida</option><option value="RECHAZADA">Rechazada</option><option value="APROBADA">Aprobada</option></select>
+          <label for="recovery-reason">Motivo</label><input id="recovery-reason" type="text" formControlName="reason" maxlength="500" />
+          <label><input type="checkbox" formControlName="legitimacyChecked" /> He verificado la legitimidad de la solicitud.</label>
+          <p class="field-error" role="alert" *ngIf="recoveryReviewForm.controls.status.value === 'APROBADA' && !recoveryReviewForm.controls.legitimacyChecked.value">La aprobación exige confirmar la legitimidad.</p>
+          <div class="dialog-actions"><button class="button button-primary" type="submit" [disabled]="actionPending()">Registrar revisión</button><button class="button button-quiet" type="button" (click)="cancelRecoveryReview()" [disabled]="actionPending()">Cancelar</button></div>
+        </form>
+      </section>
+    </main>
+  </div>
+</div>

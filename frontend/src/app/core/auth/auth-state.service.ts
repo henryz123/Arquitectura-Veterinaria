@@ -1,7 +1,7 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
-import { Observable, tap } from 'rxjs';
-import { ApiEnvelope, LoginResult, SessionContext, TenantProfile } from '../api/api.models';
+import { Observable, map, switchMap, tap } from 'rxjs';
+import { ApiEnvelope, CsrfToken, LoginResult, SessionContext, TenantProfile } from '../api/api.models';
 
 interface LoginRequest {
   email: string;
@@ -34,12 +34,35 @@ export class AuthStateService {
       );
   }
 
+  loginSaas(request: LoginRequest): Observable<ApiEnvelope<LoginResult>> {
+    return this.http
+      .post<ApiEnvelope<LoginResult>>(`${this.apiBaseUrl}/auth/saas-sessions`, request, { withCredentials: true })
+      .pipe(
+        tap((response) => {
+          this.context.set(response.data.context);
+          this.csrfToken.set(response.data.csrfToken);
+        }),
+      );
+  }
+
   restoreContext(): Observable<ApiEnvelope<SessionContext>> {
     return this.http
       .get<ApiEnvelope<SessionContext>>(`${this.apiBaseUrl}/session-context`, {
         withCredentials: true,
       })
-      .pipe(tap((response) => this.context.set(response.data)));
+      .pipe(
+        switchMap((sessionContext) => this.http
+          .post<ApiEnvelope<CsrfToken>>(`${this.apiBaseUrl}/auth/session-csrf-token`, null, {
+            headers: new HttpHeaders({ 'X-AV-CSRF-Bootstrap': '1' }),
+            withCredentials: true,
+          })
+          .pipe(map((csrf) => ({ sessionContext, csrfToken: csrf.data.csrfToken })))),
+        tap(({ sessionContext, csrfToken }) => {
+          this.context.set(sessionContext.data);
+          this.csrfToken.set(csrfToken);
+        }),
+        map(({ sessionContext }) => sessionContext),
+      );
   }
 
   loadOwnTenantProfile(tenantSlug: string): Observable<ApiEnvelope<TenantProfile>> {

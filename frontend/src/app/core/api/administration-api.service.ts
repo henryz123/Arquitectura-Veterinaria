@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ApiEnvelope, StaffAccount, StaffInvitation, StaffRole } from './api.models';
+import { AdministrativeRecovery, ApiEnvelope, Organization, RucReview, StaffAccount, StaffInvitation, StaffRole } from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdministrationApiService {
@@ -28,5 +28,42 @@ export class AdministrationApiService {
       `${this.apiBaseUrl}/staff-accounts/${encodeURIComponent(principalId)}/deactivations`,
       {},
     );
+  }
+
+  listOrganizations(): Observable<ApiEnvelope<Organization[]>> {
+    return this.http.get<ApiEnvelope<Organization[]>>(`${this.apiBaseUrl}/tenants`);
+  }
+
+  suspendOrganization(tenantId: string, reason: string): Observable<void> {
+    return this.http.post<void>(`${this.apiBaseUrl}/tenants/${encodeURIComponent(tenantId)}/suspensions`, { reason, confirmed: true });
+  }
+
+  reactivateOrganization(tenantId: string, reason: string): Observable<void> {
+    return this.http.post<void>(`${this.apiBaseUrl}/tenants/${encodeURIComponent(tenantId)}/reactivations`, { reason, confirmed: true });
+  }
+
+  listRucReviews(): Observable<ApiEnvelope<RucReview[]>> {
+    return this.http.get<ApiEnvelope<RucReview[]>>(`${this.apiBaseUrl}/ruc-reviews`);
+  }
+
+  resolveRucReview(reviewId: string, status: string, reason: string, releaseRuc: boolean): Observable<void> {
+    return this.http.patch<void>(`${this.apiBaseUrl}/ruc-reviews/${encodeURIComponent(reviewId)}`, {
+      status,
+      reason,
+      releaseRuc,
+      confirmed: true,
+    });
+  }
+
+  listAdministrativeRecoveries(): Observable<ApiEnvelope<AdministrativeRecovery[]>> {
+    return this.http.get<ApiEnvelope<AdministrativeRecovery[]>>(`${this.apiBaseUrl}/administrative-recoveries`);
+  }
+
+  reviewAdministrativeRecovery(recoveryId: string, status: string, reason: string, legitimacyChecked: boolean): Observable<void> {
+    return this.http.patch<void>(`${this.apiBaseUrl}/administrative-recoveries/${encodeURIComponent(recoveryId)}`, {
+      status,
+      reason,
+      legitimacyChecked,
+    });
   }
 }

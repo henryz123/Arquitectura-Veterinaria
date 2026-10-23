@@ -34,13 +34,21 @@ try {
   const auroraContext = await browser.newContext();
   const page = await auroraContext.newPage();
   let logoutCsrfHeader;
+  let csrfBootstrapHeader;
+  let csrfBootstrapCacheControl;
   let tenantProfileStatus;
   page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/api/v1/auth/session-csrf-token')) {
+      csrfBootstrapHeader = request.headers()['x-av-csrf-bootstrap'];
+    }
     if (request.method() === 'DELETE' && request.url().endsWith('/api/v1/auth/session')) {
       logoutCsrfHeader = request.headers()['x-csrf-token'];
     }
   });
   page.on('response', (response) => {
+    if (response.request().method() === 'POST' && response.url().endsWith('/api/v1/auth/session-csrf-token')) {
+      csrfBootstrapCacheControl = response.headers()['cache-control'];
+    }
     if (response.url().includes('/api/v1/tenant-profile/')) {
       tenantProfileStatus = response.status();
     }
@@ -82,6 +90,14 @@ try {
   assert.ok(Array.isArray(staffAccounts.body?.data), 'the B01 staff list must preserve its envelope');
   const staffClientSpace = await browserFetch(page, '/api/v1/client-space');
   assert.equal(staffClientSpace.status, 403, 'a STAFF session must not access CLIENT space');
+  const missingBootstrapIntent = await browserFetch(page, '/api/v1/auth/session-csrf-token', { method: 'POST' });
+  assert.equal(missingBootstrapIntent.status, 403, 'CSRF bootstrap must reject a request without the browser intent header');
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForURL(`${baseUrl}/workspace`);
+  await page.locator('.workspace-shell').waitFor();
+  assert.equal(csrfBootstrapHeader, '1', 'a restored STAFF session must request a fresh CSRF token with the bootstrap intent');
+  assert.equal(csrfBootstrapCacheControl, 'no-store', 'a restored STAFF session must not cache the fresh CSRF token');
 
   const bosqueContext = await browser.newContext();
   const bosquePage = await bosqueContext.newPage();
@@ -104,26 +120,49 @@ try {
 
   const saasContext = await browser.newContext();
   const saasPage = await saasContext.newPage();
-  await saasPage.goto(`${baseUrl}/`, { waitUntil: 'networkidle' });
-  const saasLogin = await browserFetch(saasPage, '/api/v1/auth/saas-sessions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: process.env.AV_DEMO_SAAS_EMAIL, password: process.env.AV_DEMO_SAAS_PASSWORD }),
+  let saasLogoutCsrfHeader;
+  let saasBootstrapHeader;
+  let saasBootstrapCacheControl;
+  saasPage.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/api/v1/auth/session-csrf-token')) {
+      saasBootstrapHeader = request.headers()['x-av-csrf-bootstrap'];
+    }
+    if (request.method() === 'DELETE' && request.url().endsWith('/api/v1/auth/session')) {
+      saasLogoutCsrfHeader = request.headers()['x-csrf-token'];
+    }
   });
-  assert.equal(saasLogin.status, 201, 'SaaS authentication must create an opaque session');
-  const saasCsrf = saasLogin.body?.data?.csrfToken;
-  assert.equal(typeof saasCsrf, 'string', 'SaaS login must return the in-memory CSRF token');
+  saasPage.on('response', (response) => {
+    if (response.request().method() === 'POST' && response.url().endsWith('/api/v1/auth/session-csrf-token')) {
+      saasBootstrapCacheControl = response.headers()['cache-control'];
+    }
+  });
+  await saasPage.goto(`${baseUrl}/saas/login`, { waitUntil: 'networkidle' });
+  await saasPage.locator('#saas-email').fill(process.env.AV_DEMO_SAAS_EMAIL);
+  await saasPage.locator('#saas-password').fill(process.env.AV_DEMO_SAAS_PASSWORD);
+  await saasPage.getByRole('button', { name: 'Ingresar a administración' }).click();
+  await saasPage.waitForURL(`${baseUrl}/saas/console`);
+  await assert.doesNotReject(() => saasPage.getByRole('heading', { name: 'Organizaciones y revisiones' }).waitFor());
+  await assert.doesNotReject(() => saasPage.getByRole('table', { name: 'Organizaciones disponibles para administración SaaS' }).waitFor());
+  await saasPage.reload({ waitUntil: 'networkidle' });
+  await saasPage.waitForURL(`${baseUrl}/saas/console`);
+  await saasPage.locator('.workspace-shell').waitFor();
+  assert.equal(saasBootstrapHeader, '1', 'a restored SaaS session must request a fresh CSRF token with the bootstrap intent');
+  assert.equal(saasBootstrapCacheControl, 'no-store', 'a restored SaaS session must not cache the fresh CSRF token');
+  await captureEvidence(saasPage, '05-saas-console.png');
   const organizations = await browserFetch(saasPage, '/api/v1/tenants');
   assert.equal(organizations.status, 200, 'a SaaS session must access B01 organization administration');
   const missingCsrf = await browserFetch(saasPage, '/api/v1/auth/session', { method: 'DELETE' });
   assert.equal(missingCsrf.status, 403, 'SaaS logout must reject a missing CSRF token');
-  const saasLogout = await browserFetch(saasPage, '/api/v1/auth/session', {
-    method: 'DELETE',
-    headers: { 'X-CSRF-Token': saasCsrf },
-  });
-  assert.equal(saasLogout.status, 204, 'SaaS logout with its CSRF token must succeed');
+  await saasPage.getByRole('button', { name: 'Cerrar sesión' }).click();
+  await saasPage.waitForURL(`${baseUrl}/saas/login`);
+  assert.ok(saasLogoutCsrfHeader, 'SaaS logout from the interface must include the in-memory CSRF token');
   const revokedSaasSession = await browserFetch(saasPage, '/api/v1/session-context');
   assert.equal(revokedSaasSession.status, 401, 'SaaS logout must revoke the session');
+  const revokedCsrfBootstrap = await browserFetch(saasPage, '/api/v1/auth/session-csrf-token', {
+    method: 'POST',
+    headers: { 'X-AV-CSRF-Bootstrap': '1' },
+  });
+  assert.equal(revokedCsrfBootstrap.status, 401, 'a revoked SaaS session must not obtain a fresh CSRF token');
   await saasContext.close();
   await auroraContext.close();
   process.stdout.write('G4_I01_AUTHENTICATED_BROWSER_E2E=PASS\n');

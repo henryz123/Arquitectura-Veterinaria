@@ -47,6 +47,9 @@ public class CsrfSessionFilter extends OncePerRequestFilter {
 	}
 
 	private boolean requiresCsrf(HttpServletRequest request) {
+		if (isCsrfBootstrapRequest(request)) {
+			return false;
+		}
 		String method = request.getMethod();
 		if (HttpMethod.GET.matches(method) || HttpMethod.HEAD.matches(method) || HttpMethod.OPTIONS.matches(method)) {
 			return false;
@@ -59,5 +62,11 @@ public class CsrfSessionFilter extends OncePerRequestFilter {
 				|| uri.matches("/api/v1/tenants/[^/]+/client-verification-resends")
 				|| uri.matches("/api/v1/tenants/[^/]+/administrative-recoveries") || uri.equals("/api/v1/ruc-reviews")
 				|| uri.equals("/api/v1/staff-invitations/acceptance"));
+	}
+
+	private boolean isCsrfBootstrapRequest(HttpServletRequest request) {
+		return HttpMethod.POST.matches(request.getMethod())
+				&& "/api/v1/auth/session-csrf-token".equals(request.getRequestURI())
+				&& "1".equals(request.getHeader("X-AV-CSRF-Bootstrap"));
 	}
 }

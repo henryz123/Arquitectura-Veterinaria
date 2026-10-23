@@ -1,4 +1,4 @@
-<div class="workspace-shell" *ngIf="context() as session">
+<div class="workspace-shell" *ngIf="tenantSession() as session">
   <a class="skip-link" href="#workspace-main">Saltar al contenido</a>
   <aside class="sidebar" aria-label="Navegación administrativa">
     <div class="brand">
@@ -21,7 +21,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">Administración de veterinaria</p>
-        <p class="topbar-title">{{ session.tenant.commercialName }}</p>
+        <p class="topbar-title">{{ tenantCommercialName() }}</p>
       </div>
       <button class="button button-quiet" type="button" (click)="logout()">Cerrar sesión</button>
     </header>
@@ -33,7 +33,7 @@
           <h1 id="workspace-title">Operación y equipo</h1>
           <p>Gestiona la organización y sus cuentas laborales desde datos reales del tenant actual.</p>
         </div>
-        <span class="status-pill" [class.status-ok]="session.tenant.status === 'ACTIVO'">{{ statusLabel(session.tenant.status) }}</span>
+        <span class="status-pill" [class.status-ok]="tenantStatus() === 'ACTIVO'">{{ statusLabel(tenantStatus()) }}</span>
       </div>
 
       <p class="loading" *ngIf="loading()">Cargando datos autorizados…</p>

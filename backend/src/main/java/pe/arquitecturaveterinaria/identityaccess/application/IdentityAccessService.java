@@ -62,6 +62,16 @@ public class IdentityAccessService {
 		return identityRepository.isCsrfTokenValid(principal.session().sessionTokenHash(), TokenHasher.sha256(csrfToken));
 	}
 
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public String refreshCsrfToken(SessionPrincipal principal) {
+		String csrfToken = TokenHasher.newOpaqueToken();
+		boolean rotated = identityRepository.rotateCsrfToken(principal.session().sessionTokenHash(), TokenHasher.sha256(csrfToken));
+		if (!rotated) {
+			throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "Se requiere una sesión válida.");
+		}
+		return csrfToken;
+	}
+
 	private CreatedSession authenticate(AccountType accountType, String tenantSlug, String email, String password) {
 		String normalizedEmail = CredentialNormalizer.normalizeEmail(email);
 		String throttleKey = accountType + ":" + (tenantSlug == null ? "global" : tenantSlug) + ':' + normalizedEmail;

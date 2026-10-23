@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.validation.annotation.Validated;
@@ -72,6 +74,18 @@ public class IdentityAccessController {
 		return ApiEnvelope.of(toContext(principal.session()));
 	}
 
+	@PostMapping("/auth/session-csrf-token")
+	ResponseEntity<ApiEnvelope<CsrfToken>> refreshCsrfToken(
+			@RequestHeader(name = "X-AV-CSRF-Bootstrap") String bootstrapIntent,
+			@AuthenticationPrincipal SessionPrincipal principal) {
+		if (!"1".equals(bootstrapIntent)) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "CSRF_BOOTSTRAP_INVALID", "La solicitud no fue aceptada.");
+		}
+		return ResponseEntity.ok()
+				.cacheControl(CacheControl.noStore())
+				.body(ApiEnvelope.of(new CsrfToken(identityAccessService.refreshCsrfToken(principal))));
+	}
+
 	@GetMapping("/tenant-profile/{tenantSlug}")
 	ApiEnvelope<TenantProfile> tenantProfile(@PathVariable @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") String tenantSlug,
 			@AuthenticationPrincipal SessionPrincipal principal) {
@@ -109,6 +123,9 @@ public class IdentityAccessController {
 	}
 
 	public record LoginResult(String csrfToken, SessionContext context) {
+	}
+
+	public record CsrfToken(String csrfToken) {
 	}
 
 	public record SessionContext(String accountType, TenantProfile tenant, List<String> roles) {

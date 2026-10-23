@@ -59,6 +59,22 @@ paths:
         '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/CsrfRejected' }
+  /api/v1/auth/session-csrf-token:
+    post:
+      tags: [authentication]
+      summary: Rota y devuelve un token CSRF para la sesión opaca vigente durante el bootstrap del navegador
+      x-implementation-status: implemented-b01-csrf-reload
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: X-AV-CSRF-Bootstrap
+          in: header
+          required: true
+          description: Cabecera de intención enviada solo por el cliente same-origin durante una restauración legítima.
+          schema: { type: string, enum: ['1'] }
+      responses:
+        '200': { $ref: '#/components/responses/CsrfTokenResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfRejected' }
   /api/v1/session-context:
     get:
       tags: [authentication]
@@ -397,6 +413,11 @@ components:
       properties:
         csrfToken: { type: string, description: Token anti-CSRF ligado a la sesión y entregado solo en la respuesta de inicio. }
         context: { $ref: '#/components/schemas/SessionContext' }
+    CsrfToken:
+      type: object
+      required: [csrfToken]
+      properties:
+        csrfToken: { type: string, description: Token anti-CSRF opaco entregado solo a la sesión vigente durante el bootstrap same-origin. }
     TenantRegistrationRequest:
       type: object
       required: [commercialName, commercialAddress, commercialPhone, commercialEmail, initialAdministratorEmail]
@@ -597,6 +618,10 @@ components:
     SessionContextResponse:
       description: Contexto de sesión sin secretos.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/SessionContext' } } } } }
+    CsrfTokenResponse:
+      description: Token CSRF rotado sin exponer la cookie de sesión.
+      headers: { Cache-Control: { description: 'no-store para evitar el almacenamiento de un token CSRF.', schema: { type: string, example: no-store } } }
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/CsrfToken' } } } } }
     TenantProfileResponse:
       description: Perfil del tenant propio.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/TenantProfile' } } } } }

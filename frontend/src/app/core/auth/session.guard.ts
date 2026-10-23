@@ -17,3 +17,22 @@ export const sessionGuard: CanActivateFn = () => {
     }),
   );
 };
+
+export const saasSessionGuard: CanActivateFn = () => {
+  const auth = inject(AuthStateService);
+  const router = inject(Router);
+  const isAuthorized = () => {
+    const context = auth.context();
+    return context?.accountType === 'SAAS' && context.roles.includes('ADMIN_SAAS');
+  };
+  if (auth.context()) {
+    return isAuthorized() ? true : router.createUrlTree(['/saas/login']);
+  }
+  return auth.restoreContext().pipe(
+    map(() => isAuthorized() ? true : router.createUrlTree(['/saas/login'])),
+    catchError(() => {
+      auth.clear();
+      return of(router.createUrlTree(['/saas/login']));
+    }),
+  );
+};

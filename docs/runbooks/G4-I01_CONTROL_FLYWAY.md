@@ -7,7 +7,7 @@ ordinarias mantienen Flyway desactivado. Una migración requiere revisión de SQ
 autorización expresa y el rol `av_schema_owner`. No usar `repair`, `clean`,
 superusuario ni una base ajena. Nunca modificar una fuente ya registrada.
 
-## Estado vigente
+## Estado histórico al corte V012
 
 > Actualizacion 2026-10-23: V012 ya esta aplicada una sola vez con checksum
 > `-1132033441`; V013 no existe. Las viñetas historicas V001-V011 que siguen
@@ -21,6 +21,26 @@ superusuario ni una base ajena. Nunca modificar una fuente ya registrada.
 - Checksum Flyway V011: `-1337847367`.
 - `application.yml` mantiene Flyway en `false` y target defensivo `010`.
   El target por defecto no autoriza ni aplica V011.
+
+## Estado vigente V1 integral
+
+La línea activa aplica exclusivamente a `arquitectura_veterinaria` y se
+registra en `docs/status/V1_INTEGRAL_PROGRESO.md`. A fecha 2026-10-23, Flyway
+registra V001–V015 exactamente una vez. V013 corrigió la recuperación
+administrativa, V014 normalizó dos nombres sintéticos históricos y V015 rota
+un CSRF únicamente para una sesión opaca activa.
+
+- V013: checksum `-57543870`.
+- V014: checksum `505352357`.
+- V015: `V015__rotate_csrf_token_for_active_session.sql`, SHA-256
+  `7AFF333B71371063F8A31A5F252B4DDF0EA5754ED52AC3FFCD311DD71866BB19`,
+  checksum `1029927636`.
+- Antes de V016 o posterior: repetir historial, hashes fuente, propietarios,
+  ACL, RLS, atomicidad, dependencias, suite afectada y revisión del SQL. No
+  reutilizar launchers antiguos ni usar `repair` o `clean`.
+
+Las secciones posteriores a esta nota son antecedentes de V011/V012 y no
+deben interpretarse como estado ni autorización actual.
 
 ## Identidades locales
 
