@@ -2,8 +2,8 @@
 
 **Rama de trabajo:** `codex/v1-integral`
 **Inicio de esta línea:** 2026-10-23
-**Último checkpoint funcional:** `150636c989904df25547f470814cf46756bc8415`
-(`feat(b01): add tenant administration workspace`)
+**Último checkpoint funcional:** `2478e472d9879ba2d8843a289b5108aec784c799`
+(`feat(b01): add saas console and csrf restoration`)
 **Fuente funcional:** `arquitectura_veterinaria_v1_FINAL/` (inmutable)
 **Autorización operativa vigente:** instrucción expresa de desarrollo integral
 V1 recibida el 2026-10-23. Sustituye únicamente la congelación temporal
@@ -109,6 +109,6 @@ fuera de V1.
 
 ## Próxima operación concreta
 
-Revisar secretos y staging explícito, crear el checkpoint local del vertical
-SaaS y de la restauración CSRF sin alterar `frontend/angular.json`. Continuar
-después con los canales B01 de clientes y recuperación antes del vertical B02.
+Implementar los canales B01 de clientes y recuperación de acceso mediante un
+vertical navegador → API existente → PostgreSQL, sin alterar
+`frontend/angular.json`; después iniciar B02 por propietarios y mascotas.
