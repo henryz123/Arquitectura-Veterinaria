@@ -2,6 +2,8 @@
 
 **Rama de trabajo:** `codex/v1-integral`
 **Inicio de esta línea:** 2026-10-23
+**Último checkpoint funcional:** `150636c989904df25547f470814cf46756bc8415`
+(`feat(b01): add tenant administration workspace`)
 **Fuente funcional:** `arquitectura_veterinaria_v1_FINAL/` (inmutable)
 **Autorización operativa vigente:** instrucción expresa de desarrollo integral
 V1 recibida el 2026-10-23. Sustituye únicamente la congelación temporal
