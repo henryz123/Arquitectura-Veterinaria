@@ -2,8 +2,8 @@
 
 **Rama de trabajo:** `codex/v1-integral`
 **Inicio de esta línea:** 2026-10-23
-**Último checkpoint funcional:** `2478e472d9879ba2d8843a289b5108aec784c799`
-(`feat(b01): add saas console and csrf restoration`)
+**Último checkpoint funcional:** `300819814dcd0c021c2b5c12206ca1020f97132f`
+(`feat(b01): add client access workspace`)
 **Fuente funcional:** `arquitectura_veterinaria_v1_FINAL/` (inmutable)
 **Autorización operativa vigente:** instrucción expresa de desarrollo integral
 V1 recibida el 2026-10-23. Sustituye únicamente la congelación temporal
