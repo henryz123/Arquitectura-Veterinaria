@@ -11,9 +11,9 @@ B02 a B06.
 
 La evidencia se actualizo el 2026-10-23 sobre la base local exclusiva
 `arquitectura_veterinaria`, con Flyway desactivado para la aplicacion y pruebas
-ordinarias. La suite `B01AdministrationDatabaseIntegrationTest` ejecuto 28/28
-casos. Dos de esos casos son diagnosticos de defectos de SQL aplicado y no se
-cuentan como exito funcional.
+ordinarias. Tras V012, la suite `B01AdministrationDatabaseIntegrationTest`
+ejecuto 30 casos: 29 correctos y un error reproducible de recuperacion
+administrativa. Ese error no se cuenta como exito funcional.
 
 ## Matriz RF -> evidencia
 
@@ -31,7 +31,7 @@ cuentan como exito funcional.
 | RF-SAA-10 | Verificado puntual | Proyeccion `Organization` limitada a los campos administrativos aprobados. |
 | RF-SAA-11 | Parcial | Reanudacion expresa invalida el enlace anterior; falta prueba reproducible del vencimiento exacto de 24 h. Es una brecha de regresion, no requiere V012. |
 | RF-SAA-12 | Verificado puntual | Release excepcional exige confirmacion, suspende al titular, revoca su acceso y permite una nueva solicitud sin transferencia de datos. |
-| RF-SAA-13 | Parcial | Se verifica rechazo sin atestacion humana. La aprobacion legitima esta bloqueada por V005; la propuesta V012 esta preauditada pero no aplicada, por lo que no se afirma recuperacion completa. |
+| RF-SAA-13 | Parcial | Se verifica rechazo sin atestacion humana. V012 corrigio la ambiguedad inicial de `principal_id`, pero la aprobacion legitima sigue bloqueada por una ambiguedad residual de `tenant_id`; requiere una V013 futura auditada. |
 | RF-AUT-01 | Verificado puntual | STAFF, CLIENT y SaaS autentican en su contexto. |
 | RF-AUT-02 | Verificado puntual | Logout HTTP con CSRF invalida el contexto posterior. |
 | RF-AUT-03 | Verificado puntual | V011 serializa recuperacion; se probaron caducidad, uso unico, aislamiento y concurrencia real. |
@@ -47,7 +47,7 @@ cuentan como exito funcional.
 | RF-AUT-13 | Verificado puntual | Logout, suspension, desactivacion y cambio de contrasena revocan solo las sesiones afectadas. |
 | RF-USR-01 | Verificado puntual | Invitacion laboral sintetica en tenant activo. |
 | RF-USR-02 | Verificado puntual | Aceptacion de invitacion, contrasena y autenticacion laboral. |
-| RF-USR-03 | Parcial | Roles multiples en invitacion y proteccion del ultimo administrador existen; el reemplazo de roles de cuenta activa esta bloqueado por V004. La propuesta V012 esta preauditada pero no aplicada. |
+| RF-USR-03 | Verificado puntual | V012 permite reemplazar roles multiples de una cuenta activa, revoca su sesion previa, protege al ultimo administrador y rechaza objetivos cross-tenant. |
 | RF-USR-04 | Parcial | Desactivacion y revocacion de sesion se verificaron; la conservacion de autoria no es observable para `av_app` y requiere una decision de proyeccion/auditoria posterior. |
 | RF-USR-05 | Verificado puntual | Mismo correo laboral en Aurora/Bosque conserva principals, roles y sesiones independientes; desactivar Aurora no afecta Bosque. |
 | RF-CLI-01 | Verificado puntual | Registro CLIENT independiente por tenant, incluso con correo repetido. |
@@ -59,46 +59,45 @@ cuentan como exito funcional.
 
 | Estado | RF |
 |---|---:|
-| Verificado puntual | 25 |
-| Parcial | 10 |
+| Verificado puntual | 26 |
+| Parcial | 9 |
 | No verificado | 0 |
 | Total B01 | 35 |
 
-El incremento no esta cerrado como B01 completo: 10 RF siguen parciales y dos
-son bloqueados por defectos SQL de migraciones ya aplicadas. El aumento de
+El incremento no esta cerrado como B01 completo: 9 RF siguen parciales y uno
+esta bloqueado por un defecto SQL residual de una migracion ya aplicada. El aumento de
 evidencia no convierte planificacion ni rutas no implementadas en producto
 terminado.
 
-## Clasificacion de los 10 requisitos parciales
+## Clasificacion de los 9 requisitos parciales
 
 | Categoria | RF | Limite para declararlo verificado |
 |---|---|---|
-| Dependen directamente de V012 | RF-SAA-13, RF-USR-03 | Aplicacion autorizada de V012 y regresiones funcionales/negativas posteriores. |
+| Dependen directamente de V013 futura | RF-SAA-13 | Corregir la ambiguedad residual de `tenant_id`, con auditoria y regresiones funcionales/negativas posteriores. |
 | Requieren solo regresiones controladas adicionales | RF-SAA-02, RF-SAA-11, RF-AUT-11 | Reloj reproducible y pruebas de limites exactos, sin ampliar el contrato de 24 h/30 min. |
 | Requieren interfaz y modulos B02--B05 | RF-SAA-05, RF-CLI-03, RF-CLI-04 | Flujos verticales reales de los modulos dependientes, seguridad y E2E. |
 | Requieren decision o proyeccion adicional | RF-SAA-06, RF-USR-04 | Politica persistida de suspension por disputa y mecanismo autorizado para observar autoria, respectivamente. |
 
-La clasificacion no cambia los conteos: 25 requisitos tienen evidencia puntual
-y 10 permanecen parciales.
+La clasificacion no cambia los conteos: 26 requisitos tienen evidencia puntual
+y 9 permanecen parciales.
 
 ## Defectos bloqueantes descubiertos
 
-1. V004: `identity_auth.replace_staff_roles` no puede ejecutar el primer
-   `SELECT` porque `normalized_email` es ambiguo entre la columna y el
-   parametro de salida. La prueba diagnostica recibe `BadSqlGrammarException`.
-2. V005: `tenant_admin.review_administrative_recovery_for_session` no puede
-   crear la invitacion aprobada porque `principal_id` es ambiguo entre la
-   columna y el parametro de salida. La prueba diagnostica recibe
-   `BadSqlGrammarException`.
+V012 corrigio los defectos de V004/V005 que bloqueaban reemplazo de roles y la
+primera consulta de recuperacion. Sin embargo,
+`tenant_admin.review_administrative_recovery_for_session` conserva una
+ambiguedad en `on conflict (tenant_id, staff_principal_id, role_code)` al
+aprobar una recuperacion. La prueba recibe `BadSqlGrammarException` con
+`tenant_id is ambiguous`.
 
-No se modificaron V004/V005 ni se creo/aplico V012. Existe una propuesta
-preauditada fuera de Flyway en `docs/audits/G4-I01_V012_SQL_PROPUESTO.sql`;
-corregir los defectos aun requiere una migracion nueva, auditoria final de
-privilegios y autorizacion expresa.
+V012 esta aplicada y es inmutable. La correccion requiere una V013 futura,
+auditoria final de privilegios y autorizacion expresa; no se debe editar V012
+ni usar `flyway repair`.
 
 ## Evidencia complementaria
 
-- Backend B01: 28/28 superadas; transacciones de prueba con rollback.
+- Backend B01: 30 casos, 29 correctos y un error reproducible de recuperacion;
+  transacciones de prueba con rollback. La regresion focal de roles supera 3/3.
 - E2E post-cambio: `G4_I01_AUTHENTICATED_BROWSER_E2E=PASS` con STAFF Aurora y
   Bosque, perfil propio, denial cross-tenant 404, CSRF/logout SaaS y STAFF.
 - Angular: build superado y 1/1 prueba unitaria superada.

@@ -2,17 +2,23 @@
 
 ## Dictamen al 2026-10-23
 
+> Actualizacion de congelacion: V012 ya corrigio el reemplazo de roles y esa
+> operacion puede demostrarse con la regresion focal 3/3. La aprobacion de
+> recuperacion administrativa permanece excluida por la ambiguedad residual de
+> `tenant_id`; consultar `docs/status/G4-I01_PUNTO_REANUDACION_2026-10-23.md`.
+
 **La demostracion local es parcial y no esta autorizada ni lista para URL
 publica.** El vertical autentica STAFF, CLIENT y SaaS con datos sinteticos,
-mantiene aislamiento tenant y comprueba logout/CSRF. No representa B02-B06. Dos
-operaciones B01 que se podrian mostrar (reemplazo de roles y recuperacion
-administrativa aprobada) estan bloqueadas por defectos de V004/V005 y no deben
-demostrarse como funcionales.
+mantiene aislamiento tenant y comprueba logout/CSRF. No representa B02-B06. El
+reemplazo de roles ya esta verificado despues de V012; la aprobacion de
+recuperacion administrativa continua bloqueada por la ambiguedad residual de
+`tenant_id` y no debe demostrarse como funcional.
 
 ## Evidencia local vigente
 
-1. B01 integrado: 28/28 pruebas superadas; dos casos diagnostican, sin ocultar,
-   los defectos SQL de V004/V005.
+1. B01 integrado despues de V012: 30 casos ejecutados, 29 correctos y 1 error
+   conocido de recuperacion administrativa. No se declara B01 completo ni se
+   muestra esa ruta en la demostracion.
 2. Backend temporal y Angular local: E2E post-cambio
    `G4_I01_AUTHENTICATED_BROWSER_E2E=PASS` con login STAFF Aurora/Bosque,
    perfil propio, 404 cross-tenant, logout y CSRF SaaS/STAFF.
@@ -37,9 +43,8 @@ demostrarse como funcionales.
    funciones de mascotas, agenda, grooming, POS y pedidos pertenecen a bloques
    aun no implementados.
 
-No mostrar como exito: reemplazo de roles de una cuenta activa, aprobacion de
-recuperacion administrativa, notificacion real por correo, pagos, datos reales
-ni supuestas funciones de B02-B06.
+No mostrar como exito: aprobacion de recuperacion administrativa, notificacion
+real por correo, pagos, datos reales ni supuestas funciones de B02-B06.
 
 ## Propuesta tecnica S/ 0 para una futura URL publica
 

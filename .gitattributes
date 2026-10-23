@@ -4,3 +4,4 @@ arquitectura_veterinaria_v1_FINAL/** -text whitespace=cr-at-eol
 
 # V012 se audita por SHA-256 de bytes; conservarlo sin normalizacion de EOL.
 docs/audits/G4-I01_V012_SQL_PROPUESTO.sql -text
+database/migration/V012__g4_i01_qualify_remaining_identity_output_columns.sql -text

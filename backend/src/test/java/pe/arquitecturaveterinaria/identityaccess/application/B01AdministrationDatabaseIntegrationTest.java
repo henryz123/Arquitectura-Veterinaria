@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assumptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
@@ -372,8 +371,10 @@ class B01AdministrationDatabaseIntegrationTest {
 	}
 
 	@Test
-	void administrativeRecoveryApprovalIsBlockedByTheKnownV005AmbiguousOutputReference() {
+	void administrativeRecoveryApprovalCreatesOneInvitedTenantAdministratorAndCannotBeRepeated() {
 		String applicantEmail = syntheticEmail("recuperacion-administrativa");
+		String invitationToken = TokenHasher.newOpaqueToken();
+		String invitationPassword = generatedPassword();
 		SessionPrincipal saasAdministrator = saasAdministrator();
 
 		administrationService.requestAdministrativeRecovery("veterinaria-aurora", applicantEmail, "EVIDENCIA-SINTETICA-001");
@@ -381,10 +382,22 @@ class B01AdministrationDatabaseIntegrationTest {
 				.filter(candidate -> applicantEmail.equals(candidate.normalizedApplicantEmail())).findFirst().orElseThrow();
 		assertEquals("SOLICITADA", recovery.status());
 
-		BadSqlGrammarException exception = assertThrows(BadSqlGrammarException.class, () -> repository.reviewAdministrativeRecovery(
+		var reviewed = repository.reviewAdministrativeRecovery(
 				saasAdministrator.session().sessionTokenHash(), recovery.id(), "APROBADA", "Legitimidad sintetica confirmada", true,
+				TokenHasher.sha256(invitationToken), repository.transactionTimestamp().plus(Duration.ofHours(24)));
+		assertNotNull(reviewed.principalId());
+		assertEquals(recovery.tenantId(), reviewed.tenantId());
+		assertEquals(applicantEmail, reviewed.applicantEmail());
+		assertTrue(reviewed.executed());
+		assertEquals("EJECUTADA", administrationService.listAdministrativeRecoveries(saasAdministrator).stream()
+				.filter(candidate -> recovery.id().equals(candidate.id())).findFirst().orElseThrow().status());
+
+		administrationService.acceptStaffInvitation(invitationToken, invitationPassword);
+		assertEquals(List.of("ADMIN_VETERINARIA"), identityAccessService
+				.authenticateStaff("veterinaria-aurora", applicantEmail, invitationPassword).context().roles());
+		assertThrows(DataAccessException.class, () -> repository.reviewAdministrativeRecovery(
+				saasAdministrator.session().sessionTokenHash(), recovery.id(), "APROBADA", "No debe repetirse", true,
 				TokenHasher.sha256(TokenHasher.newOpaqueToken()), repository.transactionTimestamp().plus(Duration.ofHours(24))));
-		assertTrue(exception.getMostSpecificCause().getMessage().contains("principal_id"));
 	}
 
 	@Test
@@ -438,16 +451,39 @@ class B01AdministrationDatabaseIntegrationTest {
 	}
 
 	@Test
-	void staffRoleReplacementIsBlockedByTheKnownV004AmbiguousOutputReference() {
+	void staffRoleReplacementReplacesMultipleRolesAndRevokesExistingSessions() {
 		SessionPrincipal auroraAdministrator = auroraAdministrator();
 		String staffEmail = syntheticEmail("roles-reemplazados");
 		String staffPassword = generatedPassword();
 		StaffInvitationResult invitation = administrationService.inviteStaff(auroraAdministrator, staffEmail, List.of("RECEPCION"));
 		administrationService.acceptStaffInvitation(tokenFor(invitation.principalId()), staffPassword);
+		var previousSession = identityAccessService.authenticateStaff("veterinaria-aurora", staffEmail, staffPassword);
 
-		BadSqlGrammarException exception = assertThrows(BadSqlGrammarException.class, () -> repository.replaceStaffRoles(
-				auroraAdministrator.session().sessionTokenHash(), invitation.principalId(), "[\"CAJERO\"]"));
-		assertTrue(exception.getMostSpecificCause().getMessage().contains("normalized_email"));
+		var replacement = repository.replaceStaffRoles(auroraAdministrator.session().sessionTokenHash(), invitation.principalId(),
+				"[\"GROOMING\", \"CAJERO\"]");
+		assertEquals(invitation.principalId(), replacement.principalId());
+		assertEquals(staffEmail, replacement.normalizedEmail());
+		assertEquals("ACTIVA", replacement.status());
+		assertEquals(List.of("CAJERO", "GROOMING"), replacement.roles());
+		assertTrue(identityAccessService.resolve(previousSession.sessionToken()).isEmpty());
+		assertEquals(List.of("CAJERO", "GROOMING"), identityAccessService
+				.authenticateStaff("veterinaria-aurora", staffEmail, staffPassword).context().roles());
+	}
+
+	@Test
+	void staffRoleReplacementProtectsTheLastTenantAdministrator() {
+		SessionPrincipal auroraAdministrator = auroraAdministrator();
+		assertThrows(DataAccessException.class, () -> repository.replaceStaffRoles(auroraAdministrator.session().sessionTokenHash(),
+				auroraAdministrator.session().accountId(), "[\"RECEPCION\"]"));
+	}
+
+	@Test
+	void staffRoleReplacementRejectsCrossTenantTargets() {
+		SessionPrincipal auroraAdministrator = auroraAdministrator();
+		StaffInvitationResult auroraInvitation = administrationService.inviteStaff(auroraAdministrator, syntheticEmail("roles-otro-tenant"),
+				List.of("RECEPCION"));
+		assertThrows(DataAccessException.class, () -> repository.replaceStaffRoles(bosqueAdministrator().session().sessionTokenHash(),
+				auroraInvitation.principalId(), "[\"CAJERO\"]"));
 	}
 
 	@Test

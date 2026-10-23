@@ -2,10 +2,11 @@
 
 ## Estado y alcance
 
-**Estado: propuesta revisada, no aplicada.** Este documento no autoriza una
-migracion ni sustituye una autorizacion expresa. La fuente propuesta esta
-deliberadamente fuera de `database/migration/` para que Flyway no pueda
-descubrirla ni ejecutarla por accidente:
+**Estado historico: preauditoria previa a la aplicacion.** V012 fue aplicada
+posteriormente una sola vez en la base local exclusiva. Este documento conserva
+la revision anterior y no sustituye el estado postaplicacion registrado en
+`docs/status/G4-I01_PUNTO_REANUDACION_2026-10-23.md`. La fuente propuesta se
+conservo fuera de `database/migration/` hasta la autorizacion expresa:
 
 `docs/audits/G4-I01_V012_SQL_PROPUESTO.sql`
 
@@ -13,10 +14,13 @@ SHA-256 de los bytes revisados:
 
 `1C5BC424FD6139EEB306C15B41A13AADBB17E298C92FE5723503BD01B4507B08`
 
-Si se autoriza, esos mismos bytes se copiaran sin edicion a
+Al momento de esta preauditoria, esos mismos bytes quedaban pendientes de
+copiar sin edicion a
 `database/migration/V012__g4_i01_qualify_remaining_identity_output_columns.sql`.
-No existe aun una V012 en la ruta de Flyway y no se ha ejecutado SQL de V012,
-ni siquiera dentro de una transaccion de prueba.
+En ese momento no existia aun una V012 en la ruta de Flyway ni se habia
+ejecutado SQL de V012, ni siquiera dentro de una transaccion de prueba. V012
+fue aplicada despues una sola vez; el estado vigente se registra en
+`docs/status/G4-I01_PUNTO_REANUDACION_2026-10-23.md`.
 
 La revision parte de la base local exclusiva `arquitectura_veterinaria`, con
 V001 a V011 ya registradas. Las fuentes V001--V011 se mantienen inmutables.

@@ -9,6 +9,12 @@ superusuario ni una base ajena. Nunca modificar una fuente ya registrada.
 
 ## Estado vigente
 
+> Actualizacion 2026-10-23: V012 ya esta aplicada una sola vez con checksum
+> `-1132033441`; V013 no existe. Las viñetas historicas V001-V011 que siguen
+> abajo describen el estado previo. El estado de reanudacion vigente esta en
+> `docs/status/G4-I01_PUNTO_REANUDACION_2026-10-23.md`; no reutilizar el
+> launcher V011 ni crear/aplicar V013 sin autorizacion nueva.
+
 - V001–V011 están aplicadas exactamente una vez.
 - V011: `V011__g4_i01_serialize_password_recovery_tokens.sql`.
 - SHA-256 V011: `508A558B90F33C74B1382696214DC45D167E389DED59E0A7F10B63968700167E`.
@@ -48,20 +54,21 @@ y `GRANT` son transaccionales en PostgreSQL 18 local.
 
 ## Nueva versión
 
-Antes de V012 o posterior: comprobar historial, hashes fuente, propietarios,
+Antes de V013 o posterior: comprobar historial, hashes fuente, propietarios,
 ACL, RLS, atomicidad, dependencias, suite afectada y autorización específica.
 No se permite ejecutar una versión futura dentro de G4-I01.
 
-La unica V012 evaluada hasta ahora es una propuesta no ejecutable fuera de la
-ruta de Flyway: `docs/audits/G4-I01_V012_SQL_PROPUESTO.sql`, SHA-256
+V012 fue evaluada como propuesta fuera de la ruta de Flyway en
+`docs/audits/G4-I01_V012_SQL_PROPUESTO.sql`, SHA-256
 `1C5BC424FD6139EEB306C15B41A13AADBB17E298C92FE5723503BD01B4507B08`.
-No se debe copiar a `database/migration/` ni ejecutar hasta que exista una
-autorizacion expresa que cite ese hash. En ese momento se repetiran historial,
-roles, ACL, `search_path`, integridad V001--V011 y el control de base local
-exclusiva antes de invocar Flyway una sola vez.
+Despues de la autorizacion se copio sin edicion a la ruta canonica y se aplico
+una sola vez. No copiar, ejecutar ni preparar una version posterior sin una
+nueva autorizacion; antes de una eventual V013 se repetiran historial, roles,
+ACL, `search_path`, integridad V001--V012 y el control de base local exclusiva.
 
-Al cierre de G4-I01 se identificaron dos defectos de funciones aplicadas que
-requieren precisamente ese proceso: `identity_auth.replace_staff_roles` (V004)
-y `tenant_admin.review_administrative_recovery_for_session` (V005) tienen
-referencias ambiguas a parámetros de salida. No se corrigen editando una fuente
-ya registrada ni mediante `repair`.
+Antes de V012 se identificaron dos defectos de funciones aplicadas:
+`identity_auth.replace_staff_roles` (V004) y
+`tenant_admin.review_administrative_recovery_for_session` (V005). V012 corrigio
+el primero; el segundo conserva una ambiguedad residual de `tenant_id` y es el
+unico defecto documentado para una eventual V013. No se corrige editando una
+fuente ya registrada ni mediante `repair`.
