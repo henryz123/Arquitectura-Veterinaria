@@ -17,8 +17,23 @@ confirmar fue `1023be40d03a167883f4164ef35c1f0e309a6893`
   contenido declarados por `15_MANIFIESTO_SHA256.json`.
 - PostgreSQL local: 18.6; base exclusiva: `arquitectura_veterinaria`.
 - `av_app` y `av_schema_owner` no son superusuarios ni tienen `BYPASSRLS`.
-- Flyway registra una sola aplicacion correcta de cada V001 a V012. Checksum
-  de V012: `-1132033441`.
+- Flyway registra una sola aplicacion correcta de cada V001 a V012. Los
+  checksums registrados y la fuente asociada son:
+
+  | Version | Fuente | Checksum Flyway |
+  |---|---|---:|
+  | V001 | `V001__g4_i00_identity_tenant.sql` | `-1591591157` |
+  | V002 | `V002__g4_i01_saas_identity_and_administration.sql` | `446394828` |
+  | V003 | `V003__g4_i01_allow_global_opaque_sessions.sql` | `1092241323` |
+  | V004 | `V004__g4_i01_principal_security_definer_operations.sql` | `-1500295617` |
+  | V005 | `V005__g4_i01_harden_inherited_security_definer_privileges.sql` | `2127328539` |
+  | V006 | `V006__g4_i01_use_statement_time_for_bounded_tokens.sql` | `-1462244583` |
+  | V007 | `V007__g4_i01_qualify_staff_invitation_profile_columns.sql` | `-448126826` |
+  | V008 | `V008__g4_i01_qualify_staff_invitation_token_columns.sql` | `1084857806` |
+  | V009 | `V009__g4_i01_use_statement_time_for_resend_and_recovery_tokens.sql` | `-1078430691` |
+  | V010 | `V010__g4_i01_qualify_password_recovery_token_column.sql` | `72123246` |
+  | V011 | `V011__g4_i01_serialize_password_recovery_tokens.sql` | `-1337847367` |
+  | V012 | `V012__g4_i01_qualify_remaining_identity_output_columns.sql` | `-1132033441` |
 - V013 no existe en `database/migration/` ni en `flyway_schema_history`.
 
 ## V012 aplicada y alcance real
