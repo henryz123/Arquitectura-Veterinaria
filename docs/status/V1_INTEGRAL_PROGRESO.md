@@ -28,7 +28,7 @@ fuera de V1.
 | Fase | Estado | Resultado verificable siguiente |
 |---|---|---|
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
-| B01 — Administración, identidad y acceso | En curso | El defecto SQL de recuperación administrativa está resuelto y la suite backend está verde; faltan las interfaces reales autorizadas. |
+| B01 — Administración, identidad y acceso | En curso | El defecto SQL está resuelto, la suite backend está verde y ya existe el vertical Angular de equipo y roles; quedan los canales B01 de SaaS, clientes y recuperación. |
 | B02 — Propietarios, mascotas y clínica | Pendiente | Vertical navegador → API → PostgreSQL con aislamiento por tenant y permisos clínicos. |
 | B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
@@ -41,6 +41,7 @@ fuera de V1.
 |---|---|---|
 | V001–V012 | Aplicadas y validadas por Flyway | Sus archivos locales permanecen inmutables. |
 | V013 | Aplicada una vez | Redefinió exclusivamente `tenant_admin.review_administrative_recovery_for_session`; SHA-256 fuente `4B5F8EF040FCE0A0A8B97C33517E622090500C058A45B2FF45FCE171D2BE584D`, checksum Flyway `-57543870`. |
+| V014 | Aplicada una vez | Normalizó solo los dos nombres históricos de tenants sintéticos; SHA-256 fuente `60BAACFE40B1F0B545E093CF7283EFA0CC8E80743BCB033CE7B740F033D45E65`, checksum Flyway `505352357`. |
 
 ## Evidencia nueva de esta línea
 
@@ -49,15 +50,37 @@ fuera de V1.
   2026-10-23.
 - V013 se validó primero en `BEGIN`/`ROLLBACK`, se respaldó la base con un dump
   local verificable y después Flyway la aplicó una sola vez.
+- V014 se preejecutó en `BEGIN`/`ROLLBACK` (dos filas normalizables, cero tras
+  la preejecución y dos restablecidas después del rollback). El respaldo
+  recuperable previo quedó fuera de Git y fue validado con `pg_restore --list`;
+  tras Flyway, no quedan nombres con la secuencia literal y no hubo cambios de
+  privilegios ni de RLS.
 - `B01AdministrationDatabaseIntegrationTest`: 30 correctas, 0 fallos, 0
   errores con Flyway desactivado durante la prueba; no quedaron residuos del
   caso sintético de recuperación administrativa.
+- Vertical B01 de administración de tenant: la pantalla Angular autenticada
+  consulta el perfil y las cuentas STAFF reales del tenant y conecta invitación,
+  reemplazo de roles y desactivación a los endpoints protegidos existentes.
+- Regresión Playwright autenticada: correcta el 2026-10-23 para Aurora y
+  Bosque, con carga del panel, lista de STAFF, CSRF en cierre de sesión,
+  aislamiento entre tenants, sesión SaaS y viewport de 390 px sin
+  desplazamiento horizontal del documento. Las credenciales sintéticas se
+  leyeron solo en memoria.
+- Agent Browser 0.27.0: inspección pública correcta de la pantalla de acceso
+  en `127.0.0.1`; el árbol de accesibilidad detectó `main`, encabezado,
+  etiquetas nativas de correo/contraseña, botón de ingreso y cambio de
+  contexto. La versión instalada no expone un subcomando `a11y`; no se declara
+  una auditoría automática de accesibilidad como ejecutada.
+- El contrato OpenAPI ya no declara como bloqueadas las rutas de reemplazo de
+  roles ni de revisión de recuperación administrativa: ambas son compatibles
+  con V012 y V013 y tienen cobertura de integración B01.
 - La ejecución requiere seleccionar el JDK 21 local por proceso: el `PATH`
   global todavía resuelve una JRE 8. Es un riesgo de reproducibilidad pendiente,
   no una modificación del sistema.
 
 ## Próxima operación concreta
 
-Inspeccionar los flujos y rutas Angular existentes de B01, contrastarlos con los
-endpoints ya implementados y entregar el primer vertical administrativo real con
-pruebas de navegador, sin alterar el cambio preexistente de `angular.json`.
+Revisar secretos, integridad de la especificación V1 y el staging explícito;
+crear después el checkpoint local del vertical B01 de administración de tenant,
+sin alterar el cambio preexistente de `frontend/angular.json`. Continuar luego
+con los canales B01 de SaaS, clientes y recuperación.

@@ -197,8 +197,7 @@ paths:
     patch:
       tags: [tenant-administration]
       summary: Reemplaza los roles de una cuenta STAFF del mismo tenant
-      x-implementation-status: blocked-by-v004-sql-defect
-      x-known-blocker: V004 replace_staff_roles has an ambiguous normalized_email output reference; an audited new migration is required.
+      x-implementation-status: implemented-g4-i01
       security: [{ sessionCookie: [], csrfToken: [] }]
       parameters: [{ $ref: '#/components/parameters/PrincipalId' }]
       requestBody: { $ref: '#/components/requestBodies/StaffRolesRequest' }
@@ -314,8 +313,7 @@ paths:
     patch:
       tags: [tenant-administration]
       summary: Revisa una recuperación administrativa mediante sesión SaaS
-      x-implementation-status: blocked-by-v005-sql-defect
-      x-known-blocker: V005 review_administrative_recovery_for_session has an ambiguous principal_id output reference; an audited new migration is required.
+      x-implementation-status: implemented-g4-i01
       security: [{ sessionCookie: [], csrfToken: [] }]
       parameters: [{ $ref: '#/components/parameters/RecoveryId' }]
       requestBody: { $ref: '#/components/requestBodies/AdministrativeRecoveryReviewRequest' }

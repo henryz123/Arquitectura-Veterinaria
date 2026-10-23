@@ -1,32 +1,180 @@
-<main class="workspace-shell" aria-labelledby="workspace-title">
-  <header>
-    <div>
-      <p class="eyebrow">Sesión autenticada</p>
-      <h1 id="workspace-title">Espacio de trabajo</h1>
+<div class="workspace-shell" *ngIf="context() as session">
+  <a class="skip-link" href="#workspace-main">Saltar al contenido</a>
+  <aside class="sidebar" aria-label="Navegación administrativa">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">AV</span>
+      <div>
+        <strong>Arquitectura</strong>
+        <span>Veterinaria</span>
+      </div>
     </div>
-    <button type="button" (click)="logout()">Cerrar sesión</button>
-  </header>
+    <nav>
+      <a href="#summary" aria-current="page">Resumen</a>
+      <a href="#team" *ngIf="canManageStaff()">Equipo y roles</a>
+      <a href="#invitation" *ngIf="canManageStaff()">Nueva invitación</a>
+      <a href="#organization">Organización</a>
+    </nav>
+    <p class="sidebar-note">Sesión STAFF protegida por tenant.</p>
+  </aside>
 
-  <section aria-live="polite" class="workspace-content">
-    <p *ngIf="loading()">Cargando perfil autorizado…</p>
-    <p class="error" *ngIf="error()">{{ error() }}</p>
-    <article *ngIf="profile() as tenant">
-      <p class="label">Veterinaria autorizada</p>
-      <h2>{{ tenant.commercialName }}</h2>
-      <dl>
+  <div class="workspace-body">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Administración de veterinaria</p>
+        <p class="topbar-title">{{ session.tenant.commercialName }}</p>
+      </div>
+      <button class="button button-quiet" type="button" (click)="logout()">Cerrar sesión</button>
+    </header>
+
+    <main id="workspace-main" class="workspace-content" aria-labelledby="workspace-title">
+      <div class="page-heading" id="summary">
         <div>
-          <dt>Slug</dt>
-          <dd>{{ tenant.slug }}</dd>
+          <p class="eyebrow">Espacio autorizado</p>
+          <h1 id="workspace-title">Operación y equipo</h1>
+          <p>Gestiona la organización y sus cuentas laborales desde datos reales del tenant actual.</p>
         </div>
+        <span class="status-pill" [class.status-ok]="session.tenant.status === 'ACTIVO'">{{ statusLabel(session.tenant.status) }}</span>
+      </div>
+
+      <p class="loading" *ngIf="loading()">Cargando datos autorizados…</p>
+      <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
+      <p class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</p>
+
+      <section class="summary-grid" *ngIf="profile() as tenant">
+        <article class="summary-card">
+          <p>Veterinaria autorizada</p>
+          <strong>{{ tenant.commercialName }}</strong>
+          <span>{{ tenant.slug }}</span>
+        </article>
+        <article class="summary-card" *ngIf="canManageStaff()">
+          <p>Equipo activo</p>
+          <strong>{{ activeStaffCount() }}</strong>
+          <span>cuentas laborales activas</span>
+        </article>
+        <article class="summary-card">
+          <p>Rol efectivo</p>
+          <strong>{{ session.roles.includes('ADMIN_VETERINARIA') ? 'Administrador' : 'Colaborador' }}</strong>
+          <span>permisos confirmados por el servidor</span>
+        </article>
+      </section>
+
+      <section class="access-notice" *ngIf="!canManageStaff() && !loading()">
+        <h2>Vista limitada por rol</h2>
+        <p>Tu sesión puede consultar la organización, pero no tiene autorización para gestionar trabajadores o roles.</p>
+      </section>
+
+      <section class="management-grid" *ngIf="canManageStaff()">
+        <article class="panel" id="invitation">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Alta laboral</p>
+              <h2>Invitar trabajador</h2>
+            </div>
+            <span class="panel-caption">Enlace válido por 24 horas</span>
+          </div>
+          <form [formGroup]="invitationForm" (ngSubmit)="inviteStaff()" novalidate>
+            <div class="field-group">
+              <label for="invite-email">Correo institucional</label>
+              <input id="invite-email" type="email" autocomplete="email" formControlName="email"
+                [attr.aria-invalid]="inviteSubmitted() && invitationForm.controls.email.invalid"
+                [attr.aria-describedby]="inviteSubmitted() && invitationForm.controls.email.invalid ? 'invite-email-error' : null" />
+              <p class="field-error" id="invite-email-error" role="alert" *ngIf="inviteSubmitted() && invitationForm.controls.email.invalid">
+                Ingresa un correo válido para la cuenta laboral.
+              </p>
+            </div>
+            <div class="field-group">
+              <label for="invite-roles">Roles iniciales</label>
+              <select id="invite-roles" formControlName="roles" multiple size="5" aria-describedby="invite-roles-help">
+                <option *ngFor="let role of roleOptions" [ngValue]="role.code">{{ role.label }}</option>
+              </select>
+              <p id="invite-roles-help" class="helper">Usa Ctrl o Cmd para seleccionar más de un rol.</p>
+            </div>
+            <button class="button button-primary" type="submit" [disabled]="actionPending()">
+              {{ actionPending() ? 'Registrando invitación…' : 'Registrar invitación' }}
+            </button>
+          </form>
+        </article>
+
+        <article class="panel" id="organization" *ngIf="profile() as tenant">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Organización</p>
+              <h2>Información del tenant</h2>
+            </div>
+          </div>
+          <dl class="details-list">
+            <div><dt>Nombre comercial</dt><dd>{{ tenant.commercialName }}</dd></div>
+            <div><dt>Identificador</dt><dd>{{ tenant.slug }}</dd></div>
+            <div><dt>Estado</dt><dd>{{ statusLabel(tenant.status) }}</dd></div>
+            <div><dt>Contexto</dt><dd>Una veterinaria por sesión</dd></div>
+          </dl>
+          <p class="panel-note">La API solo devuelve el perfil del tenant de la sesión. No se pueden consultar otras organizaciones desde esta vista.</p>
+        </article>
+      </section>
+
+      <section class="panel staff-panel" id="team" *ngIf="canManageStaff()">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Cuentas laborales</p>
+            <h2>Equipo, roles y estado</h2>
+          </div>
+          <span class="panel-caption">{{ staff().length }} cuentas en este tenant</span>
+        </div>
+        <div class="empty-state" *ngIf="!loading() && staff().length === 0">
+          <h3>No hay cuentas laborales para mostrar</h3>
+          <p>Registra una invitación para comenzar a construir el equipo de esta veterinaria.</p>
+        </div>
+        <div class="table-wrap" *ngIf="staff().length > 0">
+          <table>
+            <caption>Trabajadores del tenant actual</caption>
+            <thead>
+              <tr><th scope="col">Cuenta</th><th scope="col">Roles</th><th scope="col">Estado</th><th scope="col"><span class="visually-hidden">Acciones</span></th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let member of staff(); trackBy: trackStaff">
+                <td><strong>{{ member.email }}</strong><span class="id-hint">ID de cuenta protegido</span></td>
+                <td><span class="role-chip" *ngFor="let role of member.roles">{{ roleLabel(role) }}</span></td>
+                <td><span class="status-pill" [class.status-ok]="member.status === 'ACTIVA'">{{ statusLabel(member.status) }}</span></td>
+                <td class="row-actions">
+                  <button class="button button-secondary" type="button" (click)="editRoles(member)" [disabled]="actionPending()">Editar roles</button>
+                  <button class="button button-danger" type="button" (click)="requestDeactivation(member)" [disabled]="member.status !== 'ACTIVA' || actionPending()">Desactivar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="inline-dialog" *ngIf="selectedStaff() as member" aria-labelledby="roles-title">
         <div>
-          <dt>Estado</dt>
-          <dd>{{ tenant.status }}</dd>
+          <p class="eyebrow">Cambio de permisos</p>
+          <h2 id="roles-title">Actualizar roles de {{ member.email }}</h2>
+          <p>La validación del último administrador activo se mantiene en el servidor.</p>
         </div>
-      </dl>
-      <p>
-        Esta vista procede de la API protegida. No representa los módulos de negocio pendientes de
-        I01–I06.
-      </p>
-    </article>
-  </section>
-</main>
+        <form [formGroup]="rolesForm" (ngSubmit)="saveRoles()" novalidate>
+          <label for="edit-roles">Roles efectivos</label>
+          <select id="edit-roles" formControlName="roles" multiple size="5">
+            <option *ngFor="let role of roleOptions" [ngValue]="role.code">{{ role.label }}</option>
+          </select>
+          <p class="field-error" role="alert" *ngIf="rolesSubmitted() && rolesForm.controls.roles.value.length === 0">Selecciona al menos un rol.</p>
+          <div class="dialog-actions">
+            <button class="button button-primary" type="submit" [disabled]="actionPending()">Guardar roles</button>
+            <button class="button button-quiet" type="button" (click)="cancelRoleEdit()" [disabled]="actionPending()">Cancelar</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="inline-dialog danger-dialog" *ngIf="pendingDeactivation() as member" aria-labelledby="deactivation-title">
+        <div>
+          <p class="eyebrow">Acción sensible</p>
+          <h2 id="deactivation-title">¿Desactivar {{ member.email }}?</h2>
+          <p>El servidor revocará los accesos afectados y rechazará la operación si fuese el último administrador activo.</p>
+        </div>
+        <div class="dialog-actions">
+          <button class="button button-danger" type="button" (click)="confirmDeactivation()" [disabled]="actionPending()">Confirmar desactivación</button>
+          <button class="button button-quiet" type="button" (click)="cancelDeactivation()" [disabled]="actionPending()">Conservar cuenta</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>

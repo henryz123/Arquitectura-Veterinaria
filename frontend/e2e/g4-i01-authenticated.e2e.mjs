@@ -61,13 +61,21 @@ try {
   await page.getByRole('button', { name: 'Ingresar' }).click();
 
   await page.waitForURL(`${baseUrl}/workspace`);
-  await assert.doesNotReject(() => page.getByRole('heading', { name: 'Espacio de trabajo' }).waitFor());
-  const tenantName = page.locator('.workspace-content article h2');
+  await assert.doesNotReject(() => page.getByRole('heading', { name: 'Operación y equipo' }).waitFor());
+  const tenantName = page.locator('.summary-card strong').first();
   await assert.doesNotReject(() => tenantName.waitFor());
   assert.equal(tenantProfileStatus, 200, 'the protected tenant profile must load successfully');
   assert.ok((await tenantName.textContent())?.trim(), 'the protected tenant profile must contain a commercial name');
   const auroraName = (await tenantName.textContent())?.trim();
+  await assert.doesNotReject(() => page.getByRole('table', { name: 'Trabajadores del tenant actual' }).waitFor());
   await captureEvidence(page, '02-workspace-aurora.png');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await assert.doesNotReject(() => page.getByRole('link', { name: 'Equipo y roles' }).waitFor());
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false,
+    'the tenant workspace must not overflow horizontally on a narrow viewport');
+  await captureEvidence(page, '03-workspace-aurora-mobile.png');
+  await page.setViewportSize({ width: 1280, height: 900 });
 
   const staffAccounts = await browserFetch(page, '/api/v1/staff-accounts');
   assert.equal(staffAccounts.status, 200, 'an authenticated STAFF session must access its B01 staff list');
@@ -78,10 +86,10 @@ try {
   const bosqueContext = await browser.newContext();
   const bosquePage = await bosqueContext.newPage();
   await loginStaff(bosquePage, 'veterinaria-bosque', process.env.AV_DEMO_BOSQUE_PASSWORD);
-  const bosqueName = (await bosquePage.locator('.workspace-content article h2').textContent())?.trim();
+  const bosqueName = (await bosquePage.locator('.summary-card strong').first().textContent())?.trim();
   assert.ok(bosqueName, 'Bosque must load its own protected profile');
   assert.notEqual(bosqueName, auroraName, 'Aurora and Bosque must retain independent tenant context');
-  await captureEvidence(bosquePage, '03-workspace-bosque.png');
+  await captureEvidence(bosquePage, '04-workspace-bosque.png');
   const crossTenantProfile = await browserFetch(bosquePage, '/api/v1/tenant-profile/veterinaria-aurora');
   assert.equal(crossTenantProfile.status, 404, 'Bosque must not learn whether Aurora profile is available');
   await logoutStaff(bosquePage);
@@ -129,7 +137,7 @@ async function loginStaff(page, tenantSlug, password) {
   await page.getByLabel('Contraseña').fill(password);
   await page.getByRole('button', { name: 'Ingresar' }).click();
   await page.waitForURL(`${baseUrl}/workspace`);
-  await page.getByRole('heading', { name: 'Espacio de trabajo' }).waitFor();
+  await page.getByRole('heading', { name: 'Operación y equipo' }).waitFor();
 }
 
 async function logoutStaff(page) {
