@@ -1,395 +1,646 @@
 openapi: 3.1.0
 info:
   title: Arquitectura - Veterinaria API
-  version: 0.1.0-design
+  version: 0.1.0-g4-i01
   description: |
-    Contrato de diseño G2 para el producto definitivo. No representa endpoints
-    desplegados ni autoriza implementación. Todo dato de ejemplo será sintético.
+    Contrato de las rutas B01 implementadas y verificadas en G4-I01. Los bloques
+    B02-B06 continúan en la especificación funcional V1 y no se representan aquí
+    como endpoints implementados. Todo dato de demostración es sintético.
 servers:
   - url: https://demo.invalid
-    description: Marcador no desplegado; producción servirá SPA y API en el mismo origen.
+    description: Marcador de una URL aún no desplegada.
 tags:
   - name: authentication
   - name: tenant-administration
-  - name: pet-care
-  - name: scheduling
-  - name: inventory
-  - name: commerce
 paths:
   /api/v1/auth/tenants/{tenantSlug}/staff-sessions:
     post:
       tags: [authentication]
-      summary: Inicia una sesión laboral para el contexto solicitado
+      summary: Inicia una sesión STAFF para el tenant solicitado
+      x-implementation-status: implemented-g4-i01
       x-v1-requirements: [RF-AUT-01, RF-AUT-04, RF-AUT-05, RF-AUT-10]
-      parameters:
-        - $ref: '#/components/parameters/TenantSlug'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/StaffLoginRequest' }
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      requestBody: { $ref: '#/components/requestBodies/LoginRequest' }
       responses:
         '201': { $ref: '#/components/responses/SessionCreated' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/auth/tenants/{tenantSlug}/client-sessions:
     post:
       tags: [authentication]
-      summary: Inicia una sesión de cliente para el contexto solicitado
+      summary: Inicia una sesión CLIENT para el tenant solicitado
+      x-implementation-status: implemented-g4-i01
       x-v1-requirements: [RF-CLI-01, RF-CLI-02, RF-CLI-03, RF-CLI-04]
-      parameters:
-        - $ref: '#/components/parameters/TenantSlug'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ClientLoginRequest' }
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      requestBody: { $ref: '#/components/requestBodies/LoginRequest' }
       responses:
         '201': { $ref: '#/components/responses/SessionCreated' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/auth/saas-sessions:
+    post:
+      tags: [authentication]
+      summary: Inicia una sesión administrativa SaaS sin contexto tenant
+      x-implementation-status: implemented-g4-i01
+      requestBody: { $ref: '#/components/requestBodies/LoginRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/SessionCreated' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/auth/session:
     delete:
       tags: [authentication]
       summary: Revoca la sesión actual
+      x-implementation-status: implemented-g4-i01
       x-v1-requirements: [RF-AUT-02, RF-AUT-13]
       security: [{ sessionCookie: [], csrfToken: [] }]
       responses:
-        '204': { description: Sesión revocada }
+        '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfRejected' }
   /api/v1/session-context:
     get:
       tags: [authentication]
       summary: Consulta el contexto mínimo de la sesión actual
-      x-g4-i00-support: true
+      x-implementation-status: implemented-g4-i01
       security: [{ sessionCookie: [] }]
       responses:
-        '200':
-          description: Contexto de sesión sin secretos
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SessionContextResponse' }
+        '200': { $ref: '#/components/responses/SessionContextResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
   /api/v1/tenant-profile/{tenantSlug}:
     get:
       tags: [tenant-administration]
-      summary: Consulta el perfil mínimo del tenant propio
-      x-g4-i00-support: true
+      summary: Consulta el perfil del tenant propio
+      x-implementation-status: implemented-g4-i01
       security: [{ sessionCookie: [] }]
-      parameters:
-        - $ref: '#/components/parameters/TenantSlug'
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
-        '200':
-          description: Perfil propio visible para la sesión
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/TenantProfileResponse' }
+        '200': { $ref: '#/components/responses/TenantProfileResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-  /api/v1/tenants:
+  /api/v1/tenant-registrations:
     post:
       tags: [tenant-administration]
       summary: Registra una solicitud de veterinaria
+      x-implementation-status: implemented-g4-i01
       x-v1-requirements: [RF-SAA-01, RF-SAA-02, RF-SAA-09, RF-SAA-11]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/TenantRegistrationRequest' }
+      requestBody: { $ref: '#/components/requestBodies/TenantRegistrationRequest' }
       responses:
-        '201': { $ref: '#/components/responses/Created' }
+        '201': { $ref: '#/components/responses/RegistrationCreated' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/tenant-registrations/{registrationId}/resumptions:
+    post:
+      tags: [tenant-administration]
+      summary: Reanuda una solicitud de veterinaria pendiente
+      x-implementation-status: implemented-g4-i01
+      parameters: [{ $ref: '#/components/parameters/RegistrationId' }]
+      requestBody: { $ref: '#/components/requestBodies/RegistrationResumptionRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/RegistrationAccepted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/email-verifications:
+    post:
+      tags: [authentication]
+      summary: Consume un enlace opaco de verificación de correo
+      x-implementation-status: implemented-g4-i01
+      requestBody: { $ref: '#/components/requestBodies/OneTimeTokenRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/VerificationCompleted' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/tenant-registrations/{registrationId}/initial-password:
+    post:
+      tags: [tenant-administration]
+      summary: Define la contraseña inicial tras verificar el correo de registro
+      x-implementation-status: implemented-g4-i01
+      security: [{ registrationGrantCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/RegistrationId' }]
+      requestBody: { $ref: '#/components/requestBodies/PasswordRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/TenantActivated' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/tenants/{tenantSlug}/client-registrations:
+    post:
+      tags: [tenant-administration]
+      summary: Solicita el registro CLIENT para una veterinaria activa
+      x-implementation-status: implemented-g4-i01
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      requestBody: { $ref: '#/components/requestBodies/ClientRegistrationRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/tenants/{tenantSlug}/client-verification-resends:
+    post:
+      tags: [tenant-administration]
+      summary: Reemite un enlace de verificación CLIENT sin revelar cuentas
+      x-implementation-status: implemented-g4-i01
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      requestBody: { $ref: '#/components/requestBodies/EmailRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/auth/password-recovery-requests:
+    post:
+      tags: [authentication]
+      summary: Solicita un enlace opaco de recuperación de contraseña
+      x-implementation-status: implemented-g4-i01
+      requestBody: { $ref: '#/components/requestBodies/PasswordRecoveryRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/auth/password-recoveries:
+    post:
+      tags: [authentication]
+      summary: Consume un enlace de recuperación y define una nueva contraseña
+      x-implementation-status: implemented-g4-i01
+      requestBody: { $ref: '#/components/requestBodies/RecoveryCompletionRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/staff-accounts:
+    get:
+      tags: [tenant-administration]
+      summary: Lista las cuentas STAFF del tenant de la sesión autorizada
+      x-implementation-status: implemented-g4-i01
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/StaffAccounts' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/staff-invitations:
+    post:
+      tags: [tenant-administration]
+      summary: Invita una cuenta STAFF con roles explícitos
+      x-implementation-status: implemented-g4-i01
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody: { $ref: '#/components/requestBodies/StaffInvitationRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/StaffInvitationCreated' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/staff-invitations/acceptance:
+    post:
+      tags: [tenant-administration]
+      summary: Acepta una invitación STAFF mediante enlace opaco
+      x-implementation-status: implemented-g4-i01
+      requestBody: { $ref: '#/components/requestBodies/RecoveryCompletionRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/staff-accounts/{principalId}/roles:
+    patch:
+      tags: [tenant-administration]
+      summary: Reemplaza los roles de una cuenta STAFF del mismo tenant
+      x-implementation-status: implemented-g4-i01
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/PrincipalId' }]
+      requestBody: { $ref: '#/components/requestBodies/StaffRolesRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/StaffAccountResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/staff-accounts/{principalId}/deactivations:
+    post:
+      tags: [tenant-administration]
+      summary: Desactiva una cuenta STAFF del mismo tenant
+      x-implementation-status: implemented-g4-i01
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/PrincipalId' }]
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/tenants:
+    get:
+      tags: [tenant-administration]
+      summary: Lista organizaciones para una sesión SaaS autorizada
+      x-implementation-status: implemented-g4-i01
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/Organizations' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/tenants/{tenantId}/suspensions:
+    post:
+      tags: [tenant-administration]
+      summary: Suspende una organización mediante sesión SaaS autorizada
+      x-implementation-status: implemented-g4-i01
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantId' }]
+      requestBody: { $ref: '#/components/requestBodies/TenantStatusChangeRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/tenants/{tenantId}/reactivations:
+    post:
+      tags: [tenant-administration]
+      summary: Reactiva una organización mediante sesión SaaS autorizada
+      x-implementation-status: implemented-g4-i01
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantId' }]
+      requestBody: { $ref: '#/components/requestBodies/TenantStatusChangeRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/ruc-reviews:
+    post:
+      tags: [tenant-administration]
+      summary: Solicita la revisión de un RUC sin requerir sesión
+      x-implementation-status: implemented-g4-i01
+      requestBody: { $ref: '#/components/requestBodies/RucReviewRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
         '422': { $ref: '#/components/responses/ValidationError' }
     get:
       tags: [tenant-administration]
-      summary: Lista organizaciones con proyección administrativa autorizada
-      x-v1-requirements: [RF-SAA-04, RF-SAA-10]
-      security: [{ sessionCookie: [], csrfToken: [] }]
-      responses:
-        '200': { $ref: '#/components/responses/Collection' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-  /api/v1/owners:
-    get:
-      tags: [pet-care]
-      summary: Lista propietarios del tenant autorizado
-      x-v1-requirements: [RF-B02-001, RF-B02-016]
+      summary: Lista revisiones de RUC para una sesión SaaS autorizada
+      x-implementation-status: implemented-g4-i01
       security: [{ sessionCookie: [] }]
-      responses: { '200': { $ref: '#/components/responses/Collection' } }
-    post:
-      tags: [pet-care]
-      summary: Crea propietario presencial autorizado
-      x-v1-requirements: [RF-B02-001]
-      security: [{ sessionCookie: [], csrfToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/OwnerRequest' }
       responses:
-        '201': { $ref: '#/components/responses/Created' }
+        '200': { $ref: '#/components/responses/RucReviews' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-  /api/v1/pets:
-    post:
-      tags: [pet-care]
-      summary: Crea mascota con responsable principal
-      x-v1-requirements: [RF-B02-002, RF-B02-003, RF-B02-016]
+  /api/v1/ruc-reviews/{reviewId}:
+    patch:
+      tags: [tenant-administration]
+      summary: Resuelve una revisión de RUC con sesión SaaS autorizada
+      x-implementation-status: implemented-g4-i01
       security: [{ sessionCookie: [], csrfToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/PetRequest' }
-      responses: { '201': { $ref: '#/components/responses/Created' } }
-  /api/v1/clinical-episodes:
-    post:
-      tags: [pet-care]
-      summary: Registra episodio clínico o borrador según rol veterinario
-      x-v1-requirements: [RF-B02-008, RF-B02-009, RF-B02-012, RF-B02-013]
-      security: [{ sessionCookie: [], csrfToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ClinicalEpisodeRequest' }
+      parameters: [{ $ref: '#/components/parameters/ReviewId' }]
+      requestBody: { $ref: '#/components/requestBodies/RucReviewResolutionRequest' }
       responses:
-        '201': { $ref: '#/components/responses/Created' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-  /api/v1/appointments:
-    post:
-      tags: [scheduling]
-      summary: Solicita o confirma una cita conforme al rol y transición
-      x-v1-requirements: [RF-B03-003, RF-B03-004, RF-B03-005, RF-B03-006, RF-B03-007]
-      security: [{ sessionCookie: [], csrfToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/AppointmentRequest' }
-      responses:
-        '201': { $ref: '#/components/responses/Created' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
-  /api/v1/products:
-    get:
-      tags: [inventory]
-      summary: Lista productos internos autorizados
-      x-v1-requirements: [RF-B04-001, RF-B04-012, RF-B04-014]
-      security: [{ sessionCookie: [] }]
-      responses: { '200': { $ref: '#/components/responses/Collection' } }
+  /api/v1/tenants/{tenantSlug}/administrative-recoveries:
     post:
-      tags: [inventory]
-      summary: Crea producto controlado
-      x-v1-requirements: [RF-B04-001, RF-B04-002, RF-B04-003]
-      security: [{ sessionCookie: [], csrfToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ProductRequest' }
-      responses: { '201': { $ref: '#/components/responses/Created' } }
-  /api/v1/pos-sales:
-    post:
-      tags: [commerce]
-      summary: Registra venta presencial idempotente
-      x-v1-requirements: [RF-B04-004, RF-B04-005, RF-B04-007, RF-B04-009, RF-B04-015, RF-B06-004]
-      security: [{ sessionCookie: [], csrfToken: [] }]
-      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/PosSaleRequest' }
+      tags: [tenant-administration]
+      summary: Solicita recuperación administrativa sin requerir sesión
+      x-implementation-status: implemented-g4-i01
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      requestBody: { $ref: '#/components/requestBodies/AdministrativeRecoveryRequest' }
       responses:
-        '201': { $ref: '#/components/responses/Created' }
-        '409': { $ref: '#/components/responses/Conflict' }
-  /api/v1/public/tenants/{tenantSlug}/catalog:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/administrative-recoveries:
     get:
-      tags: [commerce]
-      summary: Consulta catálogo público de veterinaria activa
-      x-v1-requirements: [RF-B05-001, RF-B05-017]
-      parameters:
-        - name: tenantSlug
-          in: path
-          required: true
-          schema: { type: string, minLength: 1, maxLength: 80 }
-      responses: { '200': { $ref: '#/components/responses/Collection' }, '404': { $ref: '#/components/responses/NotFound' } }
-  /api/v1/orders:
-    post:
-      tags: [commerce]
-      summary: Crea pedido privado con snapshot monetario
-      x-v1-requirements: [RF-B05-002, RF-B05-003, RF-B05-004, RF-B05-019]
+      tags: [tenant-administration]
+      summary: Lista recuperaciones administrativas para una sesión SaaS autorizada
+      x-implementation-status: implemented-g4-i01
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/AdministrativeRecoveries' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/administrative-recoveries/{recoveryId}:
+    patch:
+      tags: [tenant-administration]
+      summary: Revisa una recuperación administrativa mediante sesión SaaS
+      x-implementation-status: implemented-g4-i01
       security: [{ sessionCookie: [], csrfToken: [] }]
-      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/OrderRequest' }
-      responses: { '201': { $ref: '#/components/responses/Created' }, '422': { $ref: '#/components/responses/ValidationError' } }
-  /api/v1/orders/{orderId}/confirmations:
-    post:
-      tags: [commerce]
-      summary: Confirma pedido y solicita decremento atómico de stock
-      x-v1-requirements: [RF-B05-005, RF-B05-006, RF-B05-007, RF-B05-020, RF-B06-003]
-      security: [{ sessionCookie: [], csrfToken: [] }]
-      parameters:
-        - $ref: '#/components/parameters/OrderId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      responses: { '200': { $ref: '#/components/responses/Success' }, '409': { $ref: '#/components/responses/Conflict' } }
+      parameters: [{ $ref: '#/components/parameters/RecoveryId' }]
+      requestBody: { $ref: '#/components/requestBodies/AdministrativeRecoveryReviewRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/client-space:
+    get:
+      tags: [tenant-administration]
+      summary: Consulta el espacio mínimo de una sesión CLIENT
+      x-implementation-status: implemented-g4-i01
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ClientSpaceResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 components:
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: AV_SESSION }
+    registrationGrantCookie: { type: apiKey, in: cookie, name: AV_REGISTRATION_GRANT }
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
   parameters:
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: true
-      schema: { type: string, minLength: 16, maxLength: 128 }
-    OrderId:
-      name: orderId
-      in: path
-      required: true
-      schema: { type: string, format: uuid }
     TenantSlug:
       name: tenantSlug
       in: path
       required: true
       description: Selector de contexto o recurso; nunca concede autoridad por sí mismo.
       schema: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+    TenantId: { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+    RegistrationId: { name: registrationId, in: path, required: true, schema: { type: string, format: uuid } }
+    PrincipalId: { name: principalId, in: path, required: true, schema: { type: string, format: uuid } }
+    ReviewId: { name: reviewId, in: path, required: true, schema: { type: string, format: uuid } }
+    RecoveryId: { name: recoveryId, in: path, required: true, schema: { type: string, format: uuid } }
+  requestBodies:
+    LoginRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
+    TenantRegistrationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TenantRegistrationRequest' } } } }
+    RegistrationResumptionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RegistrationResumptionRequest' } } } }
+    OneTimeTokenRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OneTimeTokenRequest' } } } }
+    PasswordRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PasswordRequest' } } } }
+    ClientRegistrationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClientRegistrationRequest' } } } }
+    EmailRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EmailRequest' } } } }
+    PasswordRecoveryRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PasswordRecoveryRequest' } } } }
+    RecoveryCompletionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RecoveryCompletionRequest' } } } }
+    StaffInvitationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StaffInvitationRequest' } } } }
+    StaffRolesRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StaffRolesRequest' } } } }
+    TenantStatusChangeRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TenantStatusChangeRequest' } } } }
+    RucReviewRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RucReviewRequest' } } } }
+    RucReviewResolutionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RucReviewResolutionRequest' } } } }
+    AdministrativeRecoveryRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdministrativeRecoveryRequest' } } } }
+    AdministrativeRecoveryReviewRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdministrativeRecoveryReviewRequest' } } } }
   schemas:
-    StaffLoginRequest:
+    LoginRequest:
       type: object
       required: [email, password]
       properties:
-        email: { type: string, format: email, example: personal@veterinaria-sintetica.test }
+        email: { type: string, format: email }
         password: { type: string, format: password, writeOnly: true }
-    ClientLoginRequest:
-      allOf: [{ $ref: '#/components/schemas/StaffLoginRequest' }]
+    TenantProfile:
+      type: object
+      required: [slug, commercialName, status]
+      properties:
+        slug: { type: string }
+        commercialName: { type: string }
+        status: { type: string }
     SessionContext:
       type: object
       required: [accountType, tenant, roles]
       properties:
-        accountType: { type: string, enum: [STAFF, CLIENT] }
+        accountType: { type: string, enum: [SAAS, STAFF, CLIENT] }
         tenant:
-          type: object
-          required: [slug, commercialName, status]
-          properties:
-            slug: { type: string }
-            commercialName: { type: string }
-            status: { type: string, enum: [ACTIVO, SUSPENDIDO] }
-        roles:
-          type: array
-          items: { type: string }
-    SessionContextResponse:
-      type: object
-      required: [data]
-      properties:
-        data: { $ref: '#/components/schemas/SessionContext' }
-    TenantProfileResponse:
-      type: object
-      required: [data]
-      properties:
-        data:
-          type: object
-          required: [slug, commercialName, status]
-          properties:
-            slug: { type: string }
-            commercialName: { type: string }
-            status: { type: string, enum: [ACTIVO, SUSPENDIDO] }
+          oneOf:
+            - $ref: '#/components/schemas/TenantProfile'
+            - type: 'null'
+        roles: { type: array, items: { type: string } }
     LoginResult:
       type: object
       required: [csrfToken, context]
       properties:
-        csrfToken:
-          type: string
-          description: Token anti-CSRF ligado a la sesión; Angular lo conserva solo en memoria y lo transmite en X-CSRF-Token para mutaciones.
+        csrfToken: { type: string, description: Token anti-CSRF ligado a la sesión y entregado solo en la respuesta de inicio. }
         context: { $ref: '#/components/schemas/SessionContext' }
     TenantRegistrationRequest:
       type: object
-      required: [commercialName, administratorEmail]
+      required: [commercialName, commercialAddress, commercialPhone, commercialEmail, initialAdministratorEmail]
       properties:
         commercialName: { type: string, minLength: 2, maxLength: 160 }
-        administratorEmail: { type: string, format: email }
-        ruc: { type: string, pattern: '^[0-9]{11}$' }
-    OwnerRequest:
+        commercialAddress: { type: string, minLength: 3, maxLength: 240 }
+        commercialPhone: { type: string, minLength: 5, maxLength: 40 }
+        commercialEmail: { type: string, format: email }
+        initialAdministratorEmail: { type: string, format: email }
+        ruc: { type: string }
+    RegistrationResumptionRequest:
       type: object
-      required: [displayName]
-      properties: { displayName: { type: string, minLength: 1, maxLength: 160 } }
-    PetRequest:
+      required: [initialAdministratorEmail]
+      properties: { initialAdministratorEmail: { type: string, format: email } }
+    OneTimeTokenRequest:
       type: object
-      required: [name, ownerId]
+      required: [token]
+      properties: { token: { type: string, writeOnly: true } }
+    PasswordRequest:
+      type: object
+      required: [password]
+      properties: { password: { type: string, format: password, writeOnly: true } }
+    ClientRegistrationRequest:
+      type: object
+      required: [email, password]
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        ownerId: { type: string, format: uuid }
-    ClinicalEpisodeRequest:
+        email: { type: string, format: email }
+        password: { type: string, format: password, writeOnly: true }
+    EmailRequest:
       type: object
-      required: [petId, reason, assessment]
-      properties:
-        petId: { type: string, format: uuid }
-        reason: { type: string, minLength: 1 }
-        assessment: { type: string, minLength: 1 }
-        appointmentId: { type: [string, 'null'], format: uuid }
-    AppointmentRequest:
+      required: [email]
+      properties: { email: { type: string, format: email } }
+    PasswordRecoveryRequest:
       type: object
-      required: [petId, startsAt, endsAt]
+      required: [accountType, email]
       properties:
-        petId: { type: string, format: uuid }
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time }
-    ProductRequest:
+        accountType: { type: string, enum: [SAAS, STAFF, CLIENT] }
+        tenantSlug: { type: [string, 'null'], description: Requerido por el flujo STAFF o CLIENT según la regla de negocio. }
+        email: { type: string, format: email }
+    RecoveryCompletionRequest:
       type: object
-      required: [name, pricePen]
+      required: [token, password]
       properties:
-        name: { type: string, minLength: 1, maxLength: 160 }
-        pricePen: { type: string, pattern: '^[0-9]+\\.[0-9]{2}$' }
-    PosSaleRequest:
+        token: { type: string, writeOnly: true }
+        password: { type: string, format: password, writeOnly: true }
+    StaffInvitationRequest:
       type: object
-      required: [lines, paymentMethod]
+      required: [email, roles]
       properties:
-        lines: { type: array, minItems: 1, items: { type: object } }
-        paymentMethod: { type: string, enum: [MANUAL_CASH, MANUAL_TRANSFER, MANUAL_OTHER] }
-    OrderRequest:
+        email: { type: string, format: email }
+        roles: { type: array, minItems: 1, items: { type: string, minLength: 1 } }
+    StaffRolesRequest:
       type: object
-      required: [lines, fulfillmentMethod]
+      required: [roles]
+      properties: { roles: { type: array, minItems: 1, items: { type: string, minLength: 1 } } }
+    TenantStatusChangeRequest:
+      type: object
+      required: [reason, confirmed]
       properties:
-        lines: { type: array, minItems: 1, items: { type: object } }
-        fulfillmentMethod: { type: string, enum: [RECOJO, DELIVERY] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        confirmed: { type: boolean }
+    RucReviewRequest:
+      type: object
+      required: [ruc, requesterEmail, contactChannel, reason]
+      properties:
+        ruc: { type: string }
+        requesterEmail: { type: string, format: email }
+        contactChannel: { type: string, minLength: 3, maxLength: 254 }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    RucReviewResolutionRequest:
+      type: object
+      required: [status, reason, releaseRuc, confirmed]
+      properties:
+        status: { type: string }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        releaseRuc: { type: boolean }
+        confirmed: { type: boolean }
+    AdministrativeRecoveryRequest:
+      type: object
+      required: [applicantEmail, evidenceReference]
+      properties:
+        applicantEmail: { type: string, format: email }
+        evidenceReference: { type: string, minLength: 3, maxLength: 300 }
+    AdministrativeRecoveryReviewRequest:
+      type: object
+      required: [status, reason, legitimacyChecked]
+      properties:
+        status: { type: string }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        legitimacyChecked: { type: boolean }
+    VerificationStatus:
+      type: object
+      required: [status, accountType, relatedId]
+      properties:
+        status: { type: string }
+        accountType: { type: string, enum: [SAAS, STAFF, CLIENT] }
+        relatedId: { type: string, format: uuid }
+    RegistrationResult:
+      type: object
+      required: [registrationId, status]
+      properties:
+        registrationId: { type: string, format: uuid }
+        status: { type: string }
+        rucReservedUntil: { type: [string, 'null'], format: date-time }
+    ActivationResult:
+      type: object
+      required: [tenantId, tenantSlug, commercialName]
+      properties:
+        tenantId: { type: string, format: uuid }
+        tenantSlug: { type: string }
+        commercialName: { type: string }
+    StaffInvitationResult:
+      type: object
+      required: [principalId, status, roles]
+      properties:
+        principalId: { type: string, format: uuid }
+        status: { type: string }
+        roles: { type: array, items: { type: string } }
+    StaffAccountView:
+      type: object
+      required: [principalId, email, status, roles]
+      properties:
+        principalId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        status: { type: string }
+        roles: { type: array, items: { type: string } }
+    Organization:
+      type: object
+      required: [id, commercialName, ruc, commercialAddress, commercialPhone, commercialEmail, registeredAt, status]
+      properties:
+        id: { type: string, format: uuid }
+        commercialName: { type: string }
+        ruc: { type: string }
+        commercialAddress: { type: string }
+        commercialPhone: { type: string }
+        commercialEmail: { type: string, format: email }
+        registeredAt: { type: string, format: date-time }
+        status: { type: string }
+    RucReview:
+      type: object
+      required: [id, ruc, requesterEmail, normalizedRequesterEmail, contactChannel, requestReason, status]
+      properties:
+        id: { type: string, format: uuid }
+        ruc: { type: string }
+        requesterEmail: { type: string, format: email }
+        normalizedRequesterEmail: { type: string, format: email }
+        contactChannel: { type: string }
+        requestReason: { type: string }
+        status: { type: string }
+        resolutionReason: { type: [string, 'null'] }
+        resolvedByPrincipalId: { type: [string, 'null'], format: uuid }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        affectedTenantId: { type: [string, 'null'], format: uuid }
+    AdministrativeRecovery:
+      type: object
+      required: [id, tenantId, applicantEmail, normalizedApplicantEmail, evidenceReference, status]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        applicantEmail: { type: string, format: email }
+        normalizedApplicantEmail: { type: string, format: email }
+        evidenceReference: { type: string }
+        status: { type: string }
+        decisionReason: { type: [string, 'null'] }
+        reviewedByPrincipalId: { type: [string, 'null'], format: uuid }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+    ClientSpace:
+      type: object
+      required: [tenantSlug, commercialName, message]
+      properties:
+        tenantSlug: { type: string }
+        commercialName: { type: string }
+        message: { type: string }
+    Data:
+      type: object
+      required: [data]
+      properties: { data: {} }
     Error:
       type: object
       required: [error]
       properties:
         error:
           type: object
-          required: [code, message, traceId]
+          required: [code, message, traceId, fieldErrors]
           properties:
             code: { type: string }
             message: { type: string }
             traceId: { type: string }
             fieldErrors: { type: array, items: { type: object } }
-    Data:
-      type: object
-      required: [data]
-      properties: { data: {} }
   responses:
-    Success: { description: Operación válida, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
-    Created: { description: Recurso creado, headers: { Location: { schema: { type: string } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
+    Accepted: { description: Solicitud aceptada sin revelar información adicional. }
+    NoContent: { description: Operación completada sin cuerpo de respuesta. }
     SessionCreated:
-      description: Sesión creada mediante cookie HttpOnly; no expone el token opaco de sesión.
+      description: Sesión creada mediante cookie HttpOnly; el token opaco de sesión no se expone.
       headers:
-        Set-Cookie:
-          description: Cookie AV_SESSION HttpOnly, SameSite=Lax y Secure en producción.
-          schema: { type: string }
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [data]
-            properties:
-              data: { $ref: '#/components/schemas/LoginResult' }
-    Collection: { description: Colección paginada, content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } } }
-    Unauthorized: { description: Sesión ausente o inválida, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    Forbidden: { description: Operación no autorizada, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    NotFound: { description: Recurso inexistente o no visible, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    Conflict: { description: 'Conflicto de estado, concurrencia o idempotencia', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    ValidationError: { description: Validación semántica, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    RateLimited: { description: Límite de intentos, headers: { Retry-After: { schema: { type: integer } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        Set-Cookie: { description: 'Cookie AV_SESSION HttpOnly, SameSite=Lax y Secure en producción.', schema: { type: string } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Data' } } }
+    SessionContextResponse:
+      description: Contexto de sesión sin secretos.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/SessionContext' } } } } }
+    TenantProfileResponse:
+      description: Perfil del tenant propio.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/TenantProfile' } } } } }
+    RegistrationCreated:
+      description: Solicitud de tenant creada.
+      headers: { Location: { schema: { type: string } } }
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/RegistrationResult' } } } } }
+    RegistrationAccepted:
+      description: Solicitud de reanudación aceptada.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/RegistrationResult' } } } } }
+    VerificationCompleted:
+      description: Enlace de verificación consumido; puede establecer AV_REGISTRATION_GRANT solo para completar el registro.
+      headers: { Set-Cookie: { schema: { type: string } } }
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/VerificationStatus' } } } } }
+    TenantActivated:
+      description: Tenant activado y cookie de registro invalidada.
+      headers: { Set-Cookie: { schema: { type: string } } }
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ActivationResult' } } } } }
+    StaffAccounts:
+      description: Cuentas STAFF visibles en el tenant autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/StaffAccountView' } } } } } }
+    StaffInvitationCreated:
+      description: Invitación STAFF creada.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/StaffInvitationResult' } } } } }
+    StaffAccountResponse:
+      description: Cuenta STAFF actualizada.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/StaffAccountView' } } } } }
+    Organizations:
+      description: Organizaciones visibles para la administración SaaS.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/Organization' } } } } } }
+    RucReviews:
+      description: Revisiones de RUC visibles para la administración SaaS.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/RucReview' } } } } } }
+    AdministrativeRecoveries:
+      description: Recuperaciones administrativas visibles para la administración SaaS.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/AdministrativeRecovery' } } } } } }
+    ClientSpaceResponse:
+      description: Espacio mínimo de cliente.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClientSpace' } } } } }
+    Unauthorized: { description: 'Sesión ausente, inválida o grant de registro ausente.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: 'Operación no autorizada para el rol o tenant efectivo.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    CsrfRejected: { description: 'Token CSRF ausente o inválido.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    CsrfOrForbidden: { description: 'Token CSRF inválido o autorización insuficiente.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: 'Recurso inexistente o no visible.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: 'Conflicto de estado o concurrencia.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    ValidationError: { description: 'Validación semántica fallida.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    RateLimited: { description: 'Límite de intentos alcanzado.', headers: { Retry-After: { schema: { type: integer } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

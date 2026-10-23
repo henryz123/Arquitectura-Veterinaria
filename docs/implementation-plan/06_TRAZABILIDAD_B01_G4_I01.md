@@ -5,7 +5,7 @@
 Esta matriz cubre los 35 requisitos de B01 de
 `arquitectura_veterinaria_v1_FINAL/B01_ADMINISTRACION_SAAS_Y_AUTENTICACION.md`.
 No altera la especificación funcional inmutable ni declara un requisito cerrado
-solo por existir código. El estado refleja evidencia local del 2026-10-22.
+solo por existir código. El estado refleja evidencia local vigente al 2026-10-23.
 
 Estados: **Verificado puntual** (prueba real acotada), **Parcial** (evidencia
 incompleta) y **No verificado** (sin evidencia suficiente).
@@ -29,7 +29,7 @@ incompleta) y **No verificado** (sin evidencia suficiente).
 | RF-SAA-13 | No verificado | El bootstrap privado crea el primer administrador; la recuperación administrativa excepcional sigue sin prueba de legitimidad, decisión y credencial del titular. |
 | RF-AUT-01 | Verificado puntual | Autenticación STAFF y CLIENT contextual. |
 | RF-AUT-02 | Verificado puntual | HTTP real: logout sin CSRF devuelve 403, con token devuelve 204 y el contexto posterior devuelve 401 para SaaS y STAFF. |
-| RF-AUT-03 | Verificado puntual | V010, vigencia >30 min rechazada y token de un uso. |
+| RF-AUT-03 | Verificado puntual | V011 serializa la emisión; `COMMIT_2`, `COMMIT_5`, expiración exacta de 30 min, invalidación previa y uso único superaron en conexiones reales. |
 | RF-AUT-04 | Parcial | Contextos y estados acotados; faltan todos los estados denegados. |
 | RF-AUT-05 | Verificado puntual | Dos CLIENT con igual correo en Aurora/Bosque conservan sesiones y credenciales independientes. |
 | RF-AUT-06 | Verificado puntual | Bootstrap privado ejecutado una vez bajo `av_schema_owner`; estado/admin `1/1`, segundo intento rechazado y sin ruta HTTP pública. |
@@ -37,9 +37,9 @@ incompleta) y **No verificado** (sin evidencia suficiente).
 | RF-AUT-08 | Verificado puntual | Recuperación de Aurora no modifica cuenta independiente de Bosque con mismo correo. |
 | RF-AUT-09 | Verificado puntual | Verificación y grant inicial se consumen una sola vez. |
 | RF-AUT-10 | Verificado puntual | Sesiones conservan tipo de cuenta, tenant y roles. |
-| RF-AUT-11 | Parcial | Invitación, roles, consumo único y reenvío cubiertos; faltan variantes. |
+| RF-AUT-11 | Parcial | Invitación, roles, consumo único y reenvío cubiertos; V011 eliminó la carrera de recuperación, pero faltan variantes de invitación. |
 | RF-AUT-12 | Verificado puntual | `LoginAttemptThrottleTest` (2) pasó dentro de la suite backend final. |
-| RF-AUT-13 | Parcial | Logout HTTP invalida sesiones y suspensión/reactivación prueba el aislamiento de autenticación; falta probar una sesión activa revocada y el cambio integral de contraseña. |
+| RF-AUT-13 | Parcial | Logout HTTP invalida sesiones y suspensión/reactivación prueba el aislamiento; V011 cubre cambio de contraseña con enlace, pero falta matriz completa de revocación de sesiones activas. |
 | RF-USR-01 | Verificado puntual | Invitación laboral sintética en Aurora. |
 | RF-USR-02 | Verificado puntual | Aceptación, contraseña y autenticación del trabajador. |
 | RF-USR-03 | Verificado puntual | Roles múltiples y protección del último administrador. |
@@ -62,21 +62,23 @@ incompleta) y **No verificado** (sin evidencia suficiente).
 B01 ejecutó 17 pruebas: 17 superadas, sin omisiones. El backend completo
 ejecutó 23: 23 superadas, sin omisiones. Las pruebas HTTP reales cubrieron
 sesión SaaS y STAFF, CSRF, logout y la denegación de perfil tenant/administración
-laboral para SaaS. Flyway validó V001–V010 contra la base local sin aplicar
-una migración nueva.
+laboral para SaaS. Flyway validó V001–V011 contra la base local y registró V011
+una sola vez con el hash auditado.
 
-Redocly CLI 2.67.1 validó formalmente la sintaxis semántica OpenAPI 3.1. El
-contrato conserva drift funcional: no describe aún 23 endpoints B01 reales y
-modela de forma incompleta la sesión SaaS. La validación del documento no se
-interpreta como conformidad de implementación.
+Redocly validó formalmente OpenAPI 3.1. El contraste fuente→contrato halló 29
+operaciones de controlador y 29 operaciones contractuales, sin diferencias;
+incluye las 23 operaciones B01 y las seis de sesión/contexto. La validez del
+documento no se interpreta como evidencia de requisitos B01 no probados.
 
-La E2E autenticada real Angular → Spring Boot → PostgreSQL superó login STAFF,
+La E2E autenticada previa Angular → Spring Boot → PostgreSQL superó login STAFF,
 carga de perfil tenant protegido, logout con `X-CSRF-Token` y denegación de
 `/workspace` tras revocar la sesión. Playwright Core 1.58.2 reutilizó el
 Chromium instalado por Agent Browser; las credenciales quedaron solo en el
-entorno del proceso. Agent Browser 0.27.0 sigue bloqueándose al cerrar su
-sesión local, por lo que no se declara una auditoría propia de ese CLI como
-superada.
+entorno del proceso. La reejecución del 2026-10-23 quedó bloqueada porque
+Angular no expuso el puerto local tras dos arranques temporales y un diagnóstico
+de 64 s; no se declara una nueva E2E superada. Agent Browser 0.27.0 sigue
+bloqueándose al cerrar su sesión local, por lo que no se declara una auditoría
+propia de ese CLI como superada.
 
 ## Revisión individual de los 16 RF incompletos
 
@@ -92,14 +94,13 @@ superada.
 | RF-SAA-12 | No se verificó la liberación excepcional con justificación, aviso y traza sin transferencia de datos. | Pendiente procedimiento excepcional. |
 | RF-SAA-13 | No existe evidencia de recuperación administrativa excepcional con legitimidad y credencial creada por el titular. | Fuera del vertical actual; requiere expediente y aprobación posterior. |
 | RF-AUT-04 | Se cubren algunos estados suspendidos/contextuales, no todas las combinaciones de no verificada, desactivada y tenant suspendido. | Pendiente matriz de estados negativa. |
-| RF-AUT-11 | Vencimientos y reenvío tienen cobertura parcial; la auditoría concurrente con COMMIT detectó dos recuperaciones activas utilizables. | Riesgo crítico pendiente; no declarar cerrado. |
-| RF-AUT-13 | Logout y parte de suspensión están cubiertos, pero falta prueba completa de revocación de sesiones activas ante todos los disparadores. | Pendiente tras corregir concurrencia. |
+| RF-AUT-11 | V011 corrigió la emisión concurrente de recuperación; persisten variantes de invitación y reenvío que no se han ejercitado. | Parcial por evidencia funcional incompleta. |
+| RF-AUT-13 | Logout y parte de suspensión están cubiertos; V011 prueba recuperación con invalidación de enlaces, pero no todos los disparadores de revocación de sesión. | Parcial por matriz de sesiones pendiente. |
 | RF-USR-04 | Se protege el último administrador, pero no hay evidencia integral de desactivación, revocación y conservación de autoría. | Pendiente caso completo. |
 | RF-USR-05 | No se probó el mismo correo laboral en dos tenants con credenciales, roles y sesiones separadas. | Pendiente prueba multi-tenant. |
 | RF-CLI-03 | Se separan autenticación y roles, pero las funciones/datos propios del portal dependen de B02–B05 no implementados. | Parcial por alcance protegido. |
 | RF-CLI-04 | La recuperación es aislada por tenant, pero no hay datos privados del portal B02–B05 contra los cuales ejecutar la negativa. | Parcial por alcance protegido. |
 
-G4-I01 permanece parcial: 16 RF siguen parciales/no verificados y el control de
-concurrencia de recuperación tiene un defecto reproducido. No se autorizó ni se
-aplicó V011; la corrección debe pasar por una nueva propuesta de migración y
-pruebas de regresión antes de continuar a G4-I02.
+G4-I01 permanece parcial: 16 RF siguen parciales/no verificados. La carrera de
+recuperación fue corregida y verificada por V011, pero ello no autoriza G4-I02
+ni convierte el alcance B01 pendiente en completado.

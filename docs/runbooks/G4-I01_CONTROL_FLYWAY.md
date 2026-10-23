@@ -3,17 +3,18 @@
 ## Regla principal
 
 Este runbook aplica solo a `arquitectura_veterinaria`. La aplicación y pruebas
-ordinarias mantienen Flyway desactivado; una migración necesita revisión de SQL,
+ordinarias mantienen Flyway desactivado. Una migración requiere revisión de SQL,
 autorización expresa y el rol `av_schema_owner`. No usar `repair`, `clean`,
 superusuario ni una base ajena. Nunca modificar una fuente ya registrada.
 
-## Estado actual
+## Estado vigente
 
-- V001–V010 están aplicadas exactamente una vez y Flyway validó las diez.
-- V010: `V010__g4_i01_qualify_password_recovery_token_column.sql`.
-- SHA-256 de V010: `AC3DF14997C5BD83E989E1AB97E4F4863636F850EC58AA185E979BCDD99CCFB3`.
-- Checksum Flyway de V010: `72123246`.
-- Flyway queda `false` por defecto y su target defensivo es `010`.
+- V001–V011 están aplicadas exactamente una vez.
+- V011: `V011__g4_i01_serialize_password_recovery_tokens.sql`.
+- SHA-256 V011: `508A558B90F33C74B1382696214DC45D167E389DED59E0A7F10B63968700167E`.
+- Checksum Flyway V011: `-1337847367`.
+- `application.yml` mantiene Flyway en `false` y target defensivo `010`.
+  El target por defecto no autoriza ni aplica V011.
 
 ## Identidades locales
 
@@ -33,15 +34,19 @@ Set-Location backend
 .\mvnw.cmd test
 ```
 
-El target no autoriza una migración: solo limita un opt-in explícito.
+## Evidencia de V011 ya aplicada
+
+`scripts/invoke-authorized-flyway-v011.cmd` fue el launcher acotado empleado
+para la autorización ya consumida: exige URL, roles y target `011`, activa
+Flyway solo en su proceso y ejecuta la prueba de migración autorizada. No debe
+reutilizarse para migraciones nuevas ni interpretarse como permiso permanente.
+
+El dry-run previo se ejecutó con `BEGIN`, carga de V011 y `ROLLBACK`; confirmó
+que el `DO`, índice único parcial, dos redefiniciones, `ALTER OWNER`, `REVOKE`
+y `GRANT` son transaccionales en PostgreSQL 18 local.
 
 ## Nueva versión
 
-Antes de V011 o posterior: comprobar historial, hash fuente, propietario, ACL,
-RLS, transaccionalidad, suite afectada y autorización específica.
-`scripts/invoke-authorized-flyway-v010.cmd` es evidencia histórica: fija target
-`010`, exige roles/URL exactos y usa `setlocal`; no sirve para otra versión.
-
-El launcher `.ps1` histórico no se usa si Windows aplica su política de
-ejecución; no se debe eludir esa política. Los launchers `.cmd` acotados son el
-procedimiento documentado para versiones ya autorizadas.
+Antes de V012 o posterior: comprobar historial, hashes fuente, propietarios,
+ACL, RLS, atomicidad, dependencias, suite afectada y autorización específica.
+No se permite ejecutar una versión futura dentro de G4-I01.

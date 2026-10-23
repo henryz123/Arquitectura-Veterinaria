@@ -2,41 +2,40 @@
 
 ## Controles verificados
 
-| Control | Resultado | Evidencia 2026-10-22 |
+| Control | Resultado vigente | Evidencia |
 |---|---|---|
-| Historial Flyway | V001–V010: diez filas exitosas, una por versión; V010 checksum `72123246`. | Launcher V010 y catálogo local. |
-| Fuente V010 | SHA-256 `AC3DF14997C5BD83E989E1AB97E4F4863636F850EC58AA185E979BCDD99CCFB3`. | Hash previo y revisión ECC independiente. |
-| Roles | `av_app` y `av_schema_owner` no son superusuarios ni tienen `BYPASSRLS`. | `pg_roles`. |
-| Definición V010 | `request_password_recovery`: `av_schema_owner`, `SECURITY DEFINER`, `search_path=pg_catalog, tenancy, identity_auth, tenant_admin, pg_temp`. | `pg_proc` posterior. |
-| ACL V010 | `PUBLIC=false`, `av_app=true`; sin SELECT/UPDATE directo de `av_app` sobre identidad o SaaS. | `has_function_privilege` y `has_table_privilege`. |
-| Aislamiento de recuperación | Dos CLIENT sintéticos del mismo correo mantienen credenciales independientes en Aurora/Bosque. | Regresión B01 transaccional. |
-| RLS y acceso indirecto | RLS activo en tablas contextuales; identidad sensible solo por funciones acotadas para `av_app`. | Catálogo local. |
-| Bootstrap SaaS | Función privada `SECURITY INVOKER`; `PUBLIC` y `av_app` sin EXECUTE; una única inicialización SaaS existe. | V004 SHA-256 `C4431C604864C75742F00F75BAFE28FB219196A7526B9A01AD7A100A0D21E2FF`, conteos `1/1` y segundo intento rechazado. |
-| Flyway ordinario | Desactivado por defecto; target defensivo `010`. | `application.yml` y runbook. |
+| Historial Flyway | V001–V011 aplicadas una vez y exitosas; V011 checksum `-1337847367`. | Consulta local de `flyway_schema_history` posterior a Flyway. |
+| Fuente V011 | SHA-256 `508A558B90F33C74B1382696214DC45D167E389DED59E0A7F10B63968700167E`. | Preflight, dry-run transaccional y archivo aplicado. |
+| Roles | `av_app` y `av_schema_owner` no son superusuarios ni tienen `BYPASSRLS`. | `pg_roles` local. |
+| Funciones V011 | `request_password_recovery` y `reset_password_with_recovery`: owner `av_schema_owner`, `SECURITY DEFINER`, `search_path=pg_catalog, tenancy, identity_auth, tenant_admin, pg_temp`. | `pg_proc` posterior. |
+| ACL V011 | `PUBLIC=false`, `av_app=true`; `av_app` sin DML/lectura directa de `principal` ni `one_time_token`. | `has_function_privilege` y `has_table_privilege`. |
+| Integridad recuperación | Índice parcial único activo y cero grupos duplicados tras aplicar. | Catálogo PostgreSQL y regresión concurrente. |
+| RLS y acceso indirecto | RLS/contexto se conservan; las identidades sensibles siguen expuestas solo mediante funciones parametrizadas. | Catálogo local y pruebas B01. |
+| Bootstrap SaaS | Privado, `SECURITY INVOKER`, sin `PUBLIC` ni `av_app`; una sola inicialización. | Catálogo y regresión B01 previa. |
+| Flyway ordinario | Desactivado por defecto; target defensivo continúa en `010`. | `application.yml` y runbook; V011 solo por launcher autorizado. |
 
 ## Resultados reales
 
-| Grupo | Resultado | Limitación |
+| Grupo | Resultado | Limitación conocida |
 |---|---|---|
-| Flyway V010 | Flyway validó formalmente las 10 migraciones; esquema local en V010 y sin migración nueva necesaria. | No sustituye pruebas de negocio. |
-| B01 | 17 pruebas: 17 superadas, sin omisiones. Incluye bootstrap autenticable, suspensión, reactivación y denegación de administración tenant a SaaS. | Las operaciones transaccionales de la suite se revierten. |
-| Backend completo | 23 pruebas: 23 superadas, sin omisiones. | Flyway permaneció desactivado durante la suite. |
-| Build Angular | `corepack pnpm run build` superado; bundle inicial 276.55 kB. | Requirió ejecución local fuera del sandbox por `spawn EPERM`. |
-| OpenAPI | Redocly CLI 2.67.1 validó formalmente `openapi-v1.yaml` como OpenAPI 3.1. | El documento sigue con drift: 23 endpoints B01 reales no están descritos y sesión SaaS es incompleta. |
-| E2E autenticado | Superado con Playwright Core 1.58.2 y Chromium instalado por Agent Browser: login STAFF, perfil protegido, logout CSRF y denegación posterior. | Agent Browser CLI 0.27.0 se bloquea al cerrar, por lo que su auditoría propia no se declara superada. |
-| CSRF HTTP | Superado. SaaS y STAFF: logout sin token 403, con token 204 y contexto posterior 401. | Ejecución HTTP real contra backend local con Flyway desactivado. |
-| Concurrencia de recuperación | Defecto reproducido con fixture aislado y `COMMIT`: dos conexiones `av_app` dejaron 2 tokens activos y ambos se consumieron secuencialmente; limpieza confirmada. | Riesgo crítico. No se creó V011 ni se modificó V001–V010. |
+| Flyway V011 | Validó 11 migraciones y aplicó V011 una vez, desde V010. | Advertencia no bloqueante de metadatos remotos Flyway (401); no sustituye pruebas de negocio. |
+| Concurrencia recuperación | `COMMIT_2`, `COMMIT_5`, aislamiento, rollback, fallo/rollback, expiración, reutilización, deadlock, repetición y limpieza: PASS. | La invariante está deliberadamente limitada a `PASSWORD_RECOVERY`. |
+| B01 | 17 pruebas: 17 superadas, sin omisiones. | No cubre por sí sola los 35 RF completos. |
+| Backend completo | 23 pruebas: 23 superadas, sin omisiones; Flyway desactivado durante la suite. | Advertencia no bloqueante de Mockito sobre agente dinámico. |
+| Build y prueba Angular | Última evidencia G4-I01: build superado y 1 prueba Angular superada. | V011 no modifica frontend; se revalida antes del commit de cierre. |
+| HTTP / CSRF | Logout SaaS y STAFF: sin token 403, con token 204 y contexto posterior 401. | V011 no cambia las rutas HTTP. |
+| OpenAPI | Redocly validó OpenAPI 3.1 y el contraste de rutas reportó 29 operaciones de controlador y 29 de contrato, sin diferencias. | El contrato cubre B01 implementado; B02–B06 siguen fuera de implementación. |
+| E2E autenticado | Evidencia previa: Playwright Core ejecutó login STAFF, perfil protegido, logout CSRF y denegación posterior. | La reejecución 2026-10-23 quedó bloqueada: Angular no expuso el puerto local tras dos arranques temporales y un diagnóstico de 64 s; no se declara una nueva E2E superada. Agent Browser CLI sigue bloqueado al cierre. |
 
 ## Riesgos activos
 
-1. La cuenta SaaS existe exclusivamente por el bootstrap privado; no se debe
-   crear otra por HTTP ni mediante `av_app`.
-2. La carrera de dos tokens activos está reproducida al hacer `COMMIT`: ambos
-   enlaces de recuperación fueron utilizables en el fixture aislado.
-3. El contrato OpenAPI es sintácticamente válido, pero no está alineado con
-   todos los endpoints B01 reales ni representa completamente la sesión SaaS.
-4. Agent Browser 0.27.0 continúa bloqueándose al cerrar sesiones locales;
-   Playwright compatible aportó la E2E, pero el CLI no tiene evidencia propia
-   de accesibilidad o regresión visual.
-5. G4-I01 permanece parcial: 16 de los 35 RF B01 siguen parciales o sin
-   verificar.
+1. `LocalNotificationMailbox` conserva enlaces opacos en memoria para el
+   entorno sintético local; debe sustituirse o aislarse antes de URL pública.
+2. Agent Browser 0.27.0 conserva procesos Chromium huérfanos y no aporta
+   evidencia propia de accesibilidad o regresión visual. Playwright es la
+   evidencia E2E disponible, no un reemplazo automático de una auditoría a11y.
+3. G4-I01 continúa parcial: 16 de 35 requisitos B01 permanecen parciales o no
+   verificados. La corrección V011 elimina la carrera, no cierra alcance B01 no
+   probado.
+4. No existe despliegue, URL pública ni remoto configurado; su preparación
+   exige revisión de secretos, licencias, datos sintéticos y autorización.
