@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { chromium } from 'playwright-core';
 
 const required = [
@@ -17,6 +19,12 @@ for (const key of required) {
 }
 
 const baseUrl = process.env.AV_E2E_BASE_URL.replace(/\/$/, '');
+const evidenceDirectory = process.env.AV_E2E_EVIDENCE_DIR
+  ? resolve(process.env.AV_E2E_EVIDENCE_DIR)
+  : null;
+if (evidenceDirectory) {
+  await mkdir(evidenceDirectory, { recursive: true });
+}
 const browser = await chromium.launch({
   executablePath: process.env.AV_E2E_CHROME_PATH,
   headless: true,
@@ -40,6 +48,7 @@ try {
 
   await page.goto(`${baseUrl}/login/veterinaria-aurora`, { waitUntil: 'networkidle' });
   await assert.doesNotReject(() => page.getByRole('main').waitFor());
+  await captureEvidence(page, '01-login-aurora.png');
   assert.equal(await page.locator('#email').evaluate((input) => input.labels?.length), 1, 'email must have a native label');
   assert.equal(await page.locator('#password').evaluate((input) => input.labels?.length), 1, 'password must have a native label');
   assert.equal(await page.locator('#email').getAttribute('aria-describedby'), null, 'a valid field must not reference an absent error');
@@ -58,6 +67,7 @@ try {
   assert.equal(tenantProfileStatus, 200, 'the protected tenant profile must load successfully');
   assert.ok((await tenantName.textContent())?.trim(), 'the protected tenant profile must contain a commercial name');
   const auroraName = (await tenantName.textContent())?.trim();
+  await captureEvidence(page, '02-workspace-aurora.png');
 
   const staffAccounts = await browserFetch(page, '/api/v1/staff-accounts');
   assert.equal(staffAccounts.status, 200, 'an authenticated STAFF session must access its B01 staff list');
@@ -71,6 +81,7 @@ try {
   const bosqueName = (await bosquePage.locator('.workspace-content article h2').textContent())?.trim();
   assert.ok(bosqueName, 'Bosque must load its own protected profile');
   assert.notEqual(bosqueName, auroraName, 'Aurora and Bosque must retain independent tenant context');
+  await captureEvidence(bosquePage, '03-workspace-bosque.png');
   const crossTenantProfile = await browserFetch(bosquePage, '/api/v1/tenant-profile/veterinaria-aurora');
   assert.equal(crossTenantProfile.status, 404, 'Bosque must not learn whether Aurora profile is available');
   await logoutStaff(bosquePage);
@@ -138,4 +149,10 @@ async function browserFetch(page, path, options = {}) {
     }
     return { status: response.status, body };
   }, { path, options });
+}
+
+async function captureEvidence(page, filename) {
+  if (evidenceDirectory) {
+    await page.screenshot({ path: resolve(evidenceDirectory, filename), fullPage: true });
+  }
 }
