@@ -27,6 +27,19 @@ public class B01JdbcRepository {
 		this.jdbcTemplate = jdbcTemplate;
 	}
 
+	/**
+	 * Returns PostgreSQL's transaction timestamp for a bounded-token operation.
+	 * The database functions enforce their maxima against the same transaction
+	 * timestamp, avoiding a clock-skew rejection at an otherwise valid boundary.
+	 */
+	public Instant transactionTimestamp() {
+		Timestamp value = jdbcTemplate.queryForObject("select current_timestamp", Timestamp.class);
+		if (value == null) {
+			throw new IllegalStateException("PostgreSQL did not return a transaction timestamp.");
+		}
+		return value.toInstant();
+	}
+
 	public RegistrationStart startTenantRegistration(Registration registration, String verificationTokenHash, Instant expiresAt) {
 		return jdbcTemplate.queryForObject("""
 				select registration_id, registration_status, ruc_reserved_until

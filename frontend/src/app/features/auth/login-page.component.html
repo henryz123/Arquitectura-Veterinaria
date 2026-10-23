@@ -13,9 +13,10 @@
         type="email"
         autocomplete="username"
         formControlName="email"
-        aria-describedby="email-help"
+        [attr.aria-describedby]="form.controls.email.touched && form.controls.email.invalid ? 'email-help' : null"
+        [attr.aria-invalid]="form.controls.email.touched && form.controls.email.invalid ? 'true' : null"
       />
-      <small id="email-help" *ngIf="form.controls.email.touched && form.controls.email.invalid"
+      <small id="email-help" role="alert" *ngIf="form.controls.email.touched && form.controls.email.invalid"
         >Ingresa un correo válido.</small
       >
 
@@ -25,15 +26,17 @@
         type="password"
         autocomplete="current-password"
         formControlName="password"
-        aria-describedby="password-help"
+        [attr.aria-describedby]="form.controls.password.touched && form.controls.password.invalid ? 'password-help' : null"
+        [attr.aria-invalid]="form.controls.password.touched && form.controls.password.invalid ? 'true' : null"
       />
       <small
         id="password-help"
+        role="alert"
         *ngIf="form.controls.password.touched && form.controls.password.invalid"
         >Ingresa tu contraseña.</small
       >
 
-      <p class="error" aria-live="polite" *ngIf="error()">{{ error() }}</p>
+      <p class="error" role="alert" *ngIf="error()">{{ error() }}</p>
       <button type="submit" [disabled]="submitting()">
         {{ submitting() ? 'Validando acceso…' : 'Ingresar' }}
       </button>

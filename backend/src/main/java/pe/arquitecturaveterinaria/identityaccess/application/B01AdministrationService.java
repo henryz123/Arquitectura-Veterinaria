@@ -51,16 +51,17 @@ public class B01AdministrationService {
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
 	public RegistrationResult registerTenant(TenantRegistrationCommand command) {
+		Instant transactionNow = repository.transactionTimestamp();
 		String ruc = normalizeOptionalRuc(command.ruc());
 		String initialEmail = CredentialNormalizer.normalizeEmail(command.initialAdministratorEmail());
 		String commercialEmail = CredentialNormalizer.normalizeEmail(command.commercialEmail());
-		Instant reservationExpiry = ruc == null ? null : Instant.now().plus(EMAIL_LINK_DURATION);
+		Instant reservationExpiry = ruc == null ? null : transactionNow.plus(EMAIL_LINK_DURATION);
 		Registration registration = new Registration(trim(command.commercialName()), trim(command.commercialAddress()),
 				trim(command.commercialPhone()), trim(command.commercialEmail()), commercialEmail,
 				trim(command.initialAdministratorEmail()), initialEmail, ruc, reservationExpiry);
 		String rawToken = TokenHasher.newOpaqueToken();
 		try {
-			var started = repository.startTenantRegistration(registration, TokenHasher.sha256(rawToken), Instant.now().plus(EMAIL_LINK_DURATION));
+			var started = repository.startTenantRegistration(registration, TokenHasher.sha256(rawToken), transactionNow.plus(EMAIL_LINK_DURATION));
 			acceptLocalLink(started.registrationId(), "REGISTRATION_EMAIL_VERIFICATION", rawToken);
 			return new RegistrationResult(started.registrationId(), started.status(), started.rucReservedUntil());
 		} catch (DuplicateKeyException exception) {
@@ -70,11 +71,12 @@ public class B01AdministrationService {
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
 	public RegistrationResult resumeRegistration(UUID registrationId, String initialAdministratorEmail) {
+		Instant transactionNow = repository.transactionTimestamp();
 		String rawToken = TokenHasher.newOpaqueToken();
 		try {
 			var resumed = repository.resumeTenantRegistration(registrationId,
 					CredentialNormalizer.normalizeEmail(initialAdministratorEmail), TokenHasher.sha256(rawToken),
-					Instant.now().plus(EMAIL_LINK_DURATION));
+					transactionNow.plus(EMAIL_LINK_DURATION));
 			acceptLocalLink(resumed.registrationId(), resumed.linkPurpose(), rawToken);
 			return new RegistrationResult(resumed.registrationId(), resumed.status(), resumed.rucReservedUntil());
 		} catch (org.springframework.dao.DataAccessException exception) {
@@ -84,10 +86,11 @@ public class B01AdministrationService {
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
 	public VerificationResult verifyEmailLink(String rawToken) {
+		Instant transactionNow = repository.transactionTimestamp();
 		String completionGrant = TokenHasher.newOpaqueToken();
 		try {
 			var verification = repository.verifyEmailLink(TokenHasher.sha256(rawToken), TokenHasher.sha256(completionGrant),
-					Instant.now().plus(COMPLETION_GRANT_DURATION));
+					transactionNow.plus(COMPLETION_GRANT_DURATION));
 			return new VerificationResult(verification.status(), verification.accountType(), verification.resourceId(),
 					verification.accountType() == AccountType.STAFF ? completionGrant : null);
 		} catch (org.springframework.dao.DataAccessException exception) {
@@ -112,12 +115,13 @@ public class B01AdministrationService {
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
 	public ClientRegistrationResult registerClient(String tenantSlug, String email, String password) {
+		Instant transactionNow = repository.transactionTimestamp();
 		validatePassword(password);
 		String normalizedEmail = CredentialNormalizer.normalizeEmail(email);
 		String rawToken = TokenHasher.newOpaqueToken();
 		try {
 			UUID principalId = repository.registerClient(tenantSlug, normalizedEmail, PASSWORD_ENCODER.encode(password),
-					TokenHasher.sha256(rawToken), Instant.now().plus(EMAIL_LINK_DURATION));
+					TokenHasher.sha256(rawToken), transactionNow.plus(EMAIL_LINK_DURATION));
 			acceptLocalLink(principalId, "CLIENT_EMAIL_VERIFICATION", rawToken);
 			return new ClientRegistrationResult(principalId, "PENDIENTE_VERIFICACION");
 		} catch (DuplicateKeyException exception) {
@@ -127,20 +131,22 @@ public class B01AdministrationService {
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
 	public void resendClientVerification(String tenantSlug, String email) {
+		Instant transactionNow = repository.transactionTimestamp();
 		String rawToken = TokenHasher.newOpaqueToken();
 		repository.resendClientVerification(tenantSlug, CredentialNormalizer.normalizeEmail(email), TokenHasher.sha256(rawToken),
-				Instant.now().plus(EMAIL_LINK_DURATION)).ifPresent(principalId ->
+				transactionNow.plus(EMAIL_LINK_DURATION)).ifPresent(principalId ->
 				acceptLocalLink(principalId, "CLIENT_EMAIL_VERIFICATION", rawToken));
 	}
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
 	public void requestPasswordRecovery(AccountType accountType, String tenantSlug, String email) {
+		Instant transactionNow = repository.transactionTimestamp();
 		if (accountType == AccountType.SAAS && tenantSlug != null) {
 			throw validation("tenantSlug", "El contexto global no usa tenant.");
 		}
 		String rawToken = TokenHasher.newOpaqueToken();
 		repository.requestPasswordRecovery(accountType, tenantSlug, CredentialNormalizer.normalizeEmail(email), TokenHasher.sha256(rawToken),
-				Instant.now().plus(PASSWORD_RECOVERY_DURATION)).ifPresent(target ->
+				transactionNow.plus(PASSWORD_RECOVERY_DURATION)).ifPresent(target ->
 				acceptLocalLink(target.principalId(), "PASSWORD_RECOVERY", rawToken));
 	}
 
@@ -156,13 +162,14 @@ public class B01AdministrationService {
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
 	public StaffInvitationResult inviteStaff(SessionPrincipal actor, String email, List<String> requestedRoles) {
+		Instant transactionNow = repository.transactionTimestamp();
 		requireTenantAdministrator(actor);
 		Set<String> roles = validRoles(requestedRoles);
 		String normalizedEmail = CredentialNormalizer.normalizeEmail(email);
 		String rawToken = TokenHasher.newOpaqueToken();
 		try {
 			var invitation = repository.inviteStaff(actor.session().sessionTokenHash(), normalizedEmail, rolesJson(roles),
-					TokenHasher.sha256(rawToken), Instant.now().plus(EMAIL_LINK_DURATION));
+					TokenHasher.sha256(rawToken), transactionNow.plus(EMAIL_LINK_DURATION));
 			acceptLocalLink(invitation.principalId(), "STAFF_INVITATION", rawToken);
 			return new StaffInvitationResult(invitation.principalId(), "INVITADA", invitation.roles());
 		} catch (org.springframework.dao.DataAccessException exception) {
@@ -282,6 +289,7 @@ public class B01AdministrationService {
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
 	public void reviewAdministrativeRecovery(SessionPrincipal actor, UUID recoveryId, String status, String reason, boolean legitimacyChecked) {
+		Instant transactionNow = repository.transactionTimestamp();
 		requireSaasAdministrator(actor);
 		if (!Set.of("VERIFICANDO", "INFO_REQUERIDA", "RECHAZADA", "APROBADA").contains(status)) {
 			throw validation("status", "El estado de revisión no es válido.");
@@ -292,7 +300,7 @@ public class B01AdministrationService {
 		String rawToken = TokenHasher.newOpaqueToken();
 		try {
 			var result = repository.reviewAdministrativeRecovery(actor.session().sessionTokenHash(), recoveryId, status, trim(reason),
-					legitimacyChecked, TokenHasher.sha256(rawToken), Instant.now().plus(EMAIL_LINK_DURATION));
+					legitimacyChecked, TokenHasher.sha256(rawToken), transactionNow.plus(EMAIL_LINK_DURATION));
 			if (result.executed()) {
 				acceptLocalLink(result.principalId(), "STAFF_INVITATION", rawToken);
 			}

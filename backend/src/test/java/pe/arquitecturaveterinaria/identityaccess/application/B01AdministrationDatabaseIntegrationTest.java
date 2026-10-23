@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assumptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
@@ -298,10 +299,214 @@ class B01AdministrationDatabaseIntegrationTest {
 		assertThrows(ApiException.class, () -> administrationService.listStaff(globalAdministrator));
 	}
 
+	@Test
+	void blocksDuplicateRucWithoutDisclosingTheOrganizationHoldingIt() {
+		String ruc = syntheticRuc();
+		administrationService.registerTenant(registrationCommand("Veterinaria Titular Sintetica", syntheticEmail("titular"), ruc));
+
+		ApiException exception = assertThrows(ApiException.class, () -> administrationService.registerTenant(
+				registrationCommand("Veterinaria Solicitante Sintetica", syntheticEmail("solicitante"), ruc)));
+
+		assertEquals("RUC_NOT_AVAILABLE", exception.code());
+		assertFalse(exception.getMessage().contains("Titular Sintetica"));
+		assertFalse(exception.getMessage().contains(ruc));
+	}
+
+	@Test
+	void preventsReusingTheInitialAdministratorEmailForAnotherTenantRegistration() {
+		String sharedInitialAdministratorEmail = syntheticEmail("administrador-inicial");
+		administrationService.registerTenant(registrationCommand("Veterinaria Inicial Uno", sharedInitialAdministratorEmail, syntheticRuc()));
+
+		ApiException exception = assertThrows(ApiException.class, () -> administrationService.registerTenant(
+				registrationCommand("Veterinaria Inicial Dos", sharedInitialAdministratorEmail, syntheticRuc())));
+
+		assertEquals("RUC_NOT_AVAILABLE", exception.code());
+		assertFalse(exception.getMessage().contains(sharedInitialAdministratorEmail));
+	}
+
+	@Test
+	void explicitRegistrationResumptionInvalidatesThePriorVerificationLink() {
+		String email = syntheticEmail("reanudacion");
+		RegistrationResult registration = administrationService.registerTenant(
+				registrationCommand("Veterinaria Reanudable", email, syntheticRuc()));
+		String firstToken = tokenFor(registration.registrationId());
+
+		RegistrationResult resumed = administrationService.resumeRegistration(registration.registrationId(), email);
+		String secondToken = tokenFor(registration.registrationId());
+
+		assertEquals(registration.registrationId(), resumed.registrationId());
+		assertNotEquals(firstToken, secondToken);
+		assertEquals("PENDIENTE_CONTRASENA", administrationService.verifyEmailLink(secondToken).status());
+		assertThrows(ApiException.class, () -> administrationService.verifyEmailLink(firstToken));
+	}
+
+	@Test
+	void processesAnAuditableExceptionalRucReleaseWithoutTransferringTheTenant() {
+		String ruc = syntheticRuc();
+		String holderEmail = syntheticEmail("titular-ruc");
+		String holderPassword = generatedPassword();
+		ActivationResult holder = activateTenant("Veterinaria RUC en Disputa", holderEmail, holderPassword, ruc);
+		SessionPrincipal saasAdministrator = saasAdministrator();
+
+		administrationService.requestRucReview(ruc, syntheticEmail("reclamante-ruc"), "correo-sintetico", "Evidencia sintetica suficiente");
+		var review = administrationService.listRucReviews(saasAdministrator).stream()
+				.filter(candidate -> ruc.equals(candidate.ruc())).findFirst().orElseThrow();
+		assertEquals("PENDIENTE", review.status());
+		assertThrows(ApiException.class, () -> administrationService.resolveRucReview(saasAdministrator, review.id(),
+				"ACREDITADA", "Resolucion sintetica acreditada", true, false));
+
+		administrationService.resolveRucReview(saasAdministrator, review.id(), "ACREDITADA",
+				"Resolucion sintetica acreditada", true, true);
+		var resolved = administrationService.listRucReviews(saasAdministrator).stream()
+				.filter(candidate -> review.id().equals(candidate.id())).findFirst().orElseThrow();
+		assertEquals("ACREDITADA", resolved.status());
+		assertEquals(holder.tenantId(), resolved.affectedTenantId());
+		assertThrows(ApiException.class, () -> identityAccessService.authenticateStaff(holder.tenantSlug(), holderEmail, holderPassword));
+
+		RegistrationResult successor = administrationService.registerTenant(
+				registrationCommand("Veterinaria Nueva Solicitante", syntheticEmail("nueva-ruc"), ruc));
+		assertNotNull(successor.registrationId());
+		assertThrows(ApiException.class, () -> identityAccessService.authenticateStaff(holder.tenantSlug(), holderEmail, holderPassword));
+		administrationService.reactivateTenant(saasAdministrator, holder.tenantId(), "Resolucion sintetica documentada", true);
+		assertFalse(identityAccessService.authenticateStaff(holder.tenantSlug(), holderEmail, holderPassword).sessionToken().isBlank());
+	}
+
+	@Test
+	void administrativeRecoveryApprovalIsBlockedByTheKnownV005AmbiguousOutputReference() {
+		String applicantEmail = syntheticEmail("recuperacion-administrativa");
+		SessionPrincipal saasAdministrator = saasAdministrator();
+
+		administrationService.requestAdministrativeRecovery("veterinaria-aurora", applicantEmail, "EVIDENCIA-SINTETICA-001");
+		var recovery = administrationService.listAdministrativeRecoveries(saasAdministrator).stream()
+				.filter(candidate -> applicantEmail.equals(candidate.normalizedApplicantEmail())).findFirst().orElseThrow();
+		assertEquals("SOLICITADA", recovery.status());
+
+		assertThrows(BadSqlGrammarException.class, () -> repository.reviewAdministrativeRecovery(
+				saasAdministrator.session().sessionTokenHash(), recovery.id(), "APROBADA", "Legitimidad sintetica confirmada", true,
+				TokenHasher.sha256(TokenHasher.newOpaqueToken()), repository.transactionTimestamp().plus(Duration.ofHours(24))));
+	}
+
+	@Test
+	void administrativeRecoveryRejectsApprovalWithoutHumanLegitimacyAttestation() {
+		SessionPrincipal saasAdministrator = saasAdministrator();
+		String applicantEmail = syntheticEmail("recuperacion-sin-atestacion");
+		administrationService.requestAdministrativeRecovery("veterinaria-aurora", applicantEmail, "EVIDENCIA-SINTETICA-002");
+		var recovery = administrationService.listAdministrativeRecoveries(saasAdministrator).stream()
+				.filter(candidate -> applicantEmail.equals(candidate.normalizedApplicantEmail())).findFirst().orElseThrow();
+
+		assertThrows(ApiException.class, () -> administrationService.reviewAdministrativeRecovery(saasAdministrator, recovery.id(),
+				"APROBADA", "Legitimidad no confirmada", false));
+	}
+
+	@Test
+	void blocksUnverifiedClientsAndRevokesOnlyTheDeactivatedStaffSession() {
+		String clientEmail = syntheticEmail("cliente-no-verificado");
+		String clientPassword = generatedPassword();
+		administrationService.registerClient("veterinaria-aurora", clientEmail, clientPassword);
+		assertThrows(ApiException.class, () -> identityAccessService.authenticateClient("veterinaria-aurora", clientEmail, clientPassword));
+
+		SessionPrincipal auroraAdministrator = auroraAdministrator();
+		String staffEmail = syntheticEmail("trabajador-desactivar");
+		String staffPassword = generatedPassword();
+		StaffInvitationResult invitation = administrationService.inviteStaff(auroraAdministrator, staffEmail, List.of("RECEPCION"));
+		administrationService.acceptStaffInvitation(tokenFor(invitation.principalId()), staffPassword);
+		var staffSession = identityAccessService.authenticateStaff("veterinaria-aurora", staffEmail, staffPassword);
+		var bosqueSession = identityAccessService.authenticateStaff("veterinaria-bosque", "administracion@demo.invalid",
+				System.getenv("AV_DEMO_BOSQUE_PASSWORD"));
+
+		administrationService.deactivateStaff(auroraAdministrator, invitation.principalId());
+
+		assertTrue(identityAccessService.resolve(staffSession.sessionToken()).isEmpty());
+		assertThrows(ApiException.class, () -> identityAccessService.authenticateStaff("veterinaria-aurora", staffEmail, staffPassword));
+		assertTrue(identityAccessService.resolve(bosqueSession.sessionToken()).isPresent());
+	}
+
+	@Test
+	void passwordRecoveryRevokesTheAffectedSession() {
+		String clientEmail = syntheticEmail("sesion-recuperacion");
+		String originalPassword = generatedPassword();
+		String replacementPassword = generatedPassword();
+		ClientRegistrationResult client = administrationService.registerClient("veterinaria-aurora", clientEmail, originalPassword);
+		administrationService.verifyEmailLink(tokenFor(client.principalId()));
+		var clientSession = identityAccessService.authenticateClient("veterinaria-aurora", clientEmail, originalPassword);
+		administrationService.requestPasswordRecovery(AccountType.CLIENT, "veterinaria-aurora", clientEmail);
+		administrationService.resetPassword(tokenFor(client.principalId()), replacementPassword);
+
+		assertTrue(identityAccessService.resolve(clientSession.sessionToken()).isEmpty());
+		assertFalse(identityAccessService.authenticateClient("veterinaria-aurora", clientEmail, replacementPassword).sessionToken().isBlank());
+	}
+
+	@Test
+	void staffRoleReplacementIsBlockedByTheKnownV004AmbiguousOutputReference() {
+		SessionPrincipal auroraAdministrator = auroraAdministrator();
+		String staffEmail = syntheticEmail("roles-reemplazados");
+		String staffPassword = generatedPassword();
+		StaffInvitationResult invitation = administrationService.inviteStaff(auroraAdministrator, staffEmail, List.of("RECEPCION"));
+		administrationService.acceptStaffInvitation(tokenFor(invitation.principalId()), staffPassword);
+
+		assertThrows(BadSqlGrammarException.class, () -> repository.replaceStaffRoles(
+				auroraAdministrator.session().sessionTokenHash(), invitation.principalId(), "[\"CAJERO\"]"));
+	}
+
+	@Test
+	void keepsSameStaffEmailIsolatedAcrossTenantsAfterOneAccountIsDeactivated() {
+		String email = syntheticEmail("trabajador-compartido");
+		String auroraPassword = generatedPassword();
+		String bosquePassword = generatedPassword();
+		StaffInvitationResult auroraInvitation = administrationService.inviteStaff(auroraAdministrator(), email, List.of("RECEPCION"));
+		StaffInvitationResult bosqueInvitation = administrationService.inviteStaff(bosqueAdministrator(), email, List.of("VETERINARIO"));
+		administrationService.acceptStaffInvitation(tokenFor(auroraInvitation.principalId()), auroraPassword);
+		administrationService.acceptStaffInvitation(tokenFor(bosqueInvitation.principalId()), bosquePassword);
+
+		var auroraSession = identityAccessService.authenticateStaff("veterinaria-aurora", email, auroraPassword);
+		var bosqueSession = identityAccessService.authenticateStaff("veterinaria-bosque", email, bosquePassword);
+		assertEquals(List.of("RECEPCION"), auroraSession.context().roles());
+		assertEquals(List.of("VETERINARIO"), bosqueSession.context().roles());
+		assertNotEquals(auroraSession.context().accountId(), bosqueSession.context().accountId());
+
+		administrationService.deactivateStaff(auroraAdministrator(), auroraInvitation.principalId());
+		assertTrue(identityAccessService.resolve(auroraSession.sessionToken()).isEmpty());
+		assertTrue(identityAccessService.resolve(bosqueSession.sessionToken()).isPresent());
+		assertFalse(identityAccessService.authenticateStaff("veterinaria-bosque", email, bosquePassword).sessionToken().isBlank());
+	}
+
+	@Test
+	void grantsTheCurrentClientSpaceOnlyToTheAuthenticatedClientContext() {
+		String email = syntheticEmail("espacio-cliente");
+		String password = generatedPassword();
+		ClientRegistrationResult registration = administrationService.registerClient("veterinaria-aurora", email, password);
+		administrationService.verifyEmailLink(tokenFor(registration.principalId()));
+		SessionPrincipal client = new SessionPrincipal(identityAccessService.authenticateClient("veterinaria-aurora", email, password).context());
+
+		assertEquals("veterinaria-aurora", administrationService.clientSpace(client).tenantSlug());
+		assertThrows(ApiException.class, () -> administrationService.clientSpace(auroraAdministrator()));
+	}
+
 	private SessionPrincipal auroraAdministrator() {
 		String password = System.getenv("AV_DEMO_AURORA_PASSWORD");
 		assertNotNull(password);
 		return new SessionPrincipal(identityAccessService.authenticateStaff("veterinaria-aurora", "administracion@demo.invalid", password).context());
+	}
+
+	private SessionPrincipal saasAdministrator() {
+		String email = System.getenv("AV_DEMO_SAAS_EMAIL");
+		String password = System.getenv("AV_DEMO_SAAS_PASSWORD");
+		Assumptions.assumeTrue(email != null && !email.isBlank() && password != null && !password.isBlank(),
+				"Requiere credenciales SaaS sinteticas locales.");
+		return new SessionPrincipal(identityAccessService.authenticateSaas(email, password).context());
+	}
+
+	private ActivationResult activateTenant(String commercialName, String initialAdministratorEmail, String password, String ruc) {
+		RegistrationResult registration = administrationService.registerTenant(
+				registrationCommand(commercialName, initialAdministratorEmail, ruc));
+		var verification = administrationService.verifyEmailLink(tokenFor(registration.registrationId()));
+		return administrationService.setInitialAdministratorPassword(registration.registrationId(), verification.completionGrant(), password);
+	}
+
+	private B01AdministrationService.TenantRegistrationCommand registrationCommand(String commercialName,
+			String initialAdministratorEmail, String ruc) {
+		return new B01AdministrationService.TenantRegistrationCommand(commercialName, "Calle Sintetica 100", "999999999",
+				"comercial-" + initialAdministratorEmail, initialAdministratorEmail, ruc);
 	}
 
 	private SessionPrincipal bosqueAdministrator() {
