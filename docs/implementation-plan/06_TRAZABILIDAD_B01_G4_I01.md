@@ -20,18 +20,18 @@ cuentan como exito funcional.
 | RF | Estado | Evidencia actual y limite |
 |---|---|---|
 | RF-SAA-01 | Verificado puntual | Registro, verificacion, activacion y autenticacion de tenant sintetico. |
-| RF-SAA-02 | Parcial | Se verificaron RUC valido, duplicado y reserva activa; faltan reloj controlable, vencimiento exacto y RUC opcional por el flujo completo. |
+| RF-SAA-02 | Parcial | Se verificaron RUC valido, duplicado y reserva activa; faltan reloj controlable, vencimiento exacto y RUC opcional por el flujo completo. Es una brecha de regresion, no requiere V012. |
 | RF-SAA-03 | Verificado puntual | Correo y contrasena inicial activan una sola veterinaria. |
 | RF-SAA-04 | Verificado puntual | SaaS lista solo los campos administrativos proyectados. |
-| RF-SAA-05 | Parcial | Suspension revoca sesiones y el release RUC bloquea el tenant; B02-B05 no existen para probar todas sus operaciones. |
-| RF-SAA-06 | Parcial | Reactivacion posterior a resolucion sintetica funciona y no repone el RUC; falta una politica persistida que distinga formalmente una suspension por disputa. |
+| RF-SAA-05 | Parcial | Suspension revoca sesiones y el release RUC bloquea el tenant; B02-B05 no existen para probar todas sus operaciones. Requiere interfaz y dependencias funcionales posteriores. |
+| RF-SAA-06 | Parcial | Reactivacion posterior a resolucion sintetica funciona y no repone el RUC; falta una politica persistida que distinga formalmente una suspension por disputa. Requiere decision y modelado posterior. |
 | RF-SAA-07 | Verificado puntual | RUC duplicado devuelve conflicto opaco, sin nombre ni RUC de la organizacion titular. |
 | RF-SAA-08 | Verificado puntual | Solicitud, listado y resolucion acreditada por SaaS se ejercitaron en transaccion. |
 | RF-SAA-09 | Verificado puntual | El correo de administrador inicial no puede iniciar otra solicitud. |
 | RF-SAA-10 | Verificado puntual | Proyeccion `Organization` limitada a los campos administrativos aprobados. |
-| RF-SAA-11 | Parcial | Reanudacion expresa invalida el enlace anterior; falta prueba reproducible del vencimiento exacto de 24 h. |
+| RF-SAA-11 | Parcial | Reanudacion expresa invalida el enlace anterior; falta prueba reproducible del vencimiento exacto de 24 h. Es una brecha de regresion, no requiere V012. |
 | RF-SAA-12 | Verificado puntual | Release excepcional exige confirmacion, suspende al titular, revoca su acceso y permite una nueva solicitud sin transferencia de datos. |
-| RF-SAA-13 | Parcial | Se verifica rechazo sin atestacion humana. La aprobacion legitima esta bloqueada por defecto SQL V005 documentado, por lo que no se afirma recuperacion completa. |
+| RF-SAA-13 | Parcial | Se verifica rechazo sin atestacion humana. La aprobacion legitima esta bloqueada por V005; la propuesta V012 esta preauditada pero no aplicada, por lo que no se afirma recuperacion completa. |
 | RF-AUT-01 | Verificado puntual | STAFF, CLIENT y SaaS autentican en su contexto. |
 | RF-AUT-02 | Verificado puntual | Logout HTTP con CSRF invalida el contexto posterior. |
 | RF-AUT-03 | Verificado puntual | V011 serializa recuperacion; se probaron caducidad, uso unico, aislamiento y concurrencia real. |
@@ -42,18 +42,18 @@ cuentan como exito funcional.
 | RF-AUT-08 | Verificado puntual | Recuperacion de Aurora no modifica CLIENT homonimo de Bosque. |
 | RF-AUT-09 | Verificado puntual | Grant inicial solo se consume despues de verificar correo. |
 | RF-AUT-10 | Verificado puntual | Sesion conserva tipo, tenant y roles. |
-| RF-AUT-11 | Parcial | Reenvio de CLIENT, uso unico y limites superiores se cubren; falta prueba controlada del borde exacto de 24 h para todos los propositos. |
+| RF-AUT-11 | Parcial | Reenvio de CLIENT, uso unico y limites superiores se cubren; falta prueba controlada del borde exacto de 24 h para todos los propositos. Es una brecha de regresion, no requiere V012. |
 | RF-AUT-12 | Verificado puntual | `LoginAttemptThrottleTest` supero sus dos casos. |
 | RF-AUT-13 | Verificado puntual | Logout, suspension, desactivacion y cambio de contrasena revocan solo las sesiones afectadas. |
 | RF-USR-01 | Verificado puntual | Invitacion laboral sintetica en tenant activo. |
 | RF-USR-02 | Verificado puntual | Aceptacion de invitacion, contrasena y autenticacion laboral. |
-| RF-USR-03 | Parcial | Roles multiples en invitacion y proteccion del ultimo administrador existen; el reemplazo de roles de cuenta activa esta bloqueado por defecto SQL V004. |
-| RF-USR-04 | Parcial | Desactivacion y revocacion de sesion se verificaron; la conservacion de autoria no es observable para `av_app` y requiere auditoria posterior. |
+| RF-USR-03 | Parcial | Roles multiples en invitacion y proteccion del ultimo administrador existen; el reemplazo de roles de cuenta activa esta bloqueado por V004. La propuesta V012 esta preauditada pero no aplicada. |
+| RF-USR-04 | Parcial | Desactivacion y revocacion de sesion se verificaron; la conservacion de autoria no es observable para `av_app` y requiere una decision de proyeccion/auditoria posterior. |
 | RF-USR-05 | Verificado puntual | Mismo correo laboral en Aurora/Bosque conserva principals, roles y sesiones independientes; desactivar Aurora no afecta Bosque. |
 | RF-CLI-01 | Verificado puntual | Registro CLIENT independiente por tenant, incluso con correo repetido. |
 | RF-CLI-02 | Verificado puntual | Enlace CLIENT opaco pasa de pendiente a activa y bloquea autenticacion antes de verificar. |
-| RF-CLI-03 | Parcial | `clientSpace` solo acepta el contexto CLIENT; mascotas, citas, grooming y pedidos pertenecen a B02-B05 y no existen todavia. |
-| RF-CLI-04 | Parcial | Aislamiento de credenciales y recuperacion esta probado; no hay datos privados B02-B05 para una negativa E2E adicional. |
+| RF-CLI-03 | Parcial | `clientSpace` solo acepta el contexto CLIENT; mascotas, citas, grooming y pedidos pertenecen a B02-B05 y no existen todavia. Requiere interfaz y dependencias funcionales posteriores. |
+| RF-CLI-04 | Parcial | Aislamiento de credenciales y recuperacion esta probado; no hay datos privados B02-B05 para una negativa E2E adicional. Requiere interfaz y dependencias funcionales posteriores. |
 
 ## Totales y dictamen
 
@@ -69,6 +69,18 @@ son bloqueados por defectos SQL de migraciones ya aplicadas. El aumento de
 evidencia no convierte planificacion ni rutas no implementadas en producto
 terminado.
 
+## Clasificacion de los 10 requisitos parciales
+
+| Categoria | RF | Limite para declararlo verificado |
+|---|---|---|
+| Dependen directamente de V012 | RF-SAA-13, RF-USR-03 | Aplicacion autorizada de V012 y regresiones funcionales/negativas posteriores. |
+| Requieren solo regresiones controladas adicionales | RF-SAA-02, RF-SAA-11, RF-AUT-11 | Reloj reproducible y pruebas de limites exactos, sin ampliar el contrato de 24 h/30 min. |
+| Requieren interfaz y modulos B02--B05 | RF-SAA-05, RF-CLI-03, RF-CLI-04 | Flujos verticales reales de los modulos dependientes, seguridad y E2E. |
+| Requieren decision o proyeccion adicional | RF-SAA-06, RF-USR-04 | Politica persistida de suspension por disputa y mecanismo autorizado para observar autoria, respectivamente. |
+
+La clasificacion no cambia los conteos: 25 requisitos tienen evidencia puntual
+y 10 permanecen parciales.
+
 ## Defectos bloqueantes descubiertos
 
 1. V004: `identity_auth.replace_staff_roles` no puede ejecutar el primer
@@ -79,8 +91,10 @@ terminado.
    columna y el parametro de salida. La prueba diagnostica recibe
    `BadSqlGrammarException`.
 
-No se modificaron V004/V005 ni se creo/aplico V012. Corregir estos defectos
-requiere una migracion nueva, auditoria de privilegios y autorizacion expresa.
+No se modificaron V004/V005 ni se creo/aplico V012. Existe una propuesta
+preauditada fuera de Flyway en `docs/audits/G4-I01_V012_SQL_PROPUESTO.sql`;
+corregir los defectos aun requiere una migracion nueva, auditoria final de
+privilegios y autorizacion expresa.
 
 ## Evidencia complementaria
 

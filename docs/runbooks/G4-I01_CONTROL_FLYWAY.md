@@ -52,6 +52,14 @@ Antes de V012 o posterior: comprobar historial, hashes fuente, propietarios,
 ACL, RLS, atomicidad, dependencias, suite afectada y autorización específica.
 No se permite ejecutar una versión futura dentro de G4-I01.
 
+La unica V012 evaluada hasta ahora es una propuesta no ejecutable fuera de la
+ruta de Flyway: `docs/audits/G4-I01_V012_SQL_PROPUESTO.sql`, SHA-256
+`1C5BC424FD6139EEB306C15B41A13AADBB17E298C92FE5723503BD01B4507B08`.
+No se debe copiar a `database/migration/` ni ejecutar hasta que exista una
+autorizacion expresa que cite ese hash. En ese momento se repetiran historial,
+roles, ACL, `search_path`, integridad V001--V011 y el control de base local
+exclusiva antes de invocar Flyway una sola vez.
+
 Al cierre de G4-I01 se identificaron dos defectos de funciones aplicadas que
 requieren precisamente ese proceso: `identity_auth.replace_staff_roles` (V004)
 y `tenant_admin.review_administrative_recovery_for_session` (V005) tienen

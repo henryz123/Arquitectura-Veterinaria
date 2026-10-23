@@ -381,9 +381,10 @@ class B01AdministrationDatabaseIntegrationTest {
 				.filter(candidate -> applicantEmail.equals(candidate.normalizedApplicantEmail())).findFirst().orElseThrow();
 		assertEquals("SOLICITADA", recovery.status());
 
-		assertThrows(BadSqlGrammarException.class, () -> repository.reviewAdministrativeRecovery(
+		BadSqlGrammarException exception = assertThrows(BadSqlGrammarException.class, () -> repository.reviewAdministrativeRecovery(
 				saasAdministrator.session().sessionTokenHash(), recovery.id(), "APROBADA", "Legitimidad sintetica confirmada", true,
 				TokenHasher.sha256(TokenHasher.newOpaqueToken()), repository.transactionTimestamp().plus(Duration.ofHours(24))));
+		assertTrue(exception.getMostSpecificCause().getMessage().contains("principal_id"));
 	}
 
 	@Test
@@ -444,8 +445,9 @@ class B01AdministrationDatabaseIntegrationTest {
 		StaffInvitationResult invitation = administrationService.inviteStaff(auroraAdministrator, staffEmail, List.of("RECEPCION"));
 		administrationService.acceptStaffInvitation(tokenFor(invitation.principalId()), staffPassword);
 
-		assertThrows(BadSqlGrammarException.class, () -> repository.replaceStaffRoles(
+		BadSqlGrammarException exception = assertThrows(BadSqlGrammarException.class, () -> repository.replaceStaffRoles(
 				auroraAdministrator.session().sessionTokenHash(), invitation.principalId(), "[\"CAJERO\"]"));
+		assertTrue(exception.getMostSpecificCause().getMessage().contains("normalized_email"));
 	}
 
 	@Test
