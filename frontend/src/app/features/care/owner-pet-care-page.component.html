@@ -99,6 +99,24 @@
         <button class="button button-secondary" type="button" (click)="selectPet(pet)" [disabled]="actionPending()">Actualizar ficha e historial</button>
       </section>
 
+      <section class="care-layout ownership-layout" *ngIf="selectedPet() as pet">
+        <article class="panel" *ngIf="canManageRegistry()">
+          <div class="panel-heading"><div><p class="eyebrow">Responsabilidad vigente</p><h2>Transferir responsable</h2></div></div>
+          <p class="panel-note">La operación conserva los períodos anteriores y no da acceso retroactivo a historia clínica.</p>
+          <form [formGroup]="transferForm" (ngSubmit)="transferOwnership()" novalidate>
+            <div class="field-group"><label for="transfer-owner">Nuevo responsable</label><select id="transfer-owner" formControlName="newOwnerId"><option value="">Selecciona un propietario</option><option *ngFor="let owner of owners()" [value]="owner.id" [disabled]="owner.id === pet.currentOwnerId">{{ ownerLabel(owner) }}</option></select><p class="field-error" *ngIf="transferForm.controls.newOwnerId.touched && transferForm.controls.newOwnerId.invalid">Selecciona un responsable distinto.</p></div>
+            <div class="field-group"><label for="transfer-reason">Motivo de transferencia</label><textarea id="transfer-reason" rows="3" formControlName="reason"></textarea><p class="field-error" *ngIf="transferForm.controls.reason.touched && transferForm.controls.reason.invalid">Indica un motivo de al menos 3 caracteres.</p></div>
+            <label class="transfer-confirmation" for="transfer-confirmed"><input id="transfer-confirmed" type="checkbox" formControlName="identityVerified" /> Confirmo que la identidad y la relación fueron verificadas manualmente.</label>
+            <button class="button button-primary" type="submit" [disabled]="actionPending()">Transferir responsable</button>
+          </form>
+        </article>
+        <article class="panel" *ngIf="canManageRegistry()">
+          <div class="panel-heading"><div><p class="eyebrow">Trazabilidad</p><h2>Períodos de responsabilidad</h2></div></div>
+          <div class="ownership-list" *ngIf="ownershipPeriods().length; else emptyOwnership"><article *ngFor="let period of ownershipPeriods(); trackBy: trackById"><strong>{{ ownerPeriodLabel(period) }}</strong><span>{{ period.effectiveUntil ? 'Período cerrado' : 'Responsable vigente' }}</span><p>{{ period.reason || 'Sin motivo registrado' }}</p></article></div>
+          <ng-template #emptyOwnership><p class="empty-state compact">Aún no hay períodos de responsabilidad visibles.</p></ng-template>
+        </article>
+      </section>
+
       <section class="care-layout clinical-layout" *ngIf="selectedPet() as pet">
         <article class="panel" *ngIf="canWriteClinical(); else restrictedClinical">
           <div class="panel-heading"><div><p class="eyebrow">Paso 3</p><h2>Registrar atención de {{ pet.name }}</h2></div><span class="panel-caption">Solo veterinario</span></div>

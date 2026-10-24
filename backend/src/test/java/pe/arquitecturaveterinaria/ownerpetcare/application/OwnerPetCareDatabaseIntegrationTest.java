@@ -23,6 +23,7 @@ import pe.arquitecturaveterinaria.identityaccess.application.LocalNotificationMa
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClinicalEpisodeCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnerCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnershipTransferCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PetCommand;
 import pe.arquitecturaveterinaria.shared.api.ApiException;
 
@@ -55,6 +56,33 @@ class OwnerPetCareDatabaseIntegrationTest {
 				new PetCommand("Nube", "Canino", null, "HEMBRA", LocalDate.of(2021, 6, 15), null, "Collar rojo"));
 		assertEquals(List.of(pet.id()), ownerPetCareService.listPetsByOwner(auroraAdministrator, owner.id())
 				.stream().map(item -> item.id()).toList());
+		var successor = ownerPetCareService.createOwner(auroraAdministrator,
+				new OwnerCommand("SofÃ­a", "Sucesora", null, null, null));
+		var transferred = ownerPetCareService.transferPetOwnership(auroraAdministrator, pet.id(),
+				new OwnershipTransferCommand(owner.id(), successor.id(), "Cambio de responsable verificado", true));
+		assertEquals(successor.id(), transferred.currentOwnerId());
+		var periods = ownerPetCareService.listOwnershipPeriods(auroraAdministrator, pet.id());
+		assertEquals(2, periods.size());
+		assertEquals(successor.id(), periods.getFirst().ownerId());
+		assertNotNull(periods.get(1).effectiveUntil());
+		ApiException unverifiedTransfer = assertThrows(ApiException.class,
+				() -> ownerPetCareService.transferPetOwnership(auroraAdministrator, pet.id(),
+						new OwnershipTransferCommand(successor.id(), owner.id(), "manual verification required", false)));
+		assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, unverifiedTransfer.status());
+		assertEquals("VALIDATION_FAILED", unverifiedTransfer.code());
+
+		SessionPrincipal bosqueAdministrator = administrator("veterinaria-bosque", "AV_DEMO_BOSQUE_PASSWORD");
+		var bosqueOwner = ownerPetCareService.createOwner(bosqueAdministrator,
+				new OwnerCommand("Rosa", "Bosque", null, null, null));
+		ApiException crossTenantTransfer = assertThrows(ApiException.class,
+				() -> ownerPetCareService.transferPetOwnership(auroraAdministrator, pet.id(),
+						new OwnershipTransferCommand(successor.id(), bosqueOwner.id(), "cross tenant", true)));
+		assertEquals(HttpStatus.NOT_FOUND, crossTenantTransfer.status());
+		assertEquals("B02_RESOURCE_NOT_FOUND", crossTenantTransfer.code());
+		ApiException staleTransfer = assertThrows(ApiException.class,
+				() -> ownerPetCareService.transferPetOwnership(auroraAdministrator, pet.id(),
+						new OwnershipTransferCommand(owner.id(), successor.id(), "Reintento obsoleto", true)));
+		assertEquals("B02_OWNER_TRANSFER_STALE", staleTransfer.code());
 
 		SessionPrincipal veterinarian = veterinarian(auroraAdministrator);
 		var draft = ownerPetCareService.createClinicalEpisode(veterinarian, pet.id(),
@@ -69,7 +97,6 @@ class OwnerPetCareDatabaseIntegrationTest {
 		assertEquals(List.of(finalized.id()),
 				ownerPetCareService.listClinicalHistory(veterinarian, pet.id()).stream().map(item -> item.id()).toList());
 
-		SessionPrincipal bosqueAdministrator = administrator("veterinaria-bosque", "AV_DEMO_BOSQUE_PASSWORD");
 		ApiException exception = assertThrows(ApiException.class, () -> ownerPetCareService.getPet(bosqueAdministrator, pet.id()));
 		assertEquals(HttpStatus.NOT_FOUND, exception.status());
 		assertEquals("B02_RESOURCE_NOT_FOUND", exception.code());

@@ -142,6 +142,18 @@ describe('AdministrationApiService', () => {
     expect(petDetail.request.method).toBe('GET');
     petDetail.flush({ data: { id: 'pet-1' } });
 
+    service.listOwnershipPeriods('pet-1').subscribe();
+    const ownershipPeriods = http.expectOne('/api/v1/pets/pet-1/ownership-periods');
+    expect(ownershipPeriods.request.method).toBe('GET');
+    ownershipPeriods.flush({ data: [] });
+
+    const transferRequest = { expectedOwnerId: 'owner-1', newOwnerId: 'owner-2', reason: 'Cambio verificado', identityVerified: true };
+    service.transferPetOwnership('pet-1', transferRequest).subscribe();
+    const transfer = http.expectOne('/api/v1/pets/pet-1/owner-transfers');
+    expect(transfer.request.method).toBe('POST');
+    expect(transfer.request.body).toEqual(transferRequest);
+    transfer.flush({ data: { id: 'pet-1', currentOwnerId: 'owner-2' } });
+
     service.listClinicalEpisodes('pet-1').subscribe();
     const history = http.expectOne('/api/v1/pets/pet-1/clinical-episodes');
     expect(history.request.method).toBe('GET');

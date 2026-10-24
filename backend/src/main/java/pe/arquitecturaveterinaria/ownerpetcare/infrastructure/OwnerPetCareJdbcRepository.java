@@ -67,11 +67,15 @@ public class OwnerPetCareJdbcRepository {
 	}
 
 	public void createInitialOwnership(UUID tenantId, UUID petId, UUID ownerId, UUID actorPrincipalId) {
+		createInitialOwnership(tenantId, petId, ownerId, actorPrincipalId, "Alta de mascota");
+	}
+
+	public void createInitialOwnership(UUID tenantId, UUID petId, UUID ownerId, UUID actorPrincipalId, String reason) {
 		jdbcTemplate.update("""
 				insert into owner_pet_care.pet_ownership_period (
 				    tenant_id, pet_id, owner_id, verified_by_principal_id, reason
 				) values (?, ?, ?, ?, ?)
-				""", tenantId, petId, ownerId, actorPrincipalId, "Alta de mascota");
+				""", tenantId, petId, ownerId, actorPrincipalId, reason);
 	}
 
 	public Optional<PetProfile> findPet(UUID petId) {
@@ -83,6 +87,16 @@ public class OwnerPetCareJdbcRepository {
 				""", this::mapPet, petId).stream().findFirst();
 	}
 
+	public Optional<PetProfile> lockPet(UUID petId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, current_owner_id, name, species, breed, sex, birth_date, estimated_age_months,
+				       distinguishing_marks, status, created_at, updated_at
+				from owner_pet_care.pet
+				where id = ?
+				for update
+				""", this::mapPet, petId).stream().findFirst();
+	}
+
 	public List<PetProfile> listPetsByOwner(UUID ownerId) {
 		return jdbcTemplate.query("""
 				select id, tenant_id, current_owner_id, name, species, breed, sex, birth_date, estimated_age_months,
@@ -91,6 +105,33 @@ public class OwnerPetCareJdbcRepository {
 				where current_owner_id = ?
 				order by name, created_at
 				""", this::mapPet, ownerId);
+	}
+
+	public int closeCurrentOwnership(UUID tenantId, UUID petId, UUID ownerId) {
+		return jdbcTemplate.update("""
+				update owner_pet_care.pet_ownership_period
+				set effective_until = statement_timestamp()
+				where tenant_id = ? and pet_id = ? and owner_id = ? and effective_until is null
+				""", tenantId, petId, ownerId);
+	}
+
+	public int moveCurrentOwner(UUID tenantId, UUID petId, UUID expectedOwnerId, UUID newOwnerId) {
+		return jdbcTemplate.update("""
+				update owner_pet_care.pet
+				set current_owner_id = ?, updated_at = statement_timestamp()
+				where tenant_id = ? and id = ? and current_owner_id = ?
+				""", newOwnerId, tenantId, petId, expectedOwnerId);
+	}
+
+	public List<OwnershipPeriod> listOwnershipPeriods(UUID petId) {
+		return jdbcTemplate.query("""
+				select period.id, period.tenant_id, period.pet_id, period.owner_id, owner.given_names, owner.family_names,
+				       period.effective_from, period.effective_until, period.verified_by_principal_id, period.reason
+				from owner_pet_care.pet_ownership_period period
+				join owner_pet_care.owner_profile owner on owner.id = period.owner_id and owner.tenant_id = period.tenant_id
+				where period.pet_id = ?
+				order by period.effective_from desc, period.id desc
+				""", this::mapOwnershipPeriod, petId);
 	}
 
 	public ClinicalEpisode createClinicalEpisode(UUID tenantId, UUID veterinarianPrincipalId, UUID petId, ClinicalDraft draft) {
@@ -168,6 +209,14 @@ public class OwnerPetCareJdbcRepository {
 				instant(resultSet, "finalized_at"), instant(resultSet, "created_at"), instant(resultSet, "updated_at"));
 	}
 
+	private OwnershipPeriod mapOwnershipPeriod(ResultSet resultSet, int rowNum) throws SQLException {
+		return new OwnershipPeriod(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
+				resultSet.getObject("pet_id", UUID.class), resultSet.getObject("owner_id", UUID.class),
+				resultSet.getString("given_names"), resultSet.getString("family_names"), instant(resultSet, "effective_from"),
+				instant(resultSet, "effective_until"), resultSet.getObject("verified_by_principal_id", UUID.class),
+				resultSet.getString("reason"));
+	}
+
 	private Instant instant(ResultSet resultSet, String column) throws SQLException {
 		Timestamp value = resultSet.getTimestamp(column);
 		return value == null ? null : value.toInstant();
@@ -186,4 +235,7 @@ public class OwnerPetCareJdbcRepository {
 	public record ClinicalEpisode(UUID id, UUID tenantId, UUID petId, UUID veterinarianPrincipalId, UUID appointmentId,
 			String status, String reason, String anamnesis, String assessment, String diagnosis, String treatmentPlan,
 			String observations, Instant openedAt, Instant finalizedAt, Instant createdAt, Instant updatedAt) { }
+	public record OwnershipPeriod(UUID id, UUID tenantId, UUID petId, UUID ownerId, String ownerGivenNames,
+			String ownerFamilyNames, Instant effectiveFrom, Instant effectiveUntil, UUID verifiedByPrincipalId,
+			String reason) { }
 }

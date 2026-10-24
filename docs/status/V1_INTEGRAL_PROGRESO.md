@@ -2,8 +2,8 @@
 
 **Rama de trabajo:** `codex/v1-integral`
 **Inicio de esta línea:** 2026-10-23
-**Último checkpoint funcional anterior:** `fcc21ecb5ef3ca7b42cbbbd30fc03f45af33534d`
-(`fix(client): harden synthetic seed preflight`)
+**Último checkpoint funcional anterior:** `f99249d278bc5793e90a5180391d4030641484e7`
+(`feat(b02): add owner pet clinical core vertical`)
 **Fuente funcional:** `arquitectura_veterinaria_v1_FINAL/` (inmutable)
 **Autorización operativa vigente:** instrucción expresa de desarrollo integral
 V1 recibida el 2026-10-23. Sustituye únicamente la congelación temporal
@@ -17,7 +17,7 @@ fuera de V1.
 - La especificación V1 conserva 19 archivos físicos y los 18 hashes declarados
   en su manifiesto.
 - PostgreSQL local 18.6: `arquitectura_veterinaria` es la única base en alcance.
-  Flyway registra V001–V015 una sola vez y correctamente.
+  Flyway registra V001–V016 una sola vez y correctamente.
 - El único cambio preexistente no confirmado es
   `frontend/angular.json`: desactiva la analítica de Angular. Se conserva sin
   atribuirlo a esta línea y queda fuera de cualquier staging hasta confirmar su
@@ -31,7 +31,7 @@ fuera de V1.
 |---|---|---|
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
 | B01 — Administración, identidad y acceso | Parcial | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. La semilla CLIENT se detiene antes de PostgreSQL: las dos contraseñas locales no cumplen todavía la regla de mayúscula ASCII; por ello falta el E2E autenticado CLIENT. |
-| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial implementado con PostgreSQL, RLS y Angular. El recorrido de navegador STAFF verifica propietario y mascota; la atención desde navegador exige una cuenta sintética VETERINARIO aún no disponible. Vinculación digital, transferencia, vacunas, recetas, rectificaciones y mascotas CLIENT siguen pendientes. |
+| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial y transferencia de responsable implementado con PostgreSQL, RLS y Angular. El recorrido de navegador STAFF verifica propietario, mascota, transferencia histórica y restricción clínica; la atención desde navegador exige una cuenta sintética VETERINARIO aún no disponible. Vinculación digital, vacunas, recetas, rectificaciones y mascotas CLIENT siguen pendientes. |
 | B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
 | B05 — Tienda y pedidos | Pendiente | Catálogo, carrito, pedido y descuento de stock exactamente una vez al confirmar. |
@@ -116,11 +116,11 @@ fuera de V1.
 
 ## Próxima operación concreta
 
-Actualizar solamente las dos contraseñas CLIENT en `.env.local` para que cada
-una incluya una mayúscula ASCII, ejecutar la semilla idempotente y completar el
-E2E autenticado CLIENT. Para B02, preparar una credencial sintética local de
-VETERINARIO mediante el flujo aprobado y continuar con vinculación digital y
-transferencia de responsable antes de vacunas, recetas y rectificaciones.
+Cuando el responsable actualice las dos contraseñas CLIENT locales para que
+incluyan una mayúscula ASCII, ejecutar la semilla idempotente y completar el
+E2E autenticado CLIENT. En paralelo, preparar una credencial sintética local de
+VETERINARIO mediante el flujo aprobado y continuar B02 con vinculación digital,
+vacunas, recetas y rectificaciones.
 
 ## Checkpoint CLIENT público 2026-10-23
 
@@ -166,3 +166,19 @@ transferencia de responsable antes de vacunas, recetas y rectificaciones.
   verificada para el núcleo; RF-B02-008, RF-B02-009 y RF-B02-013 están
   parcialmente verificados. Los demás RF-B02 permanecen pendientes y no se
   presentan como completados.
+
+## Checkpoint B02 transferencia 2026-10-24
+
+- `POST /api/v1/pets/{petId}/owner-transfers` exige recepción o administración,
+  verificación manual, motivo, responsable esperado y un nuevo propietario del
+  mismo tenant. Bloquea la mascota, cierra el período actual, abre el siguiente
+  y registra auditoría en una transacción JDBC.
+- `GET /api/v1/pets/{petId}/ownership-periods` muestra trazabilidad solo a los
+  roles de registro autorizados. La transferencia no expone historia clínica ni
+  modifica los autores de episodios.
+- La regresión B02 pasó 6/6 con Java 21; Angular pasó 9/9 y `ng build`. Redocly
+  validó el contrato; Playwright Chrome confirmó la transferencia real,
+  exactamente un responsable vigente y la denegación clínica para ADMIN.
+- RF-B02-007 y RF-B02-015 quedan verificados. B02 continúa parcial: faltan
+  vinculación digital, vacunación, prescripción, rectificaciones y consultas
+  permitidas desde CLIENT.

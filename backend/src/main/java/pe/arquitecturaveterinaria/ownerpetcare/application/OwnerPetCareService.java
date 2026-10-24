@@ -18,6 +18,7 @@ import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRe
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetDraft;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetProfile;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnershipPeriod;
 import pe.arquitecturaveterinaria.shared.api.ApiException;
 
 @Service
@@ -88,6 +89,45 @@ public class OwnerPetCareService {
 		setTrustedContext(actor);
 		ownerOrNotFound(ownerId);
 		return repository.listPetsByOwner(ownerId);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public PetProfile transferPetOwnership(SessionPrincipal actor, UUID petId, OwnershipTransferCommand command) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		PetProfile current = repository.lockPet(petId).orElseThrow(() -> notFound("No se encontrÃ³ el recurso solicitado."));
+		if (!current.currentOwnerId().equals(command.expectedOwnerId())) {
+			throw conflict("B02_OWNER_TRANSFER_STALE",
+					"La responsabilidad cambiÃ³ antes de confirmar la transferencia. Recarga la ficha.");
+		}
+		if (current.currentOwnerId().equals(command.newOwnerId())) {
+			throw validation("newOwnerId", "La mascota ya tiene este responsable principal.");
+		}
+		if (!command.identityVerified()) {
+			throw validation("identityVerified", "Confirma la verificaciÃ³n manual antes de transferir la responsabilidad.");
+		}
+		OwnerProfile newOwner = ownerOrNotFound(command.newOwnerId());
+		if (!"ACTIVO".equals(newOwner.status())) {
+			throw conflict("OWNER_INACTIVE", "No se puede transferir una mascota a un propietario inactivo.");
+		}
+		if (repository.closeCurrentOwnership(actor.session().tenantId(), petId, current.currentOwnerId()) != 1
+				|| repository.moveCurrentOwner(actor.session().tenantId(), petId, current.currentOwnerId(), newOwner.id()) != 1) {
+			throw conflict("B02_OWNER_TRANSFER_CONCURRENT_CHANGE",
+					"No fue posible confirmar una transferencia consistente. Recarga la ficha.");
+		}
+		repository.createInitialOwnership(actor.session().tenantId(), petId, newOwner.id(), actor.session().accountId(),
+				"Transferencia verificada: " + required(command.reason(), "reason"));
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "PET_OWNER_TRANSFERRED", "PET", petId);
+		return repository.findPet(petId).orElseThrow(() -> conflict("B02_OWNER_TRANSFER_CONCURRENT_CHANGE",
+				"La ficha no pudo recuperarse después de la transferencia."));
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<OwnershipPeriod> listOwnershipPeriods(SessionPrincipal actor, UUID petId) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		petOrNotFound(petId);
+		return repository.listOwnershipPeriods(petId);
 	}
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
@@ -224,6 +264,7 @@ public class OwnerPetCareService {
 	public record OwnerCommand(String givenNames, String familyNames, String phone, String email, String address) { }
 	public record PetCommand(String name, String species, String breed, String sex, LocalDate birthDate,
 			Integer estimatedAgeMonths, String distinguishingMarks) { }
+	public record OwnershipTransferCommand(UUID expectedOwnerId, UUID newOwnerId, String reason, boolean identityVerified) { }
 	public record ClinicalEpisodeCommand(UUID appointmentId, String reason, String anamnesis, String assessment,
 			String diagnosis, String treatmentPlan, String observations) { }
 }

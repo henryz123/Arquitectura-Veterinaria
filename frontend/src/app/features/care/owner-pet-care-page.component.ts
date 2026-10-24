@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize, forkJoin, of, switchMap } from 'rxjs';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
-import { ClinicalEpisode, ClinicalEpisodeRequest, OwnerProfile, PetProfile } from '../../core/api/api.models';
+import { ClinicalEpisode, ClinicalEpisodeRequest, OwnerProfile, OwnershipPeriod, PetProfile } from '../../core/api/api.models';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 
 @Component({
@@ -26,6 +26,7 @@ export class OwnerPetCarePageComponent implements OnInit {
   readonly ownerPets = signal<PetProfile[]>([]);
   readonly selectedPet = signal<PetProfile | null>(null);
   readonly clinicalHistory = signal<ClinicalEpisode[]>([]);
+  readonly ownershipPeriods = signal<OwnershipPeriod[]>([]);
   readonly loading = signal(true);
   readonly actionPending = signal(false);
   readonly error = signal<string | null>(null);
@@ -63,6 +64,11 @@ export class OwnerPetCarePageComponent implements OnInit {
     diagnosis: ['', Validators.maxLength(4000)],
     treatmentPlan: ['', Validators.maxLength(12000)],
     observations: ['', Validators.maxLength(12000)],
+  });
+  readonly transferForm = this.formBuilder.nonNullable.group({
+    newOwnerId: ['', Validators.required],
+    reason: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(500)]],
+    identityVerified: false,
   });
 
   ngOnInit(): void {
@@ -104,6 +110,7 @@ export class OwnerPetCarePageComponent implements OnInit {
         this.selectedPet.set(null);
         this.ownerPets.set([]);
         this.clinicalHistory.set([]);
+        this.ownershipPeriods.set([]);
         this.ownerForm.reset({ givenNames: '', familyNames: '', phone: '', email: '', address: '' });
         this.ownerSubmitted.set(false);
         this.notice.set('El propietario se registró en la veterinaria actual. Ya puedes asociar una mascota.');
@@ -117,6 +124,7 @@ export class OwnerPetCarePageComponent implements OnInit {
     this.selectedPet.set(null);
     this.ownerPets.set([]);
     this.clinicalHistory.set([]);
+    this.ownershipPeriods.set([]);
     this.petSubmitted.set(false);
     this.clearFeedback();
     this.api.listPetsByOwner(owner.id).subscribe({
@@ -159,6 +167,7 @@ export class OwnerPetCarePageComponent implements OnInit {
         this.selectedPet.set(response.data);
         this.ownerPets.update((pets) => [...pets, response.data].sort((left, right) => left.name.localeCompare(right.name)));
         this.clinicalHistory.set([]);
+        this.ownershipPeriods.set([]);
         this.petForm.reset({ name: '', species: '', breed: '', sex: 'DESCONOCIDO', birthDate: '', estimatedAgeMonths: '', distinguishingMarks: '' });
         this.petSubmitted.set(false);
         this.notice.set(`La ficha de ${response.data.name} quedó asociada al propietario seleccionado.`);
@@ -171,10 +180,12 @@ export class OwnerPetCarePageComponent implements OnInit {
     this.clearFeedback();
     this.actionPending.set(true);
     const history = this.canWriteClinical() ? this.api.listClinicalEpisodes(pet.id) : of(null);
-    forkJoin({ pet: this.api.getPet(pet.id), history }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
-      next: ({ pet: response, history: episodes }) => {
+    const periods = this.canManageRegistry() ? this.api.listOwnershipPeriods(pet.id) : of(null);
+    forkJoin({ pet: this.api.getPet(pet.id), history, periods }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+      next: ({ pet: response, history: episodes, periods: ownership }) => {
         this.selectedPet.set(response.data);
         this.clinicalHistory.set(episodes?.data ?? []);
+        this.ownershipPeriods.set(ownership?.data ?? []);
       },
       error: () => this.error.set('No fue posible recuperar la ficha autorizada de la mascota.'),
     });
@@ -204,12 +215,49 @@ export class OwnerPetCarePageComponent implements OnInit {
     });
   }
 
+  transferOwnership(): void {
+    const pet = this.selectedPet();
+    if (!pet || !this.canManageRegistry() || this.transferForm.invalid || !this.transferForm.controls.identityVerified.value || this.actionPending()) {
+      this.transferForm.markAllAsTouched();
+      if (!this.transferForm.controls.identityVerified.value) {
+        this.error.set('Confirma que verificaste la identidad y la relación antes de transferir.');
+      }
+      return;
+    }
+    this.clearFeedback();
+    this.actionPending.set(true);
+    const value = this.transferForm.getRawValue();
+    this.api.transferPetOwnership(pet.id, {
+      expectedOwnerId: pet.currentOwnerId,
+      newOwnerId: value.newOwnerId,
+      reason: value.reason.trim(),
+      identityVerified: value.identityVerified,
+    }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+      next: (response) => {
+        this.selectedPet.set(response.data);
+        this.transferForm.reset({ newOwnerId: '', reason: '', identityVerified: false });
+        const newOwner = this.owners().find((owner) => owner.id === response.data.currentOwnerId) ?? null;
+        if (newOwner) {
+          this.selectedOwner.set(newOwner);
+          this.api.listPetsByOwner(newOwner.id).subscribe({ next: (pets) => this.ownerPets.set(pets.data) });
+        }
+        this.api.listOwnershipPeriods(response.data.id).subscribe({ next: (periods) => this.ownershipPeriods.set(periods.data) });
+        this.notice.set('La responsabilidad se transfirió con trazabilidad de períodos. La historia clínica no se modificó.');
+      },
+      error: () => this.error.set('No fue posible transferir la responsabilidad. Recarga la ficha para confirmar el responsable vigente.'),
+    });
+  }
+
   ownerLabel(owner: OwnerProfile): string {
     return `${owner.familyNames}, ${owner.givenNames}`;
   }
 
   petAge(pet: PetProfile): string {
     return pet.birthDate ? `Nacimiento: ${pet.birthDate}` : `Edad estimada: ${pet.estimatedAgeMonths ?? 0} meses`;
+  }
+
+  ownerPeriodLabel(period: OwnershipPeriod): string {
+    return `${period.ownerFamilyNames}, ${period.ownerGivenNames}`;
   }
 
   trackById(_: number, item: { id: string }): string {

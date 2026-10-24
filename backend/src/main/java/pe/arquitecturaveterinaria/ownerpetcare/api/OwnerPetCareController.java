@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -29,10 +30,12 @@ import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClinicalEpisodeCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnerCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnershipTransferCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PetCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalEpisode;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetProfile;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnershipPeriod;
 import pe.arquitecturaveterinaria.shared.api.ApiEnvelope;
 
 @RestController
@@ -86,6 +89,19 @@ public class OwnerPetCareController {
 		return ApiEnvelope.of(service.getPet(principal, petId));
 	}
 
+	@PostMapping("/pets/{petId}/owner-transfers")
+	ApiEnvelope<PetProfile> transferPetOwnership(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID petId, @Valid @RequestBody OwnershipTransferRequest request) {
+		return ApiEnvelope.of(service.transferPetOwnership(principal, petId,
+				new OwnershipTransferCommand(request.expectedOwnerId(), request.newOwnerId(), request.reason(), request.identityVerified())));
+	}
+
+	@GetMapping("/pets/{petId}/ownership-periods")
+	ApiEnvelope<List<OwnershipPeriod>> listOwnershipPeriods(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID petId) {
+		return ApiEnvelope.of(service.listOwnershipPeriods(principal, petId));
+	}
+
 	@PostMapping("/pets/{petId}/clinical-episodes")
 	ResponseEntity<ApiEnvelope<ClinicalEpisode>> createClinicalEpisode(@AuthenticationPrincipal SessionPrincipal principal,
 			@PathVariable UUID petId, @Valid @RequestBody ClinicalEpisodeRequest request) {
@@ -127,6 +143,12 @@ public class OwnerPetCareController {
 			LocalDate birthDate,
 			@Min(0) @Max(480) Integer estimatedAgeMonths,
 			@Size(max = 500) String distinguishingMarks) { }
+
+	public record OwnershipTransferRequest(
+			@NotNull UUID expectedOwnerId,
+			@NotNull UUID newOwnerId,
+			@NotBlank @Size(min = 3, max = 500) String reason,
+			boolean identityVerified) { }
 
 	public record ClinicalEpisodeRequest(
 			UUID appointmentId,

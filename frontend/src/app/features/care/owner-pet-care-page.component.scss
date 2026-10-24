@@ -19,6 +19,10 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.ownership-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .two-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -112,6 +116,39 @@ textarea {
 textarea:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+.transfer-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  line-height: 1.45;
+}
+
+.transfer-confirmation input {
+  width: auto;
+  min-height: auto;
+  margin-top: 0.2rem;
+}
+
+.ownership-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ownership-list article {
+  display: grid;
+  gap: 0.25rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.8rem;
+}
+
+.ownership-list span,
+.ownership-list p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
 }
 
 @media (max-width: 52rem) {

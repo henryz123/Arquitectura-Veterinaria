@@ -19,6 +19,12 @@ const ownerFixture = {
   email: null,
   address: 'Registro sintético local',
 };
+const successorFixture = {
+  givenNames: 'B02 Transferencia',
+  familyNames: 'Aurora',
+  phone: '900000001',
+  address: 'Synthetic transfer record',
+};
 const petFixture = {
   name: 'Nube E2E',
   species: 'Canino',
@@ -68,7 +74,21 @@ try {
   await ownerButton.waitFor();
   await ownerButton.click();
 
+  const successor = await ensureSuccessor(page);
+  const originalOwnerButton = page.locator('.owner-list button').filter({ hasText: `${ownerFixture.familyNames}, ${ownerFixture.givenNames}` });
+  await originalOwnerButton.waitFor();
+  await originalOwnerButton.click();
   let pet = await existingPet(page, owner.id);
+  if (!pet) {
+    const transferredPet = await existingPet(page, successor.id);
+    if (transferredPet) {
+      pet = transferredPet;
+      owner = successor;
+      const successorButton = page.locator('.owner-list button').filter({ hasText: `${successor.familyNames}, ${successor.givenNames}` });
+      await successorButton.waitFor();
+      await successorButton.click();
+    }
+  }
   if (!pet) {
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => candidate.request().method() === 'POST'
@@ -96,6 +116,27 @@ try {
   assert.equal(storedPet.body?.data?.currentOwnerId, owner.id, 'the pet must retain its owner association');
   const deniedHistory = await browserFetch(page, `/api/v1/pets/${pet.id}/clinical-episodes`);
   assert.equal(deniedHistory.status, 403, 'an administrator without VETERINARIO must not read the clinical history');
+
+  if (storedPet.body?.data?.currentOwnerId !== successor.id) {
+    const [response] = await Promise.all([
+      page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+        && candidate.url().endsWith(`/api/v1/pets/${pet.id}/owner-transfers`)),
+      (async () => {
+        await page.locator('#transfer-owner').selectOption(successor.id);
+        await page.locator('#transfer-reason').fill('Synthetic verified ownership transfer');
+        await page.locator('#transfer-confirmed').check();
+        await page.locator('.ownership-layout button[type="submit"]').click();
+      })(),
+    ]);
+    assert.equal(response.status(), 200, 'the verified transfer must persist through the authenticated API');
+  }
+  const ownership = await browserFetch(page, `/api/v1/pets/${pet.id}/ownership-periods`);
+  assert.equal(ownership.status, 200, 'an authorized administrator must read the ownership trace');
+  assert.equal(ownership.body?.data?.length, 2, 'the transfer must preserve exactly the previous and current periods');
+  assert.equal(ownership.body?.data?.filter((period) => period.effectiveUntil === null).length, 1,
+    'the transfer must retain exactly one current owner');
+  assert.equal(ownership.body?.data?.find((period) => period.effectiveUntil === null)?.ownerId, successor.id,
+    'the synthetic fixture must finish under the verified successor');
 
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false,
@@ -132,6 +173,29 @@ async function existingOwner(page) {
   assert.equal(response.status, 200, 'the authenticated administrator must list owners in its tenant');
   return response.body?.data?.find((owner) => owner.givenNames === ownerFixture.givenNames
     && owner.familyNames === ownerFixture.familyNames) ?? null;
+}
+
+async function ensureSuccessor(page) {
+  const response = await browserFetch(page, `/api/v1/owners?query=${encodeURIComponent(successorFixture.givenNames)}`);
+  assert.equal(response.status, 200, 'the authenticated administrator must list the transfer successor');
+  const existing = response.body?.data?.find((owner) => owner.givenNames === successorFixture.givenNames
+    && owner.familyNames === successorFixture.familyNames);
+  if (existing) {
+    return existing;
+  }
+  const [created] = await Promise.all([
+    page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && candidate.url().endsWith('/api/v1/owners')),
+    (async () => {
+      await page.locator('#owner-given-names').fill(successorFixture.givenNames);
+      await page.locator('#owner-family-names').fill(successorFixture.familyNames);
+      await page.locator('#owner-phone').fill(successorFixture.phone);
+      await page.locator('#owner-address').fill(successorFixture.address);
+      await page.locator('.owner-panel form button[type="submit"]').click();
+    })(),
+  ]);
+  assert.equal(created.status(), 201, 'the successor owner form must persist through the authenticated API');
+  return (await created.json()).data;
 }
 
 async function existingPet(page, ownerId) {

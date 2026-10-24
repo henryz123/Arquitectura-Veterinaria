@@ -433,6 +433,35 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/pets/{petId}/owner-transfers:
+    post:
+      tags: [owner-pet-care]
+      summary: Transfiere el responsable principal con verificacion manual y control de concurrencia
+      x-implementation-status: implemented-b02-transfer
+      x-v1-requirements: [RF-B02-007, RF-B02-015, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      requestBody: { $ref: '#/components/requestBodies/OwnershipTransferRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/PetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pets/{petId}/ownership-periods:
+    get:
+      tags: [owner-pet-care]
+      summary: Lista los periodos de responsabilidad visibles al personal autorizado
+      x-implementation-status: implemented-b02-transfer
+      x-v1-requirements: [RF-B02-007, RF-B02-015, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      responses:
+        '200': { $ref: '#/components/responses/OwnershipPeriodsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/pets/{petId}/clinical-episodes:
     post:
       tags: [owner-pet-care]
@@ -515,6 +544,7 @@ components:
     AdministrativeRecoveryReviewRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdministrativeRecoveryReviewRequest' } } } }
     OwnerRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OwnerRequest' } } } }
     PetRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PetRequest' } } } }
+    OwnershipTransferRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OwnershipTransferRequest' } } } }
     ClinicalEpisodeRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClinicalEpisodeRequest' } } } }
   schemas:
     LoginRequest:
@@ -754,6 +784,14 @@ components:
         diagnosis: { type: [string, 'null'], maxLength: 4000 }
         treatmentPlan: { type: [string, 'null'], maxLength: 12000 }
         observations: { type: [string, 'null'], maxLength: 12000 }
+    OwnershipTransferRequest:
+      type: object
+      required: [expectedOwnerId, newOwnerId, reason, identityVerified]
+      properties:
+        expectedOwnerId: { type: string, format: uuid }
+        newOwnerId: { type: string, format: uuid }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        identityVerified: { type: boolean, const: true }
     OwnerProfile:
       type: object
       required: [id, tenantId, givenNames, familyNames, status, origin, createdAt, updatedAt]
@@ -786,6 +824,20 @@ components:
         status: { type: string, enum: [ACTIVA, FALLECIDA] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    OwnershipPeriod:
+      type: object
+      required: [id, tenantId, petId, ownerId, ownerGivenNames, ownerFamilyNames, effectiveFrom, verifiedByPrincipalId, reason]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        petId: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid }
+        ownerGivenNames: { type: string }
+        ownerFamilyNames: { type: string }
+        effectiveFrom: { type: string, format: date-time }
+        effectiveUntil: { type: [string, 'null'], format: date-time }
+        verifiedByPrincipalId: { type: string, format: uuid }
+        reason: { type: string }
     ClinicalEpisode:
       type: object
       required: [id, tenantId, petId, veterinarianPrincipalId, status, openedAt, createdAt, updatedAt]
@@ -894,6 +946,9 @@ components:
     PetsResponse:
       description: Mascotas del propietario visibles para el tenant autorizado.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/PetProfile' } } } } } }
+    OwnershipPeriodsResponse:
+      description: Periodos de responsabilidad visibles para administracion o recepcion autorizada.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/OwnershipPeriod' } } } } } }
     ClinicalEpisodeResponse:
       description: Episodio clínico visible solo para veterinario autorizado.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClinicalEpisode' } } } } }

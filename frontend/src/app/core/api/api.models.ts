@@ -162,3 +162,23 @@ export interface ClinicalEpisodeRequest {
   treatmentPlan: string | null;
   observations: string | null;
 }
+
+export interface OwnershipPeriod {
+  id: string;
+  tenantId: string;
+  petId: string;
+  ownerId: string;
+  ownerGivenNames: string;
+  ownerFamilyNames: string;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  verifiedByPrincipalId: string;
+  reason: string | null;
+}
+
+export interface OwnershipTransferRequest {
+  expectedOwnerId: string;
+  newOwnerId: string;
+  reason: string;
+  identityVerified: boolean;
+}

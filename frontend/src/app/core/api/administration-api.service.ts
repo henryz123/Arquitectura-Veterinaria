@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdministrativeRecovery, ApiEnvelope, ClientSpace, ClinicalEpisode, ClinicalEpisodeRequest, Organization, OwnerProfile, OwnerRequest, PetProfile, PetRequest, RucReview, StaffAccount, StaffInvitation, StaffRole, VerificationStatus } from './api.models';
+import { AdministrativeRecovery, ApiEnvelope, ClientSpace, ClinicalEpisode, ClinicalEpisodeRequest, Organization, OwnerProfile, OwnerRequest, OwnershipPeriod, OwnershipTransferRequest, PetProfile, PetRequest, RucReview, StaffAccount, StaffInvitation, StaffRole, VerificationStatus } from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdministrationApiService {
@@ -114,6 +114,17 @@ export class AdministrationApiService {
 
   getPet(petId: string): Observable<ApiEnvelope<PetProfile>> {
     return this.http.get<ApiEnvelope<PetProfile>>(`${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}`);
+  }
+
+  listOwnershipPeriods(petId: string): Observable<ApiEnvelope<OwnershipPeriod[]>> {
+    return this.http.get<ApiEnvelope<OwnershipPeriod[]>>(`${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}/ownership-periods`);
+  }
+
+  transferPetOwnership(petId: string, request: OwnershipTransferRequest): Observable<ApiEnvelope<PetProfile>> {
+    return this.http.post<ApiEnvelope<PetProfile>>(
+      `${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}/owner-transfers`,
+      request,
+    );
   }
 
   listClinicalEpisodes(petId: string): Observable<ApiEnvelope<ClinicalEpisode[]>> {
