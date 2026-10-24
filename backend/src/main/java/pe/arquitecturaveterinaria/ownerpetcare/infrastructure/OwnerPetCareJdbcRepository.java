@@ -66,6 +66,87 @@ public class OwnerPetCareJdbcRepository {
 				draft.birthDate(), draft.estimatedAgeMonths(), draft.distinguishingMarks(), actorPrincipalId);
 	}
 
+	public ClientOwnerLinkRequest createClientOwnerLinkRequest(UUID tenantId, UUID clientPrincipalId) {
+		return jdbcTemplate.queryForObject("""
+				insert into owner_pet_care.client_owner_link_request (tenant_id, client_principal_id)
+				values (?, ?)
+				returning id, tenant_id, request_reference, client_principal_id, status, proposed_owner_id,
+				          verification_method, rejection_reason, requested_at, resolved_at, resolved_by_principal_id
+				""", this::mapClientOwnerLinkRequest, tenantId, clientPrincipalId);
+	}
+
+	public Optional<ClientOwnerLinkRequest> findLatestClientOwnerLinkRequest(UUID clientPrincipalId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, request_reference, client_principal_id, status, proposed_owner_id,
+				       verification_method, rejection_reason, requested_at, resolved_at, resolved_by_principal_id
+				from owner_pet_care.client_owner_link_request
+				where client_principal_id = ?
+				order by requested_at desc, id desc
+				limit 1
+				""", this::mapClientOwnerLinkRequest, clientPrincipalId).stream().findFirst();
+	}
+
+	public Optional<ClientOwnerLinkRequest> findPendingClientOwnerLinkRequest(UUID clientPrincipalId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, request_reference, client_principal_id, status, proposed_owner_id,
+				       verification_method, rejection_reason, requested_at, resolved_at, resolved_by_principal_id
+				from owner_pet_care.client_owner_link_request
+				where client_principal_id = ? and status = 'PENDIENTE'
+				""", this::mapClientOwnerLinkRequest, clientPrincipalId).stream().findFirst();
+	}
+
+	public List<ClientOwnerLinkRequest> listClientOwnerLinkRequests(String status) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, request_reference, client_principal_id, status, proposed_owner_id,
+				       verification_method, rejection_reason, requested_at, resolved_at, resolved_by_principal_id
+				from owner_pet_care.client_owner_link_request
+				where (? is null or status = ?)
+				order by requested_at, id
+				limit 100
+				""", this::mapClientOwnerLinkRequest, status, status);
+	}
+
+	public Optional<ClientOwnerLinkRequest> lockClientOwnerLinkRequest(UUID requestId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, request_reference, client_principal_id, status, proposed_owner_id,
+				       verification_method, rejection_reason, requested_at, resolved_at, resolved_by_principal_id
+				from owner_pet_care.client_owner_link_request
+				where id = ?
+				for update
+				""", this::mapClientOwnerLinkRequest, requestId).stream().findFirst();
+	}
+
+	public Optional<ClientOwnerLink> findClientOwnerLink(UUID clientPrincipalId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, client_principal_id, owner_id, source_request_id, approved_by_principal_id, approved_at
+				from owner_pet_care.client_owner_link
+				where client_principal_id = ?
+				""", this::mapClientOwnerLink, clientPrincipalId).stream().findFirst();
+	}
+
+	public ClientOwnerLink createClientOwnerLink(UUID tenantId, UUID clientPrincipalId, UUID ownerId, UUID sourceRequestId,
+			UUID approvedByPrincipalId) {
+		return jdbcTemplate.queryForObject("""
+				insert into owner_pet_care.client_owner_link (
+				    tenant_id, client_principal_id, owner_id, source_request_id, approved_by_principal_id
+				) values (?, ?, ?, ?, ?)
+				returning id, tenant_id, client_principal_id, owner_id, source_request_id, approved_by_principal_id, approved_at
+				""", this::mapClientOwnerLink, tenantId, clientPrincipalId, ownerId, sourceRequestId, approvedByPrincipalId);
+	}
+
+	public Optional<ClientOwnerLinkRequest> resolveClientOwnerLinkRequest(UUID requestId, String status, UUID ownerId,
+			String verificationMethod, String rejectionReason, UUID resolverPrincipalId) {
+		return jdbcTemplate.query("""
+				update owner_pet_care.client_owner_link_request
+				set status = ?, proposed_owner_id = ?, verification_method = ?, rejection_reason = ?,
+				    resolved_at = statement_timestamp(), resolved_by_principal_id = ?
+				where id = ? and status = 'PENDIENTE'
+				returning id, tenant_id, request_reference, client_principal_id, status, proposed_owner_id,
+				          verification_method, rejection_reason, requested_at, resolved_at, resolved_by_principal_id
+				""", this::mapClientOwnerLinkRequest, status, ownerId, verificationMethod, rejectionReason,
+				resolverPrincipalId, requestId).stream().findFirst();
+	}
+
 	public void createInitialOwnership(UUID tenantId, UUID petId, UUID ownerId, UUID actorPrincipalId) {
 		createInitialOwnership(tenantId, petId, ownerId, actorPrincipalId, "Alta de mascota");
 	}
@@ -113,6 +194,18 @@ public class OwnerPetCareJdbcRepository {
 				set effective_until = statement_timestamp()
 				where tenant_id = ? and pet_id = ? and owner_id = ? and effective_until is null
 				""", tenantId, petId, ownerId);
+	}
+
+	public List<ClientPetProfile> listCurrentPetsForClient(UUID clientPrincipalId) {
+		return jdbcTemplate.query("""
+				select pet.id, pet.name, pet.species, pet.breed, pet.sex, pet.birth_date, pet.estimated_age_months,
+				       pet.distinguishing_marks, pet.status
+				from owner_pet_care.pet pet
+				join owner_pet_care.client_owner_link link
+				  on link.tenant_id = pet.tenant_id and link.owner_id = pet.current_owner_id
+				where link.client_principal_id = ?
+				order by pet.name, pet.created_at
+				""", this::mapClientPet, clientPrincipalId);
 	}
 
 	public int moveCurrentOwner(UUID tenantId, UUID petId, UUID expectedOwnerId, UUID newOwnerId) {
@@ -222,6 +315,29 @@ public class OwnerPetCareJdbcRepository {
 		return value == null ? null : value.toInstant();
 	}
 
+	private ClientOwnerLinkRequest mapClientOwnerLinkRequest(ResultSet resultSet, int rowNum) throws SQLException {
+		return new ClientOwnerLinkRequest(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
+				resultSet.getString("request_reference"), resultSet.getObject("client_principal_id", UUID.class),
+				resultSet.getString("status"), resultSet.getObject("proposed_owner_id", UUID.class),
+				resultSet.getString("verification_method"), resultSet.getString("rejection_reason"),
+				instant(resultSet, "requested_at"), instant(resultSet, "resolved_at"),
+				resultSet.getObject("resolved_by_principal_id", UUID.class));
+	}
+
+	private ClientOwnerLink mapClientOwnerLink(ResultSet resultSet, int rowNum) throws SQLException {
+		return new ClientOwnerLink(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
+				resultSet.getObject("client_principal_id", UUID.class), resultSet.getObject("owner_id", UUID.class),
+				resultSet.getObject("source_request_id", UUID.class), resultSet.getObject("approved_by_principal_id", UUID.class),
+				instant(resultSet, "approved_at"));
+	}
+
+	private ClientPetProfile mapClientPet(ResultSet resultSet, int rowNum) throws SQLException {
+		return new ClientPetProfile(resultSet.getObject("id", UUID.class), resultSet.getString("name"),
+				resultSet.getString("species"), resultSet.getString("breed"), resultSet.getString("sex"),
+				resultSet.getObject("birth_date", LocalDate.class), resultSet.getObject("estimated_age_months", Integer.class),
+				resultSet.getString("distinguishing_marks"), resultSet.getString("status"));
+	}
+
 	public record OwnerDraft(String givenNames, String familyNames, String phone, String email, String address, String origin) { }
 	public record OwnerProfile(UUID id, UUID tenantId, String givenNames, String familyNames, String phone, String email,
 			String address, String status, String origin, Instant createdAt, Instant updatedAt) { }
@@ -238,4 +354,11 @@ public class OwnerPetCareJdbcRepository {
 	public record OwnershipPeriod(UUID id, UUID tenantId, UUID petId, UUID ownerId, String ownerGivenNames,
 			String ownerFamilyNames, Instant effectiveFrom, Instant effectiveUntil, UUID verifiedByPrincipalId,
 			String reason) { }
+	public record ClientOwnerLinkRequest(UUID id, UUID tenantId, String requestReference, UUID clientPrincipalId,
+			String status, UUID proposedOwnerId, String verificationMethod, String rejectionReason, Instant requestedAt,
+			Instant resolvedAt, UUID resolvedByPrincipalId) { }
+	public record ClientOwnerLink(UUID id, UUID tenantId, UUID clientPrincipalId, UUID ownerId, UUID sourceRequestId,
+			UUID approvedByPrincipalId, Instant approvedAt) { }
+	public record ClientPetProfile(UUID id, String name, String species, String breed, String sex, LocalDate birthDate,
+			Integer estimatedAgeMonths, String distinguishingMarks, String status) { }
 }

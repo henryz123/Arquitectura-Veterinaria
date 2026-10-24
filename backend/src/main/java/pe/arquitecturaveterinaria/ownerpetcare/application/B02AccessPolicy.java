@@ -35,11 +35,23 @@ public final class B02AccessPolicy {
 				"Se requiere el rol veterinario para acceder a la historia clínica.");
 	}
 
+	public void requireClient(SessionPrincipal actor) {
+		if (actor == null || actor.accountType() != AccountType.CLIENT || actor.session().tenantId() == null) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "B02_CLIENT_REQUIRED",
+					"La operacion requiere una cuenta CLIENT autorizada de la veterinaria.");
+		}
+		requireActiveTenant(actor);
+	}
+
 	private void requireStaffInActiveTenant(SessionPrincipal actor) {
 		if (actor == null || actor.accountType() != AccountType.STAFF || actor.session().tenantId() == null) {
 			throw new ApiException(HttpStatus.FORBIDDEN, "B02_STAFF_REQUIRED",
 					"La operación requiere personal autorizado de la veterinaria.");
 		}
+		requireActiveTenant(actor);
+	}
+
+	private void requireActiveTenant(SessionPrincipal actor) {
 		if (!"ACTIVO".equals(actor.session().tenantStatus())) {
 			throw new ApiException(HttpStatus.FORBIDDEN, "TENANT_NOT_ACTIVE",
 					"La veterinaria no está disponible para esta operación.");

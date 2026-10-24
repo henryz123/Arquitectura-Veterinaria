@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize, forkJoin, of, switchMap } from 'rxjs';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
-import { ClinicalEpisode, ClinicalEpisodeRequest, OwnerProfile, OwnershipPeriod, PetProfile } from '../../core/api/api.models';
+import { ClientOwnerLinkRequest, ClinicalEpisode, ClinicalEpisodeRequest, OwnerProfile, OwnershipPeriod, PetProfile } from '../../core/api/api.models';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 
 @Component({
@@ -27,6 +27,8 @@ export class OwnerPetCarePageComponent implements OnInit {
   readonly selectedPet = signal<PetProfile | null>(null);
   readonly clinicalHistory = signal<ClinicalEpisode[]>([]);
   readonly ownershipPeriods = signal<OwnershipPeriod[]>([]);
+  readonly linkRequests = signal<ClientOwnerLinkRequest[]>([]);
+  readonly selectedLinkRequest = signal<ClientOwnerLinkRequest | null>(null);
   readonly loading = signal(true);
   readonly actionPending = signal(false);
   readonly error = signal<string | null>(null);
@@ -70,6 +72,13 @@ export class OwnerPetCarePageComponent implements OnInit {
     reason: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(500)]],
     identityVerified: false,
   });
+  readonly linkReviewForm = this.formBuilder.nonNullable.group({
+    status: this.formBuilder.nonNullable.control<'APROBADA' | 'RECHAZADA'>('APROBADA'),
+    ownerId: ['', Validators.required],
+    verificationMethod: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(120)]],
+    rejectionReason: ['', Validators.maxLength(500)],
+    identityVerified: false,
+  });
 
   ngOnInit(): void {
     if (this.context()?.accountType !== 'STAFF') {
@@ -77,6 +86,9 @@ export class OwnerPetCarePageComponent implements OnInit {
       return;
     }
     this.loadOwners();
+    if (this.canManageRegistry()) {
+      this.loadLinkRequests();
+    }
   }
 
   loadOwners(query?: string): void {
@@ -85,6 +97,67 @@ export class OwnerPetCarePageComponent implements OnInit {
     this.api.listOwners(query).pipe(finalize(() => this.loading.set(false))).subscribe({
       next: (response) => this.owners.set(response.data),
       error: () => this.error.set('No fue posible cargar los propietarios autorizados. Actualiza la página e inténtalo nuevamente.'),
+    });
+  }
+
+  loadLinkRequests(): void {
+    this.api.listClientOwnerLinkRequests().subscribe({
+      next: (response) => this.linkRequests.set(response.data),
+      error: () => this.error.set('No fue posible cargar las solicitudes de vinculación pendientes.'),
+    });
+  }
+
+  selectLinkRequest(request: ClientOwnerLinkRequest): void {
+    this.selectedLinkRequest.set(request);
+    this.linkReviewForm.reset({
+      status: 'APROBADA', ownerId: '', verificationMethod: '', rejectionReason: '', identityVerified: false,
+    });
+    this.clearFeedback();
+  }
+
+  isLinkApproval(): boolean {
+    return this.linkReviewForm.controls.status.value === 'APROBADA';
+  }
+
+  resolveClientLinkRequest(): void {
+    const request = this.selectedLinkRequest();
+    if (!request || !this.canManageRegistry() || this.actionPending()) {
+      return;
+    }
+    const value = this.linkReviewForm.getRawValue();
+    if (!value.identityVerified || !value.verificationMethod.trim()) {
+      this.error.set('Registra el método general y confirma la verificación manual antes de resolver.');
+      this.linkReviewForm.markAllAsTouched();
+      return;
+    }
+    if (value.status === 'APROBADA' && !value.ownerId) {
+      this.error.set('Selecciona el propietario local que fue verificado.');
+      return;
+    }
+    if (value.status === 'RECHAZADA' && value.rejectionReason.trim().length < 3) {
+      this.error.set('Indica un motivo de rechazo de al menos 3 caracteres.');
+      return;
+    }
+    this.clearFeedback();
+    this.actionPending.set(true);
+    this.api.resolveClientOwnerLinkRequest(request.id, {
+      status: value.status,
+      ownerId: value.status === 'APROBADA' ? value.ownerId : null,
+      verificationMethod: value.verificationMethod.trim(),
+      rejectionReason: value.status === 'RECHAZADA' ? value.rejectionReason.trim() : null,
+      identityVerified: value.identityVerified,
+    }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+      next: (response) => {
+        this.linkRequests.update((requests) => requests.filter((item) => item.id !== response.data.id));
+        this.selectedLinkRequest.set(null);
+        this.linkReviewForm.reset({
+          status: 'APROBADA', ownerId: '', verificationMethod: '', rejectionReason: '', identityVerified: false,
+        });
+        this.notice.set(response.data.status === 'APROBADA'
+          ? 'La vinculación fue aprobada con verificación manual y trazabilidad.'
+          : 'La solicitud fue rechazada con un motivo registrado. No se habilitó acceso.');
+      },
+      error: () => this.error.set('No fue posible resolver la solicitud. Confirma el estado vigente y tus permisos.'),
     });
   }
 

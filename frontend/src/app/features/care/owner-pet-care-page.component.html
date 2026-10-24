@@ -117,7 +117,32 @@
         </article>
       </section>
 
-      <section class="care-layout clinical-layout" *ngIf="selectedPet() as pet">
+	  <section class="care-layout link-review-layout" *ngIf="canManageRegistry()">
+	    <article class="panel">
+	      <div class="panel-heading"><div><p class="eyebrow">Vinculación digital</p><h2>Solicitudes pendientes</h2></div><span class="panel-caption">{{ linkRequests().length }} pendientes</span></div>
+	      <p class="panel-note">No se muestran coincidencias privadas al cliente. Selecciona una solicitud y verifica manualmente la identidad y la relación antes de decidir.</p>
+	      <div class="link-request-list" *ngIf="linkRequests().length; else emptyLinkRequests">
+	        <button type="button" *ngFor="let request of linkRequests(); trackBy: trackById" (click)="selectLinkRequest(request)" [class.is-selected]="selectedLinkRequest()?.id === request.id">
+	          <strong>{{ request.requestReference }}</strong><span>Solicitada {{ request.requestedAt | date:'mediumDate' }}</span>
+	        </button>
+	      </div>
+	      <ng-template #emptyLinkRequests><p class="empty-state compact">No hay solicitudes de vinculación pendientes en esta veterinaria.</p></ng-template>
+	    </article>
+
+	    <article class="panel" *ngIf="selectedLinkRequest() as request">
+	      <div class="panel-heading"><div><p class="eyebrow">Revisión manual</p><h2>{{ request.requestReference }}</h2></div></div>
+	      <form [formGroup]="linkReviewForm" (ngSubmit)="resolveClientLinkRequest()" novalidate>
+	        <div class="field-group"><label for="link-decision">Decisión</label><select id="link-decision" formControlName="status"><option value="APROBADA">Aprobar vinculación</option><option value="RECHAZADA">Rechazar solicitud</option></select></div>
+	        <div class="field-group" *ngIf="isLinkApproval()"><label for="link-owner">Propietario local verificado</label><select id="link-owner" formControlName="ownerId"><option value="">Selecciona un propietario</option><option *ngFor="let owner of owners()" [value]="owner.id">{{ ownerLabel(owner) }}</option></select></div>
+	        <div class="field-group"><label for="link-method">Método general de verificación</label><input id="link-method" formControlName="verificationMethod" placeholder="Ej. Verificación presencial" /><p class="helper">No adjuntes ni copies documentos de identidad.</p></div>
+	        <div class="field-group" *ngIf="!isLinkApproval()"><label for="link-rejection">Motivo del rechazo</label><textarea id="link-rejection" rows="3" formControlName="rejectionReason"></textarea></div>
+	        <label class="transfer-confirmation" for="link-confirmed"><input id="link-confirmed" type="checkbox" formControlName="identityVerified" /> Confirmo que verifiqué manualmente identidad y relación.</label>
+	        <button class="button button-primary" type="submit" [disabled]="actionPending()">Resolver solicitud</button>
+	      </form>
+	    </article>
+	  </section>
+
+	  <section class="care-layout clinical-layout" *ngIf="selectedPet() as pet">
         <article class="panel" *ngIf="canWriteClinical(); else restrictedClinical">
           <div class="panel-heading"><div><p class="eyebrow">Paso 3</p><h2>Registrar atención de {{ pet.name }}</h2></div><span class="panel-caption">Solo veterinario</span></div>
           <form [formGroup]="clinicalForm" (ngSubmit)="saveClinicalEpisode()" novalidate>

@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,8 @@ import pe.arquitecturaveterinaria.identityaccess.infrastructure.TenantContextJdb
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalDraft;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalEpisode;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientOwnerLinkRequest;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientPetProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerDraft;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetDraft;
@@ -143,6 +146,96 @@ public class OwnerPetCareService {
 	}
 
 	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ClientOwnerLinkStatus requestClientOwnerLink(SessionPrincipal actor) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		if (repository.findClientOwnerLink(actor.session().accountId()).isPresent()) {
+			throw conflict("B02_CLIENT_ALREADY_LINKED", "La cuenta ya tiene una vinculacion digital aprobada.");
+		}
+		if (repository.findPendingClientOwnerLinkRequest(actor.session().accountId()).isPresent()) {
+			throw conflict("B02_CLIENT_LINK_REQUEST_PENDING", "Ya existe una solicitud de vinculacion pendiente.");
+		}
+		ClientOwnerLinkRequest request = repository.createClientOwnerLinkRequest(actor.session().tenantId(),
+				actor.session().accountId());
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLIENT_OWNER_LINK_REQUESTED",
+				"CLIENT_OWNER_LINK_REQUEST", request.id());
+		return statusOf(request);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public ClientOwnerLinkStatus getClientOwnerLinkStatus(SessionPrincipal actor) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		return repository.findLatestClientOwnerLinkRequest(actor.session().accountId()).map(this::statusOf)
+				.orElseGet(() -> new ClientOwnerLinkStatus("SIN_SOLICITUD", null, null, null, null));
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<ClientPetProfile> listCurrentPetsForClient(SessionPrincipal actor) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		return repository.listCurrentPetsForClient(actor.session().accountId());
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<ClientOwnerLinkRequest> listClientOwnerLinkRequests(SessionPrincipal actor, String status) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		return repository.listClientOwnerLinkRequests(status == null ? "PENDIENTE" : status);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ClientOwnerLinkRequest resolveClientOwnerLinkRequest(SessionPrincipal actor, UUID requestId,
+			ClientOwnerLinkResolutionCommand command) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		ClientOwnerLinkRequest request = repository.lockClientOwnerLinkRequest(requestId)
+				.orElseThrow(() -> notFound("No se encontro la solicitud de vinculacion."));
+		if (!"PENDIENTE".equals(request.status())) {
+			throw conflict("B02_CLIENT_LINK_REQUEST_ALREADY_RESOLVED",
+					"La solicitud ya fue resuelta y no puede procesarse otra vez.");
+		}
+		if (!command.identityVerified()) {
+			throw validation("identityVerified", "Confirma la verificacion manual antes de resolver la vinculacion.");
+		}
+		String status = required(command.status(), "status").toUpperCase(Locale.ROOT);
+		String verificationMethod = required(command.verificationMethod(), "verificationMethod");
+		if ("APROBADA".equals(status)) {
+			OwnerProfile owner = ownerOrNotFound(command.ownerId());
+			if (!"ACTIVO".equals(owner.status())) {
+				throw conflict("OWNER_INACTIVE", "No se puede vincular una cuenta a un propietario inactivo.");
+			}
+			if (repository.findClientOwnerLink(request.clientPrincipalId()).isPresent()) {
+				throw conflict("B02_CLIENT_ALREADY_LINKED", "La cuenta ya tiene una vinculacion digital aprobada.");
+			}
+			try {
+				repository.createClientOwnerLink(actor.session().tenantId(), request.clientPrincipalId(), owner.id(), request.id(),
+						actor.session().accountId());
+			} catch (DataIntegrityViolationException exception) {
+				throw conflict("B02_CLIENT_LINK_CONFLICT", "El propietario o la cuenta ya tienen una vinculacion incompatible.");
+			}
+			ClientOwnerLinkRequest resolved = repository.resolveClientOwnerLinkRequest(request.id(), status, owner.id(),
+					verificationMethod, null, actor.session().accountId())
+					.orElseThrow(() -> conflict("B02_CLIENT_LINK_CONCURRENT_CHANGE",
+							"La solicitud cambio antes de poder aprobarse."));
+			repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLIENT_OWNER_LINK_APPROVED",
+					"CLIENT_OWNER_LINK_REQUEST", resolved.id());
+			return resolved;
+		}
+		if ("RECHAZADA".equals(status)) {
+			String rejectionReason = required(command.rejectionReason(), "rejectionReason");
+			ClientOwnerLinkRequest resolved = repository.resolveClientOwnerLinkRequest(request.id(), status, null,
+					verificationMethod, rejectionReason, actor.session().accountId())
+					.orElseThrow(() -> conflict("B02_CLIENT_LINK_CONCURRENT_CHANGE",
+							"La solicitud cambio antes de poder rechazarse."));
+			repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLIENT_OWNER_LINK_REJECTED",
+					"CLIENT_OWNER_LINK_REQUEST", resolved.id());
+			return resolved;
+		}
+		throw validation("status", "Indica una decision de aprobacion o rechazo.");
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
 	public ClinicalEpisode finalizeClinicalEpisode(SessionPrincipal actor, UUID episodeId, ClinicalEpisodeCommand command) {
 		accessPolicy.requireVeterinarian(actor);
 		setTrustedContext(actor);
@@ -192,6 +285,11 @@ public class OwnerPetCareService {
 	private ClinicalEpisode episodeOrNotFound(UUID episodeId) {
 		return repository.findClinicalEpisode(episodeId)
 				.orElseThrow(() -> notFound("No se encontró el recurso solicitado."));
+	}
+
+	private ClientOwnerLinkStatus statusOf(ClientOwnerLinkRequest request) {
+		return new ClientOwnerLinkStatus(request.status(), request.requestReference(), request.requestedAt(), request.resolvedAt(),
+				request.rejectionReason());
 	}
 
 	private ClinicalDraft clinicalDraft(ClinicalEpisodeCommand command) {
@@ -267,4 +365,8 @@ public class OwnerPetCareService {
 	public record OwnershipTransferCommand(UUID expectedOwnerId, UUID newOwnerId, String reason, boolean identityVerified) { }
 	public record ClinicalEpisodeCommand(UUID appointmentId, String reason, String anamnesis, String assessment,
 			String diagnosis, String treatmentPlan, String observations) { }
+	public record ClientOwnerLinkResolutionCommand(String status, UUID ownerId, String verificationMethod,
+			String rejectionReason, boolean identityVerified) { }
+	public record ClientOwnerLinkStatus(String status, String requestReference, java.time.Instant requestedAt,
+			java.time.Instant resolvedAt, String rejectionReason) { }
 }

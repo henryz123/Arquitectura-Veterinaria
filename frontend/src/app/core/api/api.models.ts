@@ -24,9 +24,53 @@ export interface CsrfToken {
 }
 
 export interface ClientSpace {
-  tenantSlug: string;
-  commercialName: string;
-  message: string;
+	tenantSlug: string;
+	commercialName: string;
+	message: string;
+}
+
+export type ClientOwnerLinkStatusCode = 'SIN_SOLICITUD' | 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
+
+export interface ClientOwnerLinkStatus {
+	status: ClientOwnerLinkStatusCode;
+	requestReference: string | null;
+	requestedAt: string | null;
+	resolvedAt: string | null;
+	rejectionReason: string | null;
+}
+
+export interface ClientOwnerLinkRequest {
+	id: string;
+	tenantId: string;
+	requestReference: string;
+	clientPrincipalId: string;
+	status: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
+	proposedOwnerId: string | null;
+	verificationMethod: string | null;
+	rejectionReason: string | null;
+	requestedAt: string;
+	resolvedAt: string | null;
+	resolvedByPrincipalId: string | null;
+}
+
+export interface ClientOwnerLinkResolutionRequest {
+	status: 'APROBADA' | 'RECHAZADA';
+	ownerId: string | null;
+	verificationMethod: string;
+	rejectionReason: string | null;
+	identityVerified: boolean;
+}
+
+export interface ClientPetProfile {
+	id: string;
+	name: string;
+	species: string;
+	breed: string | null;
+	sex: 'HEMBRA' | 'MACHO' | 'DESCONOCIDO';
+	birthDate: string | null;
+	estimatedAgeMonths: number | null;
+	distinguishingMarks: string | null;
+	status: 'ACTIVA' | 'FALLECIDA';
 }
 
 export interface VerificationStatus {

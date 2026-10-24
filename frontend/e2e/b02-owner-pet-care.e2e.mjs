@@ -48,10 +48,14 @@ try {
 
   const initialOwnersLoad = page.waitForResponse((response) => response.request().method() === 'GET'
     && new URL(response.url()).pathname === '/api/v1/owners');
+	const pendingLinkRequestsLoad = page.waitForResponse((response) => response.request().method() === 'GET'
+	  && new URL(response.url()).pathname === '/api/v1/owner-link-requests');
   await page.getByRole('link', { name: 'Propietarios y clínica' }).click();
   await page.waitForURL(`${baseUrl}/care`);
   await page.getByRole('heading', { name: 'Registrar y atender' }).waitFor();
   assert.equal((await initialOwnersLoad).status(), 200, 'the B02 page must load the tenant owner list');
+
+	assert.equal((await pendingLinkRequestsLoad).status(), 200, 'the B02 page must load the tenant link-review queue');
 
   let owner = await existingOwner(page);
   if (!owner) {

@@ -29,10 +29,14 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClinicalEpisodeCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClientOwnerLinkResolutionCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClientOwnerLinkStatus;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnerCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnershipTransferCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PetCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalEpisode;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientOwnerLinkRequest;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientPetProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnershipPeriod;
@@ -102,6 +106,35 @@ public class OwnerPetCareController {
 		return ApiEnvelope.of(service.listOwnershipPeriods(principal, petId));
 	}
 
+	@PostMapping("/client/owner-link-requests")
+	ResponseEntity<ApiEnvelope<ClientOwnerLinkStatus>> requestClientOwnerLink(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiEnvelope.of(service.requestClientOwnerLink(principal)));
+	}
+
+	@GetMapping("/client/owner-link-status")
+	ApiEnvelope<ClientOwnerLinkStatus> getClientOwnerLinkStatus(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(service.getClientOwnerLinkStatus(principal));
+	}
+
+	@GetMapping("/client/pets")
+	ApiEnvelope<List<ClientPetProfile>> listClientPets(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(service.listCurrentPetsForClient(principal));
+	}
+
+	@GetMapping("/owner-link-requests")
+	ApiEnvelope<List<ClientOwnerLinkRequest>> listClientOwnerLinkRequests(@AuthenticationPrincipal SessionPrincipal principal,
+			@RequestParam(required = false) @Pattern(regexp = "PENDIENTE|APROBADA|RECHAZADA", flags = Pattern.Flag.CASE_INSENSITIVE) String status) {
+		return ApiEnvelope.of(service.listClientOwnerLinkRequests(principal, status == null ? null : status.toUpperCase()));
+	}
+
+	@PostMapping("/owner-link-requests/{requestId}/resolution")
+	ApiEnvelope<ClientOwnerLinkRequest> resolveClientOwnerLinkRequest(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID requestId, @Valid @RequestBody ClientOwnerLinkResolutionRequest request) {
+		return ApiEnvelope.of(service.resolveClientOwnerLinkRequest(principal, requestId,
+				new ClientOwnerLinkResolutionCommand(request.status(), request.ownerId(), request.verificationMethod(),
+						request.rejectionReason(), request.identityVerified())));
+	}
+
 	@PostMapping("/pets/{petId}/clinical-episodes")
 	ResponseEntity<ApiEnvelope<ClinicalEpisode>> createClinicalEpisode(@AuthenticationPrincipal SessionPrincipal principal,
 			@PathVariable UUID petId, @Valid @RequestBody ClinicalEpisodeRequest request) {
@@ -148,6 +181,13 @@ public class OwnerPetCareController {
 			@NotNull UUID expectedOwnerId,
 			@NotNull UUID newOwnerId,
 			@NotBlank @Size(min = 3, max = 500) String reason,
+			boolean identityVerified) { }
+
+	public record ClientOwnerLinkResolutionRequest(
+			@NotBlank @Pattern(regexp = "APROBADA|RECHAZADA", flags = Pattern.Flag.CASE_INSENSITIVE) String status,
+			UUID ownerId,
+			@NotBlank @Size(min = 3, max = 120) String verificationMethod,
+			@Size(max = 500) String rejectionReason,
 			boolean identityVerified) { }
 
 	public record ClinicalEpisodeRequest(

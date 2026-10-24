@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdministrativeRecovery, ApiEnvelope, ClientSpace, ClinicalEpisode, ClinicalEpisodeRequest, Organization, OwnerProfile, OwnerRequest, OwnershipPeriod, OwnershipTransferRequest, PetProfile, PetRequest, RucReview, StaffAccount, StaffInvitation, StaffRole, VerificationStatus } from './api.models';
+import { AdministrativeRecovery, ApiEnvelope, ClientOwnerLinkRequest, ClientOwnerLinkResolutionRequest, ClientOwnerLinkStatus, ClientPetProfile, ClientSpace, ClinicalEpisode, ClinicalEpisodeRequest, Organization, OwnerProfile, OwnerRequest, OwnershipPeriod, OwnershipTransferRequest, PetProfile, PetRequest, RucReview, StaffAccount, StaffInvitation, StaffRole, VerificationStatus } from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdministrationApiService {
@@ -69,6 +69,30 @@ export class AdministrationApiService {
 
   clientSpace(): Observable<ApiEnvelope<ClientSpace>> {
     return this.http.get<ApiEnvelope<ClientSpace>>(`${this.apiBaseUrl}/client-space`);
+  }
+
+  requestClientOwnerLink(): Observable<ApiEnvelope<ClientOwnerLinkStatus>> {
+    return this.http.post<ApiEnvelope<ClientOwnerLinkStatus>>(`${this.apiBaseUrl}/client/owner-link-requests`, {});
+  }
+
+  getClientOwnerLinkStatus(): Observable<ApiEnvelope<ClientOwnerLinkStatus>> {
+    return this.http.get<ApiEnvelope<ClientOwnerLinkStatus>>(`${this.apiBaseUrl}/client/owner-link-status`);
+  }
+
+  listClientPets(): Observable<ApiEnvelope<ClientPetProfile[]>> {
+    return this.http.get<ApiEnvelope<ClientPetProfile[]>>(`${this.apiBaseUrl}/client/pets`);
+  }
+
+  listClientOwnerLinkRequests(status = 'PENDIENTE'): Observable<ApiEnvelope<ClientOwnerLinkRequest[]>> {
+    return this.http.get<ApiEnvelope<ClientOwnerLinkRequest[]>>(
+      `${this.apiBaseUrl}/owner-link-requests?status=${encodeURIComponent(status)}`,
+    );
+  }
+
+  resolveClientOwnerLinkRequest(requestId: string, request: ClientOwnerLinkResolutionRequest): Observable<ApiEnvelope<ClientOwnerLinkRequest>> {
+    return this.http.post<ApiEnvelope<ClientOwnerLinkRequest>>(
+      `${this.apiBaseUrl}/owner-link-requests/${encodeURIComponent(requestId)}/resolution`, request,
+    );
   }
 
   registerClient(tenantSlug: string, email: string, password: string): Observable<void> {

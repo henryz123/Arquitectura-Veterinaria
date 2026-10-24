@@ -83,6 +83,34 @@ describe('AdministrationApiService', () => {
     expect(clientSpace.request.method).toBe('GET');
     clientSpace.flush({ data: { tenantSlug: 'veterinaria-aurora', commercialName: 'Aurora', message: 'Espacio protegido.' } });
 
+    service.requestClientOwnerLink().subscribe();
+    const linkRequest = http.expectOne('/api/v1/client/owner-link-requests');
+    expect(linkRequest.request.method).toBe('POST');
+    expect(linkRequest.request.body).toEqual({});
+    linkRequest.flush({ data: { status: 'PENDIENTE', requestReference: 'VINC-123', requestedAt: '2026-10-24T00:00:00Z', resolvedAt: null, rejectionReason: null } });
+
+    service.getClientOwnerLinkStatus().subscribe();
+    const linkStatus = http.expectOne('/api/v1/client/owner-link-status');
+    expect(linkStatus.request.method).toBe('GET');
+    linkStatus.flush({ data: { status: 'SIN_SOLICITUD', requestReference: null, requestedAt: null, resolvedAt: null, rejectionReason: null } });
+
+    service.listClientPets().subscribe();
+    const clientPets = http.expectOne('/api/v1/client/pets');
+    expect(clientPets.request.method).toBe('GET');
+    clientPets.flush({ data: [] });
+
+    service.listClientOwnerLinkRequests().subscribe();
+    const pendingLinks = http.expectOne('/api/v1/owner-link-requests?status=PENDIENTE');
+    expect(pendingLinks.request.method).toBe('GET');
+    pendingLinks.flush({ data: [] });
+
+    const linkResolution = { status: 'APROBADA' as const, ownerId: 'owner-1', verificationMethod: 'Verificacion presencial', rejectionReason: null, identityVerified: true };
+    service.resolveClientOwnerLinkRequest('link-1', linkResolution).subscribe();
+    const resolvedLink = http.expectOne('/api/v1/owner-link-requests/link-1/resolution');
+    expect(resolvedLink.request.method).toBe('POST');
+    expect(resolvedLink.request.body).toEqual(linkResolution);
+    resolvedLink.flush({ data: { id: 'link-1', status: 'APROBADA' } });
+
     service.registerClient('veterinaria-aurora', 'cliente@demo.invalid', 'ClaveSintetica123').subscribe();
     const registration = http.expectOne('/api/v1/tenants/veterinaria-aurora/client-registrations');
     expect(registration.request.method).toBe('POST');

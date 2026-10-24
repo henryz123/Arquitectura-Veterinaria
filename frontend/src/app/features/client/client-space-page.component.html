@@ -6,6 +6,7 @@
 
   <section *ngIf="loading()" aria-live="polite">Cargando tu información autorizada…</section>
   <section class="feedback" role="alert" *ngIf="error()">{{ error() }}</section>
+  <section class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</section>
 
   <section class="client-panel" *ngIf="space() as clientSpace">
     <p class="eyebrow">Espacio privado</p>
@@ -15,7 +16,33 @@
       <div><dt>Veterinaria</dt><dd>{{ clientSpace.tenantSlug }}</dd></div>
       <div><dt>Acceso actual</dt><dd>Solo información propia autorizada</dd></div>
     </dl>
-    <p class="notice">Las mascotas, citas, grooming y pedidos se incorporarán aquí cuando sus verticales B02–B05 estén implementados.</p>
+
+    <section class="link-panel" *ngIf="linkStatus() as link">
+      <h2>Vincular registros presenciales</h2>
+      <p *ngIf="link.status === 'SIN_SOLICITUD'">Solicita una revisión manual si ya tenías registros en esta veterinaria. No se mostrarán coincidencias ni datos de terceros.</p>
+      <p *ngIf="link.status === 'PENDIENTE'">Tu solicitud <strong>{{ link.requestReference }}</strong> está pendiente de revisión. La verificación se realiza con personal autorizado.</p>
+      <p *ngIf="link.status === 'APROBADA'">Tu cuenta fue vinculada y ya puedes consultar la ficha básica de tus mascotas vigentes.</p>
+      <p *ngIf="link.status === 'RECHAZADA'">La solicitud anterior no pudo aprobarse: {{ link.rejectionReason }}. Puedes solicitar una nueva revisión cuando cuentes con la información necesaria.</p>
+      <button class="link-action" type="button" *ngIf="canRequestLink()" [disabled]="actionPending()" (click)="requestOwnerLink()">
+        Solicitar vinculación manual
+      </button>
+    </section>
+
+    <section class="pet-panel" aria-labelledby="client-pets-title">
+      <div>
+        <p class="eyebrow">Mis mascotas</p>
+        <h2 id="client-pets-title">Fichas básicas autorizadas</h2>
+      </div>
+      <div class="pet-cards" *ngIf="pets().length; else noPets">
+        <article *ngFor="let pet of pets()">
+          <strong>{{ pet.name }}</strong>
+          <span>{{ pet.species }} · {{ pet.breed || 'Raza no registrada' }}</span>
+          <span>{{ pet.birthDate ? ('Nacimiento: ' + pet.birthDate) : ('Edad estimada: ' + pet.estimatedAgeMonths + ' meses') }}</span>
+        </article>
+      </div>
+      <ng-template #noPets><p class="notice">No tienes fichas de mascotas vigentes autorizadas todavía. El portal no muestra historia clínica, diagnósticos ni prescripciones.</p></ng-template>
+    </section>
+
     <a [routerLink]="['/client/login', clientSpace.tenantSlug]">Cambiar de sesión</a>
   </section>
 </main>

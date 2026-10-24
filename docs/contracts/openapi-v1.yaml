@@ -462,6 +462,73 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/client/owner-link-requests:
+    post:
+      tags: [owner-pet-care]
+      summary: Solicita revisión manual para vincular la cuenta CLIENT a un registro presencial
+      x-implementation-status: implemented-b02-client-linking
+      x-v1-requirements: [RF-B02-004, RF-B02-005, RF-B02-006, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      responses:
+        '201': { $ref: '#/components/responses/ClientOwnerLinkStatusResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/client/owner-link-status:
+    get:
+      tags: [owner-pet-care]
+      summary: Consulta el estado propio de vinculación sin revelar registros de terceros
+      x-implementation-status: implemented-b02-client-linking
+      x-v1-requirements: [RF-B02-004, RF-B02-005, RF-B02-006, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ClientOwnerLinkStatusResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/client/pets:
+    get:
+      tags: [owner-pet-care]
+      summary: Lista solo las fichas básicas de mascotas con responsabilidad vigente del CLIENT
+      description: No expone historia clínica, diagnósticos, narrativas ni prescripciones.
+      x-implementation-status: implemented-b02-client-linking
+      x-v1-requirements: [RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ClientPetsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/owner-link-requests:
+    get:
+      tags: [owner-pet-care]
+      summary: Lista solicitudes de vinculación dentro del tenant para recepción o administración
+      x-implementation-status: implemented-b02-client-linking
+      x-v1-requirements: [RF-B02-005, RF-B02-006, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [PENDIENTE, APROBADA, RECHAZADA] }
+      responses:
+        '200': { $ref: '#/components/responses/ClientOwnerLinkRequestsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/owner-link-requests/{requestId}/resolution:
+    post:
+      tags: [owner-pet-care]
+      summary: Aprueba o rechaza una solicitud de vinculación tras verificación manual
+      x-implementation-status: implemented-b02-client-linking
+      x-v1-requirements: [RF-B02-005, RF-B02-006, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ClientOwnerLinkRequestId' }]
+      requestBody: { $ref: '#/components/requestBodies/ClientOwnerLinkResolutionRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ClientOwnerLinkRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/pets/{petId}/clinical-episodes:
     post:
       tags: [owner-pet-care]
@@ -524,6 +591,7 @@ components:
     RecoveryId: { name: recoveryId, in: path, required: true, schema: { type: string, format: uuid } }
     OwnerId: { name: ownerId, in: path, required: true, schema: { type: string, format: uuid } }
     PetId: { name: petId, in: path, required: true, schema: { type: string, format: uuid } }
+    ClientOwnerLinkRequestId: { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
     ClinicalEpisodeId: { name: episodeId, in: path, required: true, schema: { type: string, format: uuid } }
   requestBodies:
     LoginRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
@@ -545,6 +613,7 @@ components:
     OwnerRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OwnerRequest' } } } }
     PetRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PetRequest' } } } }
     OwnershipTransferRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OwnershipTransferRequest' } } } }
+    ClientOwnerLinkResolutionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClientOwnerLinkResolutionRequest' } } } }
     ClinicalEpisodeRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClinicalEpisodeRequest' } } } }
   schemas:
     LoginRequest:
@@ -754,6 +823,52 @@ components:
         tenantSlug: { type: string }
         commercialName: { type: string }
         message: { type: string }
+    ClientOwnerLinkStatus:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [SIN_SOLICITUD, PENDIENTE, APROBADA, RECHAZADA] }
+        requestReference: { type: [string, 'null'] }
+        requestedAt: { type: [string, 'null'], format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        rejectionReason: { type: [string, 'null'] }
+    ClientOwnerLinkRequest:
+      type: object
+      required: [id, tenantId, requestReference, clientPrincipalId, status, requestedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        requestReference: { type: string }
+        clientPrincipalId: { type: string, format: uuid, description: Identificador interno visible solo a personal autorizado. }
+        status: { type: string, enum: [PENDIENTE, APROBADA, RECHAZADA] }
+        proposedOwnerId: { type: [string, 'null'], format: uuid }
+        verificationMethod: { type: [string, 'null'] }
+        rejectionReason: { type: [string, 'null'] }
+        requestedAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        resolvedByPrincipalId: { type: [string, 'null'], format: uuid }
+    ClientOwnerLinkResolutionRequest:
+      type: object
+      required: [status, verificationMethod, identityVerified]
+      properties:
+        status: { type: string, enum: [APROBADA, RECHAZADA] }
+        ownerId: { type: [string, 'null'], format: uuid, description: Obligatorio cuando status es APROBADA. }
+        verificationMethod: { type: string, minLength: 3, maxLength: 120, description: Método general; no contiene copias de documentos. }
+        rejectionReason: { type: [string, 'null'], maxLength: 500, description: Obligatorio cuando status es RECHAZADA. }
+        identityVerified: { type: boolean, const: true }
+    ClientPetProfile:
+      type: object
+      required: [id, name, species, sex, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        species: { type: string }
+        breed: { type: [string, 'null'] }
+        sex: { type: string, enum: [HEMBRA, MACHO, DESCONOCIDO] }
+        birthDate: { type: [string, 'null'], format: date }
+        estimatedAgeMonths: { type: [integer, 'null'] }
+        distinguishingMarks: { type: [string, 'null'] }
+        status: { type: string, enum: [ACTIVA, FALLECIDA] }
     OwnerRequest:
       type: object
       required: [givenNames, familyNames]
@@ -928,6 +1043,18 @@ components:
     ClientSpaceResponse:
       description: Espacio mínimo de cliente.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClientSpace' } } } } }
+    ClientOwnerLinkStatusResponse:
+      description: Estado propio de la solicitud de vinculacion sin revelar coincidencias privadas.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClientOwnerLinkStatus' } } } } }
+    ClientOwnerLinkRequestResponse:
+      description: Solicitud de vinculacion resuelta por personal autorizado del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClientOwnerLinkRequest' } } } } }
+    ClientOwnerLinkRequestsResponse:
+      description: Solicitudes de vinculacion visibles solo a recepcion o administracion del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ClientOwnerLinkRequest' } } } } } }
+    ClientPetsResponse:
+      description: Fichas basicas de mascotas con responsabilidad vigente para el CLIENT autenticado; no incluye historia clinica.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ClientPetProfile' } } } } } }
     Unauthorized: { description: 'Sesión ausente, inválida o grant de registro ausente.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     Forbidden: { description: 'Operación no autorizada para el rol o tenant efectivo.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     CsrfRejected: { description: 'Token CSRF ausente o inválido.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

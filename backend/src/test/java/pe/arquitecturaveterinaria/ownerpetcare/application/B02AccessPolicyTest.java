@@ -59,8 +59,19 @@ class B02AccessPolicyTest {
 
 		assertEquals("B02_STAFF_REQUIRED",
 				assertThrows(ApiException.class, () -> policy.requirePetReader(client)).code());
+		assertDoesNotThrow(() -> policy.requireClient(client));
 		assertEquals("TENANT_NOT_ACTIVE",
 				assertThrows(ApiException.class, () -> policy.requireRegistryManager(suspendedReceptionist)).code());
+	}
+
+	@Test
+	void staffCannotUseClientOnlyOperations() {
+		SessionPrincipal receptionist = principal(AccountType.STAFF, "ACTIVO", List.of("RECEPCION"));
+
+		ApiException exception = assertThrows(ApiException.class, () -> policy.requireClient(receptionist));
+
+		assertEquals(HttpStatus.FORBIDDEN, exception.status());
+		assertEquals("B02_CLIENT_REQUIRED", exception.code());
 	}
 
 	private SessionPrincipal principal(AccountType accountType, String tenantStatus, List<String> roles) {

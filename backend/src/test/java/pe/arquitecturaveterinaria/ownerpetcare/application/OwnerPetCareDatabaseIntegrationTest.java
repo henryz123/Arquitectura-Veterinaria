@@ -22,6 +22,7 @@ import pe.arquitecturaveterinaria.identityaccess.application.IdentityAccessServi
 import pe.arquitecturaveterinaria.identityaccess.application.LocalNotificationMailbox;
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClinicalEpisodeCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClientOwnerLinkResolutionCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnerCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnershipTransferCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PetCommand;
@@ -120,6 +121,71 @@ class OwnerPetCareDatabaseIntegrationTest {
 		assertEquals("B02_CLINICAL_ROLE_REQUIRED", exception.code());
 	}
 
+	@Test
+	void linksAClientOnlyAfterManualReviewAndShowsOnlyCurrentBasicPets() {
+		SessionPrincipal auroraAdministrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		SessionPrincipal client = client("veterinaria-aurora");
+		var owner = ownerPetCareService.createOwner(auroraAdministrator,
+				new OwnerCommand("Elena", "Vinculo", null, null, null));
+		var pet = ownerPetCareService.createPet(auroraAdministrator, owner.id(),
+				new PetCommand("Brisa", "Canino", null, "HEMBRA", null, 24, null));
+
+		var requested = ownerPetCareService.requestClientOwnerLink(client);
+		assertEquals("PENDIENTE", requested.status());
+		assertNotNull(requested.requestReference());
+		assertTrue(ownerPetCareService.listCurrentPetsForClient(client).isEmpty());
+		var pending = ownerPetCareService.listClientOwnerLinkRequests(auroraAdministrator, null).stream()
+				.filter(item -> item.requestReference().equals(requested.requestReference())).findFirst().orElseThrow();
+
+		SessionPrincipal bosqueAdministrator = administrator("veterinaria-bosque", "AV_DEMO_BOSQUE_PASSWORD");
+		ApiException crossTenantResolution = assertThrows(ApiException.class,
+				() -> ownerPetCareService.resolveClientOwnerLinkRequest(bosqueAdministrator, pending.id(),
+						new ClientOwnerLinkResolutionCommand("APROBADA", owner.id(), "Verificacion presencial", null, true)));
+		assertEquals(HttpStatus.NOT_FOUND, crossTenantResolution.status());
+
+		ApiException unverifiedResolution = assertThrows(ApiException.class,
+				() -> ownerPetCareService.resolveClientOwnerLinkRequest(auroraAdministrator, pending.id(),
+						new ClientOwnerLinkResolutionCommand("APROBADA", owner.id(), "Verificacion presencial", null, false)));
+		assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, unverifiedResolution.status());
+
+		var approved = ownerPetCareService.resolveClientOwnerLinkRequest(auroraAdministrator, pending.id(),
+				new ClientOwnerLinkResolutionCommand("APROBADA", owner.id(), "Verificacion presencial", null, true));
+		assertEquals("APROBADA", approved.status());
+		assertEquals(List.of(pet.id()), ownerPetCareService.listCurrentPetsForClient(client).stream().map(item -> item.id()).toList());
+		assertEquals("APROBADA", ownerPetCareService.getClientOwnerLinkStatus(client).status());
+		assertEquals("B02_CLIENT_ALREADY_LINKED", assertThrows(ApiException.class,
+				() -> ownerPetCareService.requestClientOwnerLink(client)).code());
+
+		var successor = ownerPetCareService.createOwner(auroraAdministrator,
+				new OwnerCommand("Nora", "Nueva", null, null, null));
+		ownerPetCareService.transferPetOwnership(auroraAdministrator, pet.id(),
+				new OwnershipTransferCommand(owner.id(), successor.id(), "Cambio de responsable", true));
+		assertTrue(ownerPetCareService.listCurrentPetsForClient(client).isEmpty());
+	}
+
+	@Test
+	void rejectsAnIncompatibleSecondClientLinkForTheSameOwner() {
+		SessionPrincipal auroraAdministrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		var owner = ownerPetCareService.createOwner(auroraAdministrator,
+				new OwnerCommand("Carla", "Exclusiva", null, null, null));
+		SessionPrincipal firstClient = client("veterinaria-aurora");
+		var firstRequest = ownerPetCareService.requestClientOwnerLink(firstClient);
+		var firstPending = ownerPetCareService.listClientOwnerLinkRequests(auroraAdministrator, null).stream()
+				.filter(item -> item.requestReference().equals(firstRequest.requestReference())).findFirst().orElseThrow();
+		ownerPetCareService.resolveClientOwnerLinkRequest(auroraAdministrator, firstPending.id(),
+				new ClientOwnerLinkResolutionCommand("APROBADA", owner.id(), "Verificacion presencial", null, true));
+
+		SessionPrincipal secondClient = client("veterinaria-aurora");
+		var secondRequest = ownerPetCareService.requestClientOwnerLink(secondClient);
+		var secondPending = ownerPetCareService.listClientOwnerLinkRequests(auroraAdministrator, null).stream()
+				.filter(item -> item.requestReference().equals(secondRequest.requestReference())).findFirst().orElseThrow();
+
+		ApiException conflict = assertThrows(ApiException.class,
+				() -> ownerPetCareService.resolveClientOwnerLinkRequest(auroraAdministrator, secondPending.id(),
+						new ClientOwnerLinkResolutionCommand("APROBADA", owner.id(), "Verificacion presencial", null, true)));
+		assertEquals("B02_CLIENT_LINK_CONFLICT", conflict.code());
+	}
+
 	private SessionPrincipal veterinarian(SessionPrincipal administrator) {
 		String email = "veterinario-" + UUID.randomUUID() + "@demo.invalid";
 		String password = generatedPassword();
@@ -132,6 +198,14 @@ class OwnerPetCareDatabaseIntegrationTest {
 		String password = System.getenv(passwordVariable);
 		assertNotNull(password, "La prueba requiere credenciales sintéticas locales.");
 		return new SessionPrincipal(identityAccessService.authenticateStaff(tenantSlug, "administracion@demo.invalid", password).context());
+	}
+
+	private SessionPrincipal client(String tenantSlug) {
+		String email = "cliente-" + UUID.randomUUID() + "@demo.invalid";
+		String password = generatedPassword();
+		var registration = administrationService.registerClient(tenantSlug, email, password);
+		administrationService.verifyEmailLink(tokenFor(registration.principalId()));
+		return new SessionPrincipal(identityAccessService.authenticateClient(tenantSlug, email, password).context());
 	}
 
 	private String tokenFor(UUID resourceId) {

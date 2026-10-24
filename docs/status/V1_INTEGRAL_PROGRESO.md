@@ -10,6 +10,16 @@ V1 recibida el 2026-10-23. Sustituye únicamente la congelación temporal
 anterior; no autoriza remoto, push, despliegue público, datos reales ni cambios
 fuera de V1.
 
+## Checkpoint B02 — vinculación digital CLIENT–propietario (2026-10-24)
+
+- V017 `b02 client owner linking` está aplicada una sola vez mediante el lanzador Flyway acotado. Su SHA-256 es `4C21E0DA91A39499F6EF13097FE1185BAE42D99D526F2C0C7465E85D358DCE80` y su checksum Flyway es `337349119`.
+- La migración añade, sin funciones privilegiadas ni permisos `PUBLIC`, las tablas tenant-locales de solicitud y vínculo aprobado. Ambas usan RLS; `av_app` no puede borrar, ni crear objetos en los esquemas implicados, ni consultar directamente identidades o hashes.
+- CLIENT puede solicitar una revisión sin recibir coincidencias privadas. Recepción o administración revisa la cola, registra método general, decisión, fecha y auditoría; una cuenta y un propietario solo pueden tener un vínculo aprobado compatible.
+- El portal CLIENT muestra únicamente fichas básicas de mascotas con responsabilidad vigente. No expone episodios, diagnósticos, narrativas ni prescripciones. Tras una transferencia, la consulta deja de devolver la mascota al CLIENT anterior.
+- La integración B02 pasó 9/9 con Java 21 y Flyway desactivado; Angular pasó 9/9, el build y Redocly fueron correctos. Playwright Chrome pasó la regresión STAFF y verificó además la carga de la cola de vinculaciones.
+- La semilla CLIENT se volvió a ejecutar de forma idempotente, pero Aurora continúa sin cumplir la política local de contraseña. Se revirtió antes de crear datos, por lo que el E2E CLIENT completo sigue pendiente. No se rebajó la política ni se generaron contraseñas.
+- B02 sigue **parcial**: faltan el recorrido CLIENT completo, cuenta VETERINARIO local para E2E clínico, vacunas, prescripciones, rectificaciones, alta/edición CLIENT y gestión de duplicados.
+
 ## Estado recuperado
 
 - Git parte del commit consolidado `b333a1602ac1fd6541efcc11b8034a7a7ca06212`

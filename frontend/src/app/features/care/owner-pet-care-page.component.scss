@@ -23,6 +23,10 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.link-review-layout {
+  grid-template-columns: minmax(16rem, .8fr) minmax(0, 1.2fr);
+}
+
 .two-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -151,9 +155,41 @@ textarea:focus-visible {
   font-size: 0.9rem;
 }
 
+.link-request-list {
+  display: grid;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+
+.link-request-list button {
+  display: grid;
+  gap: .2rem;
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid transparent;
+  padding: .75rem .85rem;
+  color: var(--ink-strong);
+  background: var(--surface-raised);
+  cursor: pointer;
+  text-align: left;
+}
+
+.link-request-list button:hover,
+.link-request-list button:focus-visible,
+.link-request-list button.is-selected {
+  border-left-color: var(--accent-warm);
+  background: var(--accent-teal-soft);
+}
+
+.link-request-list span {
+  color: var(--ink-muted);
+  font-size: .85rem;
+}
+
 @media (max-width: 52rem) {
   .care-layout,
   .clinical-layout,
+  .link-review-layout,
   .two-columns {
     grid-template-columns: 1fr;
   }
