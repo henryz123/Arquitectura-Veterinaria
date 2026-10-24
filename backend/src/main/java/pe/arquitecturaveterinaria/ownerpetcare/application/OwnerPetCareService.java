@@ -3,6 +3,7 @@ package pe.arquitecturaveterinaria.ownerpetcare.application;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -15,13 +16,19 @@ import pe.arquitecturaveterinaria.identityaccess.infrastructure.TenantContextJdb
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalDraft;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalEpisode;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalEpisodeAmendment;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalPrescription;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientOwnerLinkRequest;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientPetProfile;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.AmendmentDraft;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerDraft;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetDraft;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnershipPeriod;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PrescriptionDraft;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.VaccinationDraft;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.VaccinationRecord;
 import pe.arquitecturaveterinaria.shared.api.ApiException;
 
 @Service
@@ -267,6 +274,83 @@ public class OwnerPetCareService {
 		return repository.listClinicalEpisodes(petId);
 	}
 
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public VaccinationRecord recordVaccination(SessionPrincipal actor, UUID petId, VaccinationCommand command) {
+		accessPolicy.requireVeterinarian(actor);
+		setTrustedContext(actor);
+		petOrNotFound(petId);
+		if (command.episodeId() != null) {
+			ClinicalEpisode episode = episodeOrNotFound(command.episodeId());
+			if (!episode.petId().equals(petId)) {
+				throw validation("episodeId", "El episodio indicado no corresponde a esta mascota.");
+			}
+		}
+		VaccinationDraft draft = vaccinationDraft(command);
+		return repository.createVaccinationIfAbsent(actor.session().tenantId(), actor.session().accountId(), petId, draft)
+				.map(record -> {
+					repository.audit(actor.session().tenantId(), actor.session().accountId(), "VACCINATION_RECORDED",
+							"VACCINATION", record.id());
+					return record;
+				})
+				.orElseGet(() -> vaccinationForRetry(actor.session().tenantId(), petId, draft));
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<VaccinationRecord> listVaccinations(SessionPrincipal actor, UUID petId) {
+		accessPolicy.requireVeterinarian(actor);
+		setTrustedContext(actor);
+		petOrNotFound(petId);
+		return repository.listVaccinations(petId);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ClinicalPrescription recordClinicalPrescription(SessionPrincipal actor, UUID episodeId,
+			PrescriptionCommand command) {
+		accessPolicy.requireVeterinarian(actor);
+		setTrustedContext(actor);
+		ClinicalEpisode episode = episodeOrNotFound(episodeId);
+		ClinicalPrescription prescription = repository.createClinicalPrescription(actor.session().tenantId(),
+				actor.session().accountId(), episode.petId(), episode.id(), prescriptionDraft(command));
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLINICAL_PRESCRIPTION_RECORDED",
+				"CLINICAL_PRESCRIPTION", prescription.id());
+		return prescription;
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<ClinicalPrescription> listClinicalPrescriptions(SessionPrincipal actor, UUID episodeId) {
+		accessPolicy.requireVeterinarian(actor);
+		setTrustedContext(actor);
+		episodeOrNotFound(episodeId);
+		return repository.listClinicalPrescriptions(episodeId);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ClinicalEpisodeAmendment amendClinicalEpisode(SessionPrincipal actor, UUID episodeId, AmendmentCommand command) {
+		accessPolicy.requireVeterinarian(actor);
+		setTrustedContext(actor);
+		ClinicalEpisode episode = episodeOrNotFound(episodeId);
+		if (!"FINALIZADO".equals(episode.status())) {
+			throw conflict("B02_CLINICAL_FINALIZED_REQUIRED",
+					"Solo un episodio finalizado puede recibir una rectificacion atribuible.");
+		}
+		ClinicalEpisodeAmendment amendment = repository.createClinicalEpisodeAmendment(actor.session().tenantId(),
+				actor.session().accountId(), episode.id(), new AmendmentDraft(required(command.reason(), "reason"),
+						required(command.addendum(), "addendum")))
+				.orElseThrow(() -> conflict("B02_CLINICAL_AMENDMENT_CONCURRENT_CHANGE",
+						"El episodio cambio antes de poder registrar la rectificacion."));
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLINICAL_EPISODE_AMENDED",
+				"CLINICAL_EPISODE_AMENDMENT", amendment.id());
+		return amendment;
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<ClinicalEpisodeAmendment> listClinicalEpisodeAmendments(SessionPrincipal actor, UUID episodeId) {
+		accessPolicy.requireVeterinarian(actor);
+		setTrustedContext(actor);
+		episodeOrNotFound(episodeId);
+		return repository.listClinicalEpisodeAmendments(episodeId);
+	}
+
 	private void setTrustedContext(SessionPrincipal actor) {
 		tenantContext.setTenantId(actor.session().tenantId());
 		tenantContext.setPrincipalId(actor.session().accountId());
@@ -296,6 +380,46 @@ public class OwnerPetCareService {
 		return new ClinicalDraft(command.appointmentId(), optional(command.reason()), optional(command.anamnesis()),
 				optional(command.assessment()), optional(command.diagnosis()), optional(command.treatmentPlan()),
 				optional(command.observations()));
+	}
+
+	private VaccinationDraft vaccinationDraft(VaccinationCommand command) {
+		if (command.operationId() == null) {
+			throw validation("operationId", "El identificador de operacion es obligatorio.");
+		}
+		if (command.administeredOn() == null) {
+			throw validation("administeredOn", "La fecha de vacunacion es obligatoria.");
+		}
+		if (command.nextDueOn() != null && command.nextDueOn().isBefore(command.administeredOn())) {
+			throw validation("nextDueOn", "La proxima dosis no puede ser anterior a la vacunacion.");
+		}
+		return new VaccinationDraft(command.episodeId(), command.operationId(), required(command.vaccineName(), "vaccineName"),
+				command.administeredOn(), optional(command.dose()), optional(command.batchCode()), command.nextDueOn());
+	}
+
+	private VaccinationRecord vaccinationForRetry(UUID tenantId, UUID petId, VaccinationDraft expected) {
+		VaccinationRecord existing = repository.findVaccinationByOperationId(tenantId, expected.operationId())
+				.orElseThrow(() -> conflict("B02_VACCINATION_OPERATION_CONCURRENT_CHANGE",
+						"No fue posible recuperar la vacunacion creada durante el reintento."));
+		if (existing.petId().equals(petId) && Objects.equals(existing.episodeId(), expected.episodeId())
+				&& existing.vaccineName().equals(expected.vaccineName())
+				&& existing.administeredOn().equals(expected.administeredOn())
+				&& Objects.equals(existing.dose(), expected.dose())
+				&& Objects.equals(existing.batchCode(), expected.batchCode())
+				&& Objects.equals(existing.nextDueOn(), expected.nextDueOn())) {
+			return existing;
+		}
+		throw conflict("B02_VACCINATION_OPERATION_CONFLICT",
+				"El identificador de operacion ya corresponde a otra vacunacion del tenant.");
+	}
+
+	private PrescriptionDraft prescriptionDraft(PrescriptionCommand command) {
+		if (command.prescribedOn() == null) {
+			throw validation("prescribedOn", "La fecha de prescripcion es obligatoria.");
+		}
+		return new PrescriptionDraft(required(command.medication(), "medication"),
+				required(command.presentation(), "presentation"), required(command.dose(), "dose"),
+				required(command.route(), "route"), required(command.frequency(), "frequency"),
+				required(command.duration(), "duration"), required(command.instructions(), "instructions"), command.prescribedOn());
 	}
 
 	private void validatePetAge(LocalDate birthDate, Integer estimatedAgeMonths) {
@@ -365,6 +489,11 @@ public class OwnerPetCareService {
 	public record OwnershipTransferCommand(UUID expectedOwnerId, UUID newOwnerId, String reason, boolean identityVerified) { }
 	public record ClinicalEpisodeCommand(UUID appointmentId, String reason, String anamnesis, String assessment,
 			String diagnosis, String treatmentPlan, String observations) { }
+	public record VaccinationCommand(UUID episodeId, UUID operationId, String vaccineName, LocalDate administeredOn,
+			String dose, String batchCode, LocalDate nextDueOn) { }
+	public record PrescriptionCommand(String medication, String presentation, String dose, String route, String frequency,
+			String duration, String instructions, LocalDate prescribedOn) { }
+	public record AmendmentCommand(String reason, String addendum) { }
 	public record ClientOwnerLinkResolutionCommand(String status, UUID ownerId, String verificationMethod,
 			String rejectionReason, boolean identityVerified) { }
 	public record ClientOwnerLinkStatus(String status, String requestReference, java.time.Instant requestedAt,

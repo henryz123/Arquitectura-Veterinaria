@@ -28,18 +28,24 @@ import org.springframework.web.bind.annotation.RestController;
 
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.AmendmentCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClinicalEpisodeCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClientOwnerLinkResolutionCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClientOwnerLinkStatus;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnerCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnershipTransferCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PetCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PrescriptionCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.VaccinationCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalEpisode;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalEpisodeAmendment;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalPrescription;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientOwnerLinkRequest;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientPetProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnershipPeriod;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.VaccinationRecord;
 import pe.arquitecturaveterinaria.shared.api.ApiEnvelope;
 
 @RestController
@@ -156,6 +162,55 @@ public class OwnerPetCareController {
 		return ApiEnvelope.of(service.listClinicalHistory(principal, petId));
 	}
 
+	@PostMapping("/pets/{petId}/vaccinations")
+	ResponseEntity<ApiEnvelope<VaccinationRecord>> recordVaccination(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID petId, @Valid @RequestBody VaccinationRequest request) {
+		VaccinationRecord vaccination = service.recordVaccination(principal, petId,
+				new VaccinationCommand(request.episodeId(), request.operationId(), request.vaccineName(), request.administeredOn(),
+						request.dose(), request.batchCode(), request.nextDueOn()));
+		return ResponseEntity.status(HttpStatus.CREATED).location(URI.create("/api/v1/vaccinations/" + vaccination.id()))
+				.body(ApiEnvelope.of(vaccination));
+	}
+
+	@GetMapping("/pets/{petId}/vaccinations")
+	ApiEnvelope<List<VaccinationRecord>> listVaccinations(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID petId) {
+		return ApiEnvelope.of(service.listVaccinations(principal, petId));
+	}
+
+	@PostMapping("/clinical-episodes/{episodeId}/prescriptions")
+	ResponseEntity<ApiEnvelope<ClinicalPrescription>> recordClinicalPrescription(
+			@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID episodeId,
+			@Valid @RequestBody PrescriptionRequest request) {
+		ClinicalPrescription prescription = service.recordClinicalPrescription(principal, episodeId,
+				new PrescriptionCommand(request.medication(), request.presentation(), request.dose(), request.route(),
+						request.frequency(), request.duration(), request.instructions(), request.prescribedOn()));
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.location(URI.create("/api/v1/clinical-prescriptions/" + prescription.id())).body(ApiEnvelope.of(prescription));
+	}
+
+	@GetMapping("/clinical-episodes/{episodeId}/prescriptions")
+	ApiEnvelope<List<ClinicalPrescription>> listClinicalPrescriptions(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID episodeId) {
+		return ApiEnvelope.of(service.listClinicalPrescriptions(principal, episodeId));
+	}
+
+	@PostMapping("/clinical-episodes/{episodeId}/amendments")
+	ResponseEntity<ApiEnvelope<ClinicalEpisodeAmendment>> amendClinicalEpisode(
+			@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID episodeId,
+			@Valid @RequestBody AmendmentRequest request) {
+		ClinicalEpisodeAmendment amendment = service.amendClinicalEpisode(principal, episodeId,
+				new AmendmentCommand(request.reason(), request.addendum()));
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.location(URI.create("/api/v1/clinical-episode-amendments/" + amendment.id())).body(ApiEnvelope.of(amendment));
+	}
+
+	@GetMapping("/clinical-episodes/{episodeId}/amendments")
+	ApiEnvelope<List<ClinicalEpisodeAmendment>> listClinicalEpisodeAmendments(
+			@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID episodeId) {
+		return ApiEnvelope.of(service.listClinicalEpisodeAmendments(principal, episodeId));
+	}
+
 	private ClinicalEpisodeCommand command(ClinicalEpisodeRequest request) {
 		return new ClinicalEpisodeCommand(request.appointmentId(), request.reason(), request.anamnesis(), request.assessment(),
 				request.diagnosis(), request.treatmentPlan(), request.observations());
@@ -198,4 +253,27 @@ public class OwnerPetCareController {
 			@Size(max = 4000) String diagnosis,
 			@Size(max = 12000) String treatmentPlan,
 			@Size(max = 12000) String observations) { }
+
+	public record VaccinationRequest(
+			UUID episodeId,
+			@NotNull UUID operationId,
+			@NotBlank @Size(max = 240) String vaccineName,
+			@NotNull LocalDate administeredOn,
+			@Size(max = 240) String dose,
+			@Size(max = 240) String batchCode,
+			LocalDate nextDueOn) { }
+
+	public record PrescriptionRequest(
+			@NotBlank @Size(max = 500) String medication,
+			@NotBlank @Size(max = 500) String presentation,
+			@NotBlank @Size(max = 500) String dose,
+			@NotBlank @Size(max = 240) String route,
+			@NotBlank @Size(max = 240) String frequency,
+			@NotBlank @Size(max = 240) String duration,
+			@NotBlank @Size(max = 12000) String instructions,
+			@NotNull LocalDate prescribedOn) { }
+
+	public record AmendmentRequest(
+			@NotBlank @Size(min = 3, max = 500) String reason,
+			@NotBlank @Size(max = 12000) String addendum) { }
 }

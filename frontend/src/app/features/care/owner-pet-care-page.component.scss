@@ -27,6 +27,10 @@
   grid-template-columns: minmax(16rem, .8fr) minmax(0, 1.2fr);
 }
 
+.clinical-record-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .two-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -186,9 +190,31 @@ textarea:focus-visible {
   font-size: .85rem;
 }
 
+.clinical-sublist {
+  display: grid;
+  gap: .7rem;
+  margin-top: 1rem;
+}
+
+.clinical-sublist article {
+  display: grid;
+  gap: .25rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: .75rem;
+}
+
+.clinical-sublist span,
+.clinical-sublist p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: .9rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 52rem) {
   .care-layout,
   .clinical-layout,
+  .clinical-record-layout,
   .link-review-layout,
   .two-columns {
     grid-template-columns: 1fr;

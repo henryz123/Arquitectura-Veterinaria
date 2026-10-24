@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdministrativeRecovery, ApiEnvelope, ClientOwnerLinkRequest, ClientOwnerLinkResolutionRequest, ClientOwnerLinkStatus, ClientPetProfile, ClientSpace, ClinicalEpisode, ClinicalEpisodeRequest, Organization, OwnerProfile, OwnerRequest, OwnershipPeriod, OwnershipTransferRequest, PetProfile, PetRequest, RucReview, StaffAccount, StaffInvitation, StaffRole, VerificationStatus } from './api.models';
+import { AdministrativeRecovery, AmendmentRequest, ApiEnvelope, ClientOwnerLinkRequest, ClientOwnerLinkResolutionRequest, ClientOwnerLinkStatus, ClientPetProfile, ClientSpace, ClinicalEpisode, ClinicalEpisodeAmendment, ClinicalEpisodeRequest, ClinicalPrescription, Organization, OwnerProfile, OwnerRequest, OwnershipPeriod, OwnershipTransferRequest, PetProfile, PetRequest, PrescriptionRequest, RucReview, StaffAccount, StaffInvitation, StaffRole, VaccinationRecord, VaccinationRequest, VerificationStatus } from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdministrationApiService {
@@ -163,6 +163,40 @@ export class AdministrationApiService {
     return this.http.post<ApiEnvelope<ClinicalEpisode>>(
       `${this.apiBaseUrl}/clinical-episodes/${encodeURIComponent(episodeId)}/finalization`,
       request,
+    );
+  }
+
+  listVaccinations(petId: string): Observable<ApiEnvelope<VaccinationRecord[]>> {
+    return this.http.get<ApiEnvelope<VaccinationRecord[]>>(`${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}/vaccinations`);
+  }
+
+  recordVaccination(petId: string, request: VaccinationRequest): Observable<ApiEnvelope<VaccinationRecord>> {
+    return this.http.post<ApiEnvelope<VaccinationRecord>>(
+      `${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}/vaccinations`, request,
+    );
+  }
+
+  listClinicalPrescriptions(episodeId: string): Observable<ApiEnvelope<ClinicalPrescription[]>> {
+    return this.http.get<ApiEnvelope<ClinicalPrescription[]>>(
+      `${this.apiBaseUrl}/clinical-episodes/${encodeURIComponent(episodeId)}/prescriptions`,
+    );
+  }
+
+  recordClinicalPrescription(episodeId: string, request: PrescriptionRequest): Observable<ApiEnvelope<ClinicalPrescription>> {
+    return this.http.post<ApiEnvelope<ClinicalPrescription>>(
+      `${this.apiBaseUrl}/clinical-episodes/${encodeURIComponent(episodeId)}/prescriptions`, request,
+    );
+  }
+
+  listClinicalEpisodeAmendments(episodeId: string): Observable<ApiEnvelope<ClinicalEpisodeAmendment[]>> {
+    return this.http.get<ApiEnvelope<ClinicalEpisodeAmendment[]>>(
+      `${this.apiBaseUrl}/clinical-episodes/${encodeURIComponent(episodeId)}/amendments`,
+    );
+  }
+
+  amendClinicalEpisode(episodeId: string, request: AmendmentRequest): Observable<ApiEnvelope<ClinicalEpisodeAmendment>> {
+    return this.http.post<ApiEnvelope<ClinicalEpisodeAmendment>>(
+      `${this.apiBaseUrl}/clinical-episodes/${encodeURIComponent(episodeId)}/amendments`, request,
     );
   }
 }

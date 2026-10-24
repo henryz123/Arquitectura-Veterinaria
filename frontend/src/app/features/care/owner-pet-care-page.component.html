@@ -164,6 +164,46 @@
           <ng-template #emptyHistory><p class="empty-state compact">No hay atenciones clínicas visibles para esta mascota.</p></ng-template>
         </article>
       </section>
+      <section class="care-layout clinical-record-layout" *ngIf="canWriteClinical() && selectedPet() as pet">
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">Prevencion</p><h2>Vacunas de {{ pet.name }}</h2></div><span class="panel-caption">Solo veterinario</span></div>
+          <p class="panel-note">Cada envio conserva un identificador de operacion para que un reintento no duplique la vacuna.</p>
+          <form [formGroup]="vaccinationForm" (ngSubmit)="recordVaccination()" novalidate>
+            <div class="field-group"><label for="vaccine-episode">Atencion relacionada (opcional)</label><select id="vaccine-episode" formControlName="episodeId"><option value="">Historial general de la mascota</option><option *ngFor="let episode of clinicalHistory(); trackBy: trackById" [value]="episode.id">{{ episode.reason || 'Atencion clinica' }} - {{ episode.openedAt | date:'mediumDate' }}</option></select></div>
+            <div class="field-group"><label for="vaccine-name">Vacuna</label><input id="vaccine-name" formControlName="vaccineName" /><p class="field-error" *ngIf="vaccinationSubmitted() && vaccinationForm.controls.vaccineName.invalid">Indica la vacuna aplicada.</p></div>
+            <div class="two-columns"><div class="field-group"><label for="vaccine-date">Fecha de aplicacion</label><input id="vaccine-date" type="date" formControlName="administeredOn" /><p class="field-error" *ngIf="vaccinationSubmitted() && vaccinationForm.controls.administeredOn.invalid">Indica la fecha.</p></div><div class="field-group"><label for="vaccine-next-date">Proxima dosis</label><input id="vaccine-next-date" type="date" formControlName="nextDueOn" /></div></div>
+            <div class="two-columns"><div class="field-group"><label for="vaccine-dose">Dosis</label><input id="vaccine-dose" formControlName="dose" /></div><div class="field-group"><label for="vaccine-batch">Lote</label><input id="vaccine-batch" formControlName="batchCode" /></div></div>
+            <button class="button button-primary" type="submit" [disabled]="actionPending()">Registrar vacuna</button>
+          </form>
+          <div class="clinical-sublist" *ngIf="vaccinations().length"><article *ngFor="let vaccination of vaccinations(); trackBy: trackById"><strong>{{ vaccination.vaccineName }}</strong><span>{{ vaccination.administeredOn | date:'mediumDate' }}<ng-container *ngIf="vaccination.nextDueOn"> - Proxima: {{ vaccination.nextDueOn | date:'mediumDate' }}</ng-container></span><p *ngIf="vaccination.dose || vaccination.batchCode">{{ vaccination.dose || 'Dosis no registrada' }}<ng-container *ngIf="vaccination.batchCode"> - Lote {{ vaccination.batchCode }}</ng-container></p></article></div>
+          <p class="empty-state compact" *ngIf="!vaccinations().length">No hay vacunas registradas para esta mascota.</p>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">Historial autorizado</p><h2>Indicaciones y rectificaciones</h2></div></div>
+          <div class="field-group"><label for="clinical-record-episode">Atencion seleccionada</label><select id="clinical-record-episode" #clinicalEpisodeSelector (change)="selectClinicalEpisodeById(clinicalEpisodeSelector.value)"><option value="">Selecciona una atencion</option><option *ngFor="let episode of clinicalHistory(); trackBy: trackById" [value]="episode.id">{{ episode.reason || 'Atencion clinica' }} - {{ episode.status }}</option></select></div>
+          <ng-container *ngIf="selectedClinicalEpisode() as episode">
+            <p class="panel-note">{{ episode.status === 'FINALIZADO' ? 'La adenda conserva el episodio original y su autoria.' : 'El borrador todavia puede corregirse antes de finalizar.' }}</p>
+            <form [formGroup]="prescriptionForm" (ngSubmit)="recordPrescription()" novalidate>
+              <div class="two-columns"><div class="field-group"><label for="prescription-medication">Medicamento</label><input id="prescription-medication" formControlName="medication" /></div><div class="field-group"><label for="prescription-presentation">Presentacion</label><input id="prescription-presentation" formControlName="presentation" /></div></div>
+              <div class="two-columns"><div class="field-group"><label for="prescription-dose">Dosis</label><input id="prescription-dose" formControlName="dose" /></div><div class="field-group"><label for="prescription-route">Via</label><input id="prescription-route" formControlName="route" /></div></div>
+              <div class="two-columns"><div class="field-group"><label for="prescription-frequency">Frecuencia</label><input id="prescription-frequency" formControlName="frequency" /></div><div class="field-group"><label for="prescription-duration">Duracion</label><input id="prescription-duration" formControlName="duration" /></div></div>
+              <div class="field-group"><label for="prescription-instructions">Instrucciones</label><textarea id="prescription-instructions" rows="3" formControlName="instructions"></textarea></div>
+              <div class="field-group"><label for="prescription-date">Fecha de indicacion</label><input id="prescription-date" type="date" formControlName="prescribedOn" /></div>
+              <button class="button button-primary" type="submit" [disabled]="actionPending()">Registrar indicacion</button>
+            </form>
+            <div class="clinical-sublist" *ngIf="prescriptions().length"><article *ngFor="let prescription of prescriptions(); trackBy: trackById"><strong>{{ prescription.medication }} - {{ prescription.dose }}</strong><span>{{ prescription.route }} - {{ prescription.frequency }} - {{ prescription.duration }}</span><p>{{ prescription.instructions }}</p></article></div>
+            <p class="empty-state compact" *ngIf="!prescriptions().length">No hay indicaciones para esta atencion.</p>
+            <form [formGroup]="amendmentForm" (ngSubmit)="addClinicalAmendment()" novalidate>
+              <div class="field-group"><label for="amendment-reason">Motivo de rectificacion</label><input id="amendment-reason" formControlName="reason" /><p class="field-error" *ngIf="amendmentSubmitted() && amendmentForm.controls.reason.invalid">Indica un motivo de al menos 3 caracteres.</p></div>
+              <div class="field-group"><label for="amendment-addendum">Adenda clinica</label><textarea id="amendment-addendum" rows="4" formControlName="addendum"></textarea><p class="field-error" *ngIf="amendmentSubmitted() && amendmentForm.controls.addendum.invalid">Indica el contenido correctivo.</p></div>
+              <button class="button button-secondary" type="submit" [disabled]="actionPending() || episode.status !== 'FINALIZADO'">Agregar rectificacion sin sobrescribir</button>
+            </form>
+            <div class="clinical-sublist" *ngIf="amendments().length"><article *ngFor="let amendment of amendments(); trackBy: trackById"><strong>{{ amendment.reason }}</strong><span>{{ amendment.createdAt | date:'mediumDate' }}</span><p>{{ amendment.addendum }}</p></article></div>
+            <p class="empty-state compact" *ngIf="!amendments().length">No hay rectificaciones para esta atencion.</p>
+          </ng-container>
+        </article>
+      </section>
     </main>
   </div>
 </div>

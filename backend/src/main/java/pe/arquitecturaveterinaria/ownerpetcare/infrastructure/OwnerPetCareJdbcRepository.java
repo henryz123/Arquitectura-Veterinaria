@@ -267,7 +267,98 @@ public class OwnerPetCareJdbcRepository {
 				from owner_pet_care.clinical_episode
 				where pet_id = ?
 				order by opened_at desc, id desc
-				""", this::mapClinicalEpisode, petId);
+		""", this::mapClinicalEpisode, petId);
+	}
+
+	public Optional<VaccinationRecord> createVaccinationIfAbsent(UUID tenantId, UUID veterinarianPrincipalId, UUID petId,
+			VaccinationDraft draft) {
+		return jdbcTemplate.query("""
+				insert into owner_pet_care.vaccination_record (
+				    tenant_id, pet_id, episode_id, veterinarian_principal_id, operation_id, vaccine_name,
+				    administered_on, dose, batch_code, next_due_on
+				) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				on conflict (tenant_id, operation_id) do nothing
+				returning id, tenant_id, pet_id, episode_id, veterinarian_principal_id, operation_id, vaccine_name,
+				          administered_on, dose, batch_code, next_due_on, recorded_at, created_at
+				""", this::mapVaccinationRecord, tenantId, petId, draft.episodeId(), veterinarianPrincipalId,
+				draft.operationId(), draft.vaccineName(), draft.administeredOn(), draft.dose(), draft.batchCode(),
+				draft.nextDueOn()).stream().findFirst();
+	}
+
+	public Optional<VaccinationRecord> findVaccinationByOperationId(UUID tenantId, UUID operationId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, pet_id, episode_id, veterinarian_principal_id, operation_id, vaccine_name,
+				       administered_on, dose, batch_code, next_due_on, recorded_at, created_at
+				from owner_pet_care.vaccination_record
+				where tenant_id = ? and operation_id = ?
+				""", this::mapVaccinationRecord, tenantId, operationId).stream().findFirst();
+	}
+
+	public List<VaccinationRecord> listVaccinations(UUID petId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, pet_id, episode_id, veterinarian_principal_id, operation_id, vaccine_name,
+				       administered_on, dose, batch_code, next_due_on, recorded_at, created_at
+				from owner_pet_care.vaccination_record
+				where pet_id = ?
+				order by administered_on desc, recorded_at desc, id desc
+				""", this::mapVaccinationRecord, petId);
+	}
+
+	public ClinicalPrescription createClinicalPrescription(UUID tenantId, UUID veterinarianPrincipalId, UUID petId,
+			UUID episodeId, PrescriptionDraft draft) {
+		return jdbcTemplate.queryForObject("""
+				insert into owner_pet_care.clinical_prescription (
+				    tenant_id, pet_id, episode_id, veterinarian_principal_id, medication, presentation, dose, route,
+				    frequency, duration, instructions, prescribed_on
+				) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				returning id, tenant_id, pet_id, episode_id, veterinarian_principal_id, medication, presentation,
+				          dose, route, frequency, duration, instructions, prescribed_on, created_at
+				""", this::mapClinicalPrescription, tenantId, petId, episodeId, veterinarianPrincipalId,
+				draft.medication(), draft.presentation(), draft.dose(), draft.route(), draft.frequency(), draft.duration(),
+				draft.instructions(), draft.prescribedOn());
+	}
+
+	public List<ClinicalPrescription> listClinicalPrescriptions(UUID episodeId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, pet_id, episode_id, veterinarian_principal_id, medication, presentation,
+				       dose, route, frequency, duration, instructions, prescribed_on, created_at
+				from owner_pet_care.clinical_prescription
+				where episode_id = ?
+				order by prescribed_on desc, created_at desc, id desc
+				""", this::mapClinicalPrescription, episodeId);
+	}
+
+	public Optional<ClinicalEpisodeAmendment> createClinicalEpisodeAmendment(UUID tenantId, UUID veterinarianPrincipalId,
+			UUID episodeId, AmendmentDraft draft) {
+		return jdbcTemplate.query("""
+				insert into owner_pet_care.clinical_episode_amendment (
+				    tenant_id, pet_id, episode_id, veterinarian_principal_id, reason, previous_content, addendum
+				)
+				select ?, episode.pet_id, episode.id, ?, ?, jsonb_build_object(
+				    'reason', episode.reason,
+				    'anamnesis', episode.anamnesis,
+				    'assessment', episode.assessment,
+				    'diagnosis', episode.diagnosis,
+				    'treatmentPlan', episode.treatment_plan,
+				    'observations', episode.observations,
+				    'finalizedAt', episode.finalized_at
+				), ?
+				from owner_pet_care.clinical_episode episode
+				where episode.tenant_id = ? and episode.id = ? and episode.status = 'FINALIZADO'
+				returning id, tenant_id, pet_id, episode_id, veterinarian_principal_id, reason, previous_content,
+				          addendum, created_at
+				""", this::mapClinicalEpisodeAmendment, tenantId, veterinarianPrincipalId, draft.reason(), draft.addendum(),
+				tenantId, episodeId).stream().findFirst();
+	}
+
+	public List<ClinicalEpisodeAmendment> listClinicalEpisodeAmendments(UUID episodeId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, pet_id, episode_id, veterinarian_principal_id, reason, previous_content,
+				       addendum, created_at
+				from owner_pet_care.clinical_episode_amendment
+				where episode_id = ?
+				order by created_at desc, id desc
+				""", this::mapClinicalEpisodeAmendment, episodeId);
 	}
 
 	public void audit(UUID tenantId, UUID actorPrincipalId, String actionCode, String resourceType, UUID resourceId) {
@@ -300,6 +391,31 @@ public class OwnerPetCareJdbcRepository {
 				resultSet.getString("anamnesis"), resultSet.getString("assessment"), resultSet.getString("diagnosis"),
 				resultSet.getString("treatment_plan"), resultSet.getString("observations"), instant(resultSet, "opened_at"),
 				instant(resultSet, "finalized_at"), instant(resultSet, "created_at"), instant(resultSet, "updated_at"));
+	}
+
+	private VaccinationRecord mapVaccinationRecord(ResultSet resultSet, int rowNum) throws SQLException {
+		return new VaccinationRecord(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
+				resultSet.getObject("pet_id", UUID.class), resultSet.getObject("episode_id", UUID.class),
+				resultSet.getObject("veterinarian_principal_id", UUID.class), resultSet.getObject("operation_id", UUID.class),
+				resultSet.getString("vaccine_name"), resultSet.getObject("administered_on", LocalDate.class),
+				resultSet.getString("dose"), resultSet.getString("batch_code"), resultSet.getObject("next_due_on", LocalDate.class),
+				instant(resultSet, "recorded_at"), instant(resultSet, "created_at"));
+	}
+
+	private ClinicalPrescription mapClinicalPrescription(ResultSet resultSet, int rowNum) throws SQLException {
+		return new ClinicalPrescription(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
+				resultSet.getObject("pet_id", UUID.class), resultSet.getObject("episode_id", UUID.class),
+				resultSet.getObject("veterinarian_principal_id", UUID.class), resultSet.getString("medication"),
+				resultSet.getString("presentation"), resultSet.getString("dose"), resultSet.getString("route"),
+				resultSet.getString("frequency"), resultSet.getString("duration"), resultSet.getString("instructions"),
+				resultSet.getObject("prescribed_on", LocalDate.class), instant(resultSet, "created_at"));
+	}
+
+	private ClinicalEpisodeAmendment mapClinicalEpisodeAmendment(ResultSet resultSet, int rowNum) throws SQLException {
+		return new ClinicalEpisodeAmendment(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
+				resultSet.getObject("pet_id", UUID.class), resultSet.getObject("episode_id", UUID.class),
+				resultSet.getObject("veterinarian_principal_id", UUID.class), resultSet.getString("reason"),
+				resultSet.getString("previous_content"), resultSet.getString("addendum"), instant(resultSet, "created_at"));
 	}
 
 	private OwnershipPeriod mapOwnershipPeriod(ResultSet resultSet, int rowNum) throws SQLException {
@@ -351,6 +467,19 @@ public class OwnerPetCareJdbcRepository {
 	public record ClinicalEpisode(UUID id, UUID tenantId, UUID petId, UUID veterinarianPrincipalId, UUID appointmentId,
 			String status, String reason, String anamnesis, String assessment, String diagnosis, String treatmentPlan,
 			String observations, Instant openedAt, Instant finalizedAt, Instant createdAt, Instant updatedAt) { }
+	public record VaccinationDraft(UUID episodeId, UUID operationId, String vaccineName, LocalDate administeredOn, String dose,
+			String batchCode, LocalDate nextDueOn) { }
+	public record VaccinationRecord(UUID id, UUID tenantId, UUID petId, UUID episodeId, UUID veterinarianPrincipalId,
+			UUID operationId, String vaccineName, LocalDate administeredOn, String dose, String batchCode, LocalDate nextDueOn,
+			Instant recordedAt, Instant createdAt) { }
+	public record PrescriptionDraft(String medication, String presentation, String dose, String route, String frequency,
+			String duration, String instructions, LocalDate prescribedOn) { }
+	public record ClinicalPrescription(UUID id, UUID tenantId, UUID petId, UUID episodeId, UUID veterinarianPrincipalId,
+			String medication, String presentation, String dose, String route, String frequency, String duration,
+			String instructions, LocalDate prescribedOn, Instant createdAt) { }
+	public record AmendmentDraft(String reason, String addendum) { }
+	public record ClinicalEpisodeAmendment(UUID id, UUID tenantId, UUID petId, UUID episodeId,
+			UUID veterinarianPrincipalId, String reason, String previousContent, String addendum, Instant createdAt) { }
 	public record OwnershipPeriod(UUID id, UUID tenantId, UUID petId, UUID ownerId, String ownerGivenNames,
 			String ownerFamilyNames, Instant effectiveFrom, Instant effectiveUntil, UUID verifiedByPrincipalId,
 			String reason) { }

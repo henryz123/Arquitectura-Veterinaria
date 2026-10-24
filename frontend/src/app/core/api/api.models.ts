@@ -207,6 +207,77 @@ export interface ClinicalEpisodeRequest {
   observations: string | null;
 }
 
+export interface VaccinationRecord {
+  id: string;
+  tenantId: string;
+  petId: string;
+  episodeId: string | null;
+  veterinarianPrincipalId: string;
+  operationId: string;
+  vaccineName: string;
+  administeredOn: string;
+  dose: string | null;
+  batchCode: string | null;
+  nextDueOn: string | null;
+  recordedAt: string;
+  createdAt: string;
+}
+
+export interface VaccinationRequest {
+  episodeId: string | null;
+  operationId: string;
+  vaccineName: string;
+  administeredOn: string;
+  dose: string | null;
+  batchCode: string | null;
+  nextDueOn: string | null;
+}
+
+export interface ClinicalPrescription {
+  id: string;
+  tenantId: string;
+  petId: string;
+  episodeId: string;
+  veterinarianPrincipalId: string;
+  medication: string;
+  presentation: string;
+  dose: string;
+  route: string;
+  frequency: string;
+  duration: string;
+  instructions: string;
+  prescribedOn: string;
+  createdAt: string;
+}
+
+export interface PrescriptionRequest {
+  medication: string;
+  presentation: string;
+  dose: string;
+  route: string;
+  frequency: string;
+  duration: string;
+  instructions: string;
+  prescribedOn: string;
+}
+
+export interface ClinicalEpisodeAmendment {
+  id: string;
+  tenantId: string;
+  petId: string;
+  episodeId: string;
+  veterinarianPrincipalId: string;
+  reason: string;
+  previousContent: string;
+  addendum: string;
+  createdAt: string;
+}
+
+export interface AmendmentRequest {
+  reason: string;
+  addendum: string;
+}
+
 export interface OwnershipPeriod {
   id: string;
   tenantId: string;

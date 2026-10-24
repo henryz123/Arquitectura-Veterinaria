@@ -20,6 +20,18 @@ fuera de V1.
 - La semilla CLIENT se volvió a ejecutar de forma idempotente, pero Aurora continúa sin cumplir la política local de contraseña. Se revirtió antes de crear datos, por lo que el E2E CLIENT completo sigue pendiente. No se rebajó la política ni se generaron contraseñas.
 - B02 sigue **parcial**: faltan el recorrido CLIENT completo, cuenta VETERINARIO local para E2E clínico, vacunas, prescripciones, rectificaciones, alta/edición CLIENT y gestión de duplicados.
 
+## Checkpoint B02 — registros clínicos inmutables (2026-10-24)
+
+- V018 `b02 immutable clinical records` se aplicó una vez mediante el launcher restringido `scripts/invoke-authorized-flyway-v018.cmd`. SHA-256: `5985485A186E43983313F31D773FD12B9E78D0625A96A7F59D10BACB042D5E1B`; checksum Flyway: `1790675663`.
+- La migración es transaccional, aditiva y no crea funciones, SQL dinámico, permisos `PUBLIC` ni ampliación de roles. Añade vacunas, indicaciones básicas y adendas clínicas, con RLS y FKs compuestas tenant–episodio–mascota. `av_app` solo tiene `SELECT/INSERT`; no puede actualizar ni borrar esos registros.
+- La vacuna exige `operationId` UUID. La restricción única `(tenant_id, operation_id)` y `INSERT ... ON CONFLICT DO NOTHING` hacen idempotente el reintento equivalente; un reintento con contenido distinto devuelve conflicto. La fecha de próxima dosis no puede preceder a la aplicación.
+- Una indicación queda vinculada al episodio, mascota y veterinario del tenant. No se declara receta electrónica legal. Una adenda solo se inserta sobre episodios finalizados y su instantánea clínica previa se construye en PostgreSQL; no existe endpoint de sobrescritura o borrado.
+- La revisión independiente de solo lectura y dos preflights `BEGIN`/`ROLLBACK` validaron alcance, sintaxis, atomicidad, RLS, dueño `av_schema_owner` sin superusuario/BYPASSRLS y ausencia de `SELECT` de `PUBLIC`. La verificación posterior confirma las tres tablas, políticas y ACLs esperadas.
+- Backend B02: 10/10 pruebas correctas con Java 21, Flyway desactivado y rollback transaccional. Incluye idempotencia de vacuna, conflicto de reintento, receta, adenda, rechazo a ADMIN y aislamiento Aurora/Bosque. Angular mantiene 9/9 pruebas y build correctos; Redocly valida OpenAPI.
+- La regresión Playwright `npm.cmd run test:e2e:b02` volvió a pasar con Chrome real después de V018. Cubre el flujo STAFF consolidado y sus controles previos; no cubre vacunas, recetas ni adendas porque aún no existe una cuenta VETERINARIO persistente local.
+- Agent Browser verificó de nuevo la pantalla pública CLIENT sin autenticarse: `main`, encabezado, etiquetas nativas de correo/contraseña y navegación hacia registro, recuperación y personal. La versión instalada no expone `agent-browser a11y`; no se declara una auditoría automática de accesibilidad.
+- B02 continúa **parcial**: las pantallas y APIs clínicas existen, pero el E2E de navegador con rol VETERINARIO está bloqueado hasta disponer de variables locales sintéticas para esa cuenta. Permanecen además alta/edición CLIENT autorizada y la gestión humana de posibles duplicados.
+
 ## Estado recuperado
 
 - Git parte del commit consolidado `b333a1602ac1fd6541efcc11b8034a7a7ca06212`
@@ -27,7 +39,7 @@ fuera de V1.
 - La especificación V1 conserva 19 archivos físicos y los 18 hashes declarados
   en su manifiesto.
 - PostgreSQL local 18.6: `arquitectura_veterinaria` es la única base en alcance.
-  Flyway registra V001–V016 una sola vez y correctamente.
+  Flyway registra V001–V018 una sola vez y correctamente.
 - El único cambio preexistente no confirmado es
   `frontend/angular.json`: desactiva la analítica de Angular. Se conserva sin
   atribuirlo a esta línea y queda fuera de cualquier staging hasta confirmar su

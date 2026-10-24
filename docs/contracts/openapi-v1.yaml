@@ -556,6 +556,89 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/pets/{petId}/vaccinations:
+    post:
+      tags: [owner-pet-care]
+      summary: Registra una vacuna de forma idempotente por identificador de operacion
+      x-implementation-status: implemented-b02-clinical-records
+      x-v1-requirements: [RF-B02-008, RF-B02-010, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      requestBody: { $ref: '#/components/requestBodies/VaccinationRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/VaccinationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [owner-pet-care]
+      summary: Lista vacunas solo para veterinarios del tenant
+      x-implementation-status: implemented-b02-clinical-records
+      x-v1-requirements: [RF-B02-008, RF-B02-010, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      responses:
+        '200': { $ref: '#/components/responses/VaccinationsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/clinical-episodes/{episodeId}/prescriptions:
+    post:
+      tags: [owner-pet-care]
+      summary: Registra una indicacion basica no regulatoria para una atencion
+      x-implementation-status: implemented-b02-clinical-records
+      x-v1-requirements: [RF-B02-008, RF-B02-011, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ClinicalEpisodeId' }]
+      requestBody: { $ref: '#/components/requestBodies/PrescriptionRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/ClinicalPrescriptionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [owner-pet-care]
+      summary: Lista indicaciones de una atencion solo para veterinarios del tenant
+      x-implementation-status: implemented-b02-clinical-records
+      x-v1-requirements: [RF-B02-008, RF-B02-011, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ClinicalEpisodeId' }]
+      responses:
+        '200': { $ref: '#/components/responses/ClinicalPrescriptionsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/clinical-episodes/{episodeId}/amendments:
+    post:
+      tags: [owner-pet-care]
+      summary: Agrega una rectificacion atribuible sin sobrescribir el episodio finalizado
+      x-implementation-status: implemented-b02-clinical-records
+      x-v1-requirements: [RF-B02-008, RF-B02-012, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ClinicalEpisodeId' }]
+      requestBody: { $ref: '#/components/requestBodies/AmendmentRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/ClinicalEpisodeAmendmentResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [owner-pet-care]
+      summary: Lista rectificaciones de una atencion solo para veterinarios del tenant
+      x-implementation-status: implemented-b02-clinical-records
+      x-v1-requirements: [RF-B02-008, RF-B02-012, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ClinicalEpisodeId' }]
+      responses:
+        '200': { $ref: '#/components/responses/ClinicalEpisodeAmendmentsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/clinical-episodes/{episodeId}/finalization:
     post:
       tags: [owner-pet-care]
@@ -615,6 +698,9 @@ components:
     OwnershipTransferRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OwnershipTransferRequest' } } } }
     ClientOwnerLinkResolutionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClientOwnerLinkResolutionRequest' } } } }
     ClinicalEpisodeRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClinicalEpisodeRequest' } } } }
+    VaccinationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/VaccinationRequest' } } } }
+    PrescriptionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PrescriptionRequest' } } } }
+    AmendmentRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AmendmentRequest' } } } }
   schemas:
     LoginRequest:
       type: object
@@ -899,6 +985,35 @@ components:
         diagnosis: { type: [string, 'null'], maxLength: 4000 }
         treatmentPlan: { type: [string, 'null'], maxLength: 12000 }
         observations: { type: [string, 'null'], maxLength: 12000 }
+    VaccinationRequest:
+      type: object
+      required: [operationId, vaccineName, administeredOn]
+      properties:
+        episodeId: { type: [string, 'null'], format: uuid }
+        operationId: { type: string, format: uuid, description: Identificador estable para reintentos idempotentes de la misma vacuna. }
+        vaccineName: { type: string, minLength: 1, maxLength: 240 }
+        administeredOn: { type: string, format: date }
+        dose: { type: [string, 'null'], maxLength: 240 }
+        batchCode: { type: [string, 'null'], maxLength: 240 }
+        nextDueOn: { type: [string, 'null'], format: date, description: No puede ser anterior a administeredOn. }
+    PrescriptionRequest:
+      type: object
+      required: [medication, presentation, dose, route, frequency, duration, instructions, prescribedOn]
+      properties:
+        medication: { type: string, minLength: 1, maxLength: 500 }
+        presentation: { type: string, minLength: 1, maxLength: 500 }
+        dose: { type: string, minLength: 1, maxLength: 500 }
+        route: { type: string, minLength: 1, maxLength: 240 }
+        frequency: { type: string, minLength: 1, maxLength: 240 }
+        duration: { type: string, minLength: 1, maxLength: 240 }
+        instructions: { type: string, minLength: 1, maxLength: 12000 }
+        prescribedOn: { type: string, format: date }
+    AmendmentRequest:
+      type: object
+      required: [reason, addendum]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        addendum: { type: string, minLength: 1, maxLength: 12000 }
     OwnershipTransferRequest:
       type: object
       required: [expectedOwnerId, newOwnerId, reason, identityVerified]
@@ -973,6 +1088,54 @@ components:
         finalizedAt: { type: [string, 'null'], format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    VaccinationRecord:
+      type: object
+      required: [id, tenantId, petId, veterinarianPrincipalId, operationId, vaccineName, administeredOn, recordedAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        petId: { type: string, format: uuid }
+        episodeId: { type: [string, 'null'], format: uuid }
+        veterinarianPrincipalId: { type: string, format: uuid }
+        operationId: { type: string, format: uuid }
+        vaccineName: { type: string }
+        administeredOn: { type: string, format: date }
+        dose: { type: [string, 'null'] }
+        batchCode: { type: [string, 'null'] }
+        nextDueOn: { type: [string, 'null'], format: date }
+        recordedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    ClinicalPrescription:
+      type: object
+      required: [id, tenantId, petId, episodeId, veterinarianPrincipalId, medication, presentation, dose, route, frequency, duration, instructions, prescribedOn, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        petId: { type: string, format: uuid }
+        episodeId: { type: string, format: uuid }
+        veterinarianPrincipalId: { type: string, format: uuid }
+        medication: { type: string }
+        presentation: { type: string }
+        dose: { type: string }
+        route: { type: string }
+        frequency: { type: string }
+        duration: { type: string }
+        instructions: { type: string }
+        prescribedOn: { type: string, format: date }
+        createdAt: { type: string, format: date-time }
+    ClinicalEpisodeAmendment:
+      type: object
+      required: [id, tenantId, petId, episodeId, veterinarianPrincipalId, reason, previousContent, addendum, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        petId: { type: string, format: uuid }
+        episodeId: { type: string, format: uuid }
+        veterinarianPrincipalId: { type: string, format: uuid }
+        reason: { type: string }
+        previousContent: { type: string, description: Instantanea JSON del episodio previa a la adenda; solo visible para veterinarios autorizados. }
+        addendum: { type: string }
+        createdAt: { type: string, format: date-time }
     Data:
       type: object
       required: [data]
@@ -1082,5 +1245,23 @@ components:
     ClinicalEpisodesResponse:
       description: Historial clínico completo visible solo para veterinario autorizado.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ClinicalEpisode' } } } } } }
+    VaccinationResponse:
+      description: Evento de vacunacion creado o recuperado de un reintento idempotente por el veterinario autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/VaccinationRecord' } } } } }
+    VaccinationsResponse:
+      description: Vacunas de una mascota visibles solo a veterinarios autorizados del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/VaccinationRecord' } } } } } }
+    ClinicalPrescriptionResponse:
+      description: Indicacion basica no regulatoria visible solo a veterinarios autorizados del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClinicalPrescription' } } } } }
+    ClinicalPrescriptionsResponse:
+      description: Indicaciones basicas de una atencion visibles solo a veterinarios autorizados del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ClinicalPrescription' } } } } } }
+    ClinicalEpisodeAmendmentResponse:
+      description: Rectificacion atribuible que no reemplaza el episodio finalizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClinicalEpisodeAmendment' } } } } }
+    ClinicalEpisodeAmendmentsResponse:
+      description: Rectificaciones de una atencion visibles solo a veterinarios autorizados del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ClinicalEpisodeAmendment' } } } } } }
     ValidationError: { description: 'Validación semántica fallida.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     RateLimited: { description: 'Límite de intentos alcanzado.', headers: { Retry-After: { schema: { type: integer } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

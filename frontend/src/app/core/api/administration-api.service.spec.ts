@@ -199,6 +199,48 @@ describe('AdministrationApiService', () => {
     expect(finalization.request.method).toBe('POST');
     expect(finalization.request.body).toEqual(clinicalRequest);
     finalization.flush({ data: { id: 'episode-1', status: 'FINALIZADO' } });
+
+    service.listVaccinations('pet-1').subscribe();
+    const vaccinations = http.expectOne('/api/v1/pets/pet-1/vaccinations');
+    expect(vaccinations.request.method).toBe('GET');
+    vaccinations.flush({ data: [] });
+
+    const vaccinationRequest = {
+      episodeId: 'episode-1', operationId: 'operation-1', vaccineName: 'Vacuna sintética', administeredOn: '2026-10-24',
+      dose: '1 ml', batchCode: 'Lote', nextDueOn: '2027-10-24',
+    };
+    service.recordVaccination('pet-1', vaccinationRequest).subscribe();
+    const vaccination = http.expectOne('/api/v1/pets/pet-1/vaccinations');
+    expect(vaccination.request.method).toBe('POST');
+    expect(vaccination.request.body).toEqual(vaccinationRequest);
+    vaccination.flush({ data: { id: 'vaccination-1' } });
+
+    service.listClinicalPrescriptions('episode-1').subscribe();
+    const prescriptions = http.expectOne('/api/v1/clinical-episodes/episode-1/prescriptions');
+    expect(prescriptions.request.method).toBe('GET');
+    prescriptions.flush({ data: [] });
+
+    const prescriptionRequest = {
+      medication: 'Medicamento', presentation: 'Tableta', dose: 'Una', route: 'Oral', frequency: 'Cada 24 horas',
+      duration: 'Tres días', instructions: 'Con alimento', prescribedOn: '2026-10-24',
+    };
+    service.recordClinicalPrescription('episode-1', prescriptionRequest).subscribe();
+    const prescription = http.expectOne('/api/v1/clinical-episodes/episode-1/prescriptions');
+    expect(prescription.request.method).toBe('POST');
+    expect(prescription.request.body).toEqual(prescriptionRequest);
+    prescription.flush({ data: { id: 'prescription-1' } });
+
+    service.listClinicalEpisodeAmendments('episode-1').subscribe();
+    const amendments = http.expectOne('/api/v1/clinical-episodes/episode-1/amendments');
+    expect(amendments.request.method).toBe('GET');
+    amendments.flush({ data: [] });
+
+    const amendmentRequest = { reason: 'Precisión clínica', addendum: 'Se añade una indicación.' };
+    service.amendClinicalEpisode('episode-1', amendmentRequest).subscribe();
+    const amendment = http.expectOne('/api/v1/clinical-episodes/episode-1/amendments');
+    expect(amendment.request.method).toBe('POST');
+    expect(amendment.request.body).toEqual(amendmentRequest);
+    amendment.flush({ data: { id: 'amendment-1' } });
   });
 
   afterEach(() => http.verify());

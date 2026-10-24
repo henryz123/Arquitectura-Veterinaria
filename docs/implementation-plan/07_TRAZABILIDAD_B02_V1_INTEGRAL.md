@@ -47,6 +47,30 @@ RF-B02-006 y RF-B02-013 indicados arriba. No modifica la especificación V1.
 - Agent Browser verificó la estructura accesible de la pantalla pública CLIENT: `main`, encabezado, etiquetas nativas de correo/contraseña y acciones de registro/recuperación. La versión instalada no ofrece `agent-browser a11y`, por ello no se declara una auditoría automática de accesibilidad.
 - La semilla CLIENT local se ejecutó con el procedimiento controlado y se revirtió completamente porque Aurora no cumple la política de contraseña. No se creó cuenta ni se expusieron secretos.
 
+## Actualización verificable — registros clínicos inmutables (2026-10-24)
+
+Esta actualización prevalece sobre los pendientes iniciales de RF-B02-008 a
+RF-B02-012. No modifica la especificación V1.
+
+| Requisito | Estado actualizado | Evidencia y límite actual |
+|---|---|---|
+| RF-B02-008 | Parcial verificado | Backend exige `VETERINARIO` para vacunas, indicaciones, adendas y sus lecturas. La integración rechaza ADMIN sin ese rol. Falta E2E de navegador con una cuenta VETERINARIO persistente local. |
+| RF-B02-009 | Parcial verificado | Episodios espontáneos conservan autor, fecha y finalización; vacunas e indicaciones pueden asociarse a un episodio tenant-local. Falta integración futura con cita real de B03. |
+| RF-B02-010 | Parcial verificado | V018, API Angular y prueba PostgreSQL cubren vacuna, dosis/lote opcionales, próxima dosis y la idempotencia de `operationId`. Falta E2E clínico con el rol correcto. |
+| RF-B02-011 | Parcial verificado | V018 registra medicamento, presentación, dosis, vía, frecuencia, duración, instrucciones, fecha y veterinario. La UI declara que no es receta electrónica legal. Falta E2E clínico con el rol correcto. |
+| RF-B02-012 | Parcial verificado | V018 conserva adendas atribuibles para episodios finalizados, captura la instantánea previa en SQL y niega `UPDATE`/`DELETE` a `av_app`. La integración comprueba que el episodio finalizado permanece finalizado. Falta E2E clínico con el rol correcto. |
+| RF-B02-013 | Parcial verificado | CLIENT continúa limitado a fichas básicas y no recibe episodios, diagnósticos, indicaciones ni adendas. Personal sin VETERINARIO recibe denegación. Falta E2E CLIENT autenticado por la semilla local pendiente. |
+| RF-B02-016 | Verificado | FKs compuestas, RLS, contexto JDBC y prueba Aurora/Bosque protegen los nuevos registros contra IDs manipulados entre tenants. |
+
+### Evidencia del checkpoint V018
+
+- SHA-256 `5985485A186E43983313F31D773FD12B9E78D0625A96A7F59D10BACB042D5E1B`; Flyway la registró una sola vez con checksum `1790675663`.
+- Preflight transaccional y revisión independiente: sin `SECURITY DEFINER`, SQL dinámico ni permisos `PUBLIC`; `av_app` conserva únicamente `SELECT/INSERT`, mientras que RLS está activa en las tres tablas.
+- `mvnw.cmd '-Dtest=OwnerPetCareDatabaseIntegrationTest,B02AccessPolicyTest' test`: 10/10 correctas con Java 21, Flyway desactivado y rollback de fixtures sintéticos.
+- Angular: `npm.cmd test -- --watch=false` 4 archivos/9 pruebas y `npm.cmd run build` correctos. `npm.cmd run validate:contract` validó el contrato OpenAPI.
+- `npm.cmd run test:e2e:b02`: `B02_OWNER_PET_BROWSER_E2E=PASS` tras V018 para el recorrido STAFF ya consolidado. No sustituye el E2E clínico VETERINARIO pendiente.
+- Agent Browser comprobó la estructura pública CLIENT sin autenticación. La versión 0.27 no proporciona un subcomando `a11y`, por lo que la auditoría automática de accesibilidad no se marca como ejecutada.
+
 ## Verificaciones del checkpoint
 
 - `mvnw.cmd -Dtest=B02AccessPolicyTest,OwnerPetCareDatabaseIntegrationTest test`: 6/6 correctas con Java 21; las pruebas de integración son transaccionales y se revierten.

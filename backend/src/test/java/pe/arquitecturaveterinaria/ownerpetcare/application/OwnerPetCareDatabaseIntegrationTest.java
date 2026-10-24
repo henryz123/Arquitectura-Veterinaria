@@ -22,10 +22,13 @@ import pe.arquitecturaveterinaria.identityaccess.application.IdentityAccessServi
 import pe.arquitecturaveterinaria.identityaccess.application.LocalNotificationMailbox;
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClinicalEpisodeCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.AmendmentCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClientOwnerLinkResolutionCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnerCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnershipTransferCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PetCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PrescriptionCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.VaccinationCommand;
 import pe.arquitecturaveterinaria.shared.api.ApiException;
 
 @SpringBootTest
@@ -186,12 +189,69 @@ class OwnerPetCareDatabaseIntegrationTest {
 		assertEquals("B02_CLIENT_LINK_CONFLICT", conflict.code());
 	}
 
+	@Test
+	void recordsClinicalFollowUpWithoutDuplicatingVaccinesOrOverwritingFinalizedEpisodes() {
+		SessionPrincipal auroraAdministrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		var owner = ownerPetCareService.createOwner(auroraAdministrator,
+				new OwnerCommand("Vera", "Clinica", null, null, null));
+		var pet = ownerPetCareService.createPet(auroraAdministrator, owner.id(),
+				new PetCommand("Miel", "Canino", null, "HEMBRA", null, 36, null));
+		SessionPrincipal veterinarian = veterinarian(auroraAdministrator);
+		var draft = ownerPetCareService.createClinicalEpisode(veterinarian, pet.id(),
+				new ClinicalEpisodeCommand(null, "Control de vacunacion", null, "Apta para vacuna", null, null, null));
+		var finalized = ownerPetCareService.finalizeClinicalEpisode(veterinarian, draft.id(),
+				new ClinicalEpisodeCommand(null, "Control de vacunacion", "Sin reacciones previas", "Apta para vacuna",
+						"Sin contraindicaciones", "Prevencion anual", null));
+
+		UUID operationId = UUID.randomUUID();
+		var vaccine = ownerPetCareService.recordVaccination(veterinarian, pet.id(),
+				new VaccinationCommand(finalized.id(), operationId, "Vacuna sintetica", LocalDate.of(2026, 10, 24),
+						"1 ml", "Lote-Demo-01", LocalDate.of(2027, 10, 24)));
+		var retry = ownerPetCareService.recordVaccination(veterinarian, pet.id(),
+				new VaccinationCommand(finalized.id(), operationId, "Vacuna sintetica", LocalDate.of(2026, 10, 24),
+						"1 ml", "Lote-Demo-01", LocalDate.of(2027, 10, 24)));
+		assertEquals(vaccine.id(), retry.id());
+		assertEquals(1, ownerPetCareService.listVaccinations(veterinarian, pet.id()).size());
+		ApiException conflictingRetry = assertThrows(ApiException.class, () -> ownerPetCareService.recordVaccination(veterinarian,
+				pet.id(), new VaccinationCommand(finalized.id(), operationId, "Otra vacuna", LocalDate.of(2026, 10, 24),
+						"1 ml", "Lote-Demo-01", LocalDate.of(2027, 10, 24))));
+		assertEquals("B02_VACCINATION_OPERATION_CONFLICT", conflictingRetry.code());
+
+		var prescription = ownerPetCareService.recordClinicalPrescription(veterinarian, finalized.id(),
+				new PrescriptionCommand("Medicamento sintetico", "Tableta", "Una unidad", "Oral", "Cada 24 horas",
+						"Tres dias", "Administrar con alimento.", LocalDate.of(2026, 10, 24)));
+		assertEquals(List.of(prescription.id()), ownerPetCareService.listClinicalPrescriptions(veterinarian, finalized.id())
+				.stream().map(item -> item.id()).toList());
+
+		var amendment = ownerPetCareService.amendClinicalEpisode(veterinarian, finalized.id(),
+				new AmendmentCommand("Precisa indicacion", "Añadir control preventivo al plan."));
+		assertTrue(amendment.previousContent().contains("Control de vacunacion"));
+		assertEquals("FINALIZADO", ownerPetCareService.listClinicalHistory(veterinarian, pet.id()).getFirst().status());
+		assertEquals(List.of(amendment.id()), ownerPetCareService.listClinicalEpisodeAmendments(veterinarian, finalized.id())
+				.stream().map(item -> item.id()).toList());
+
+		ApiException administrationDenied = assertThrows(ApiException.class, () -> ownerPetCareService.recordVaccination(
+				auroraAdministrator, pet.id(), new VaccinationCommand(null, UUID.randomUUID(), "No autorizada",
+						LocalDate.of(2026, 10, 24), null, null, null)));
+		assertEquals("B02_CLINICAL_ROLE_REQUIRED", administrationDenied.code());
+
+		SessionPrincipal bosqueVeterinarian = veterinarian(administrator("veterinaria-bosque", "AV_DEMO_BOSQUE_PASSWORD"),
+				"veterinaria-bosque");
+		ApiException crossTenant = assertThrows(ApiException.class,
+				() -> ownerPetCareService.listVaccinations(bosqueVeterinarian, pet.id()));
+		assertEquals(HttpStatus.NOT_FOUND, crossTenant.status());
+	}
+
 	private SessionPrincipal veterinarian(SessionPrincipal administrator) {
+		return veterinarian(administrator, "veterinaria-aurora");
+	}
+
+	private SessionPrincipal veterinarian(SessionPrincipal administrator, String tenantSlug) {
 		String email = "veterinario-" + UUID.randomUUID() + "@demo.invalid";
 		String password = generatedPassword();
 		StaffInvitationResult invitation = administrationService.inviteStaff(administrator, email, List.of("VETERINARIO"));
 		administrationService.acceptStaffInvitation(tokenFor(invitation.principalId()), password);
-		return new SessionPrincipal(identityAccessService.authenticateStaff("veterinaria-aurora", email, password).context());
+		return new SessionPrincipal(identityAccessService.authenticateStaff(tenantSlug, email, password).context());
 	}
 
 	private SessionPrincipal administrator(String tenantSlug, String passwordVariable) {
