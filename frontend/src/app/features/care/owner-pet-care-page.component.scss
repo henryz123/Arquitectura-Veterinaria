@@ -1,0 +1,123 @@
+:host {
+  display: block;
+}
+
+.topbar-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.care-layout {
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.9fr) minmax(0, 1.1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.clinical-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.two-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.owner-list,
+.pet-list {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 24rem;
+  margin-top: 1.25rem;
+  overflow: auto;
+}
+
+.owner-list button,
+.pet-list button {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid transparent;
+  padding: 0.85rem;
+  color: var(--ink-strong);
+  background: var(--surface-raised);
+  cursor: pointer;
+  text-align: left;
+}
+
+.owner-list button:hover,
+.owner-list button:focus-visible,
+.owner-list button.is-selected,
+.pet-list button:hover,
+.pet-list button:focus-visible,
+.pet-list button.is-selected {
+  border-left-color: var(--accent-teal);
+  background: var(--accent-teal-soft);
+}
+
+.owner-list span,
+.pet-list span,
+.clinical-list span:not(.status-pill) {
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+}
+
+.pet-summary {
+  margin-top: 1rem;
+}
+
+.compact {
+  margin-bottom: 0;
+}
+
+.clinical-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.clinical-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.85rem;
+}
+
+.clinical-list article > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.clinical-list p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+textarea {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  color: var(--ink-strong);
+  background: var(--surface-raised);
+  font: inherit;
+  resize: vertical;
+}
+
+textarea:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 52rem) {
+  .care-layout,
+  .clinical-layout,
+  .two-columns {
+    grid-template-columns: 1fr;
+  }
+}

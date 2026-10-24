@@ -112,6 +112,53 @@ describe('AdministrationApiService', () => {
     expect(completion.request.method).toBe('POST');
     expect(completion.request.body).toEqual({ token: 'opaque-test-token', password: 'ClaveNuevaSintetica123' });
     completion.flush(null);
+
+    service.listOwners('Luna').subscribe();
+    const owners = http.expectOne('/api/v1/owners?query=Luna');
+    expect(owners.request.method).toBe('GET');
+    owners.flush({ data: [] });
+
+    service.createOwner({ givenNames: 'Luna', familyNames: 'Rojas', phone: null, email: null, address: null }).subscribe();
+    const owner = http.expectOne('/api/v1/owners');
+    expect(owner.request.method).toBe('POST');
+    expect(owner.request.body).toEqual({ givenNames: 'Luna', familyNames: 'Rojas', phone: null, email: null, address: null });
+    owner.flush({ data: { id: 'owner-1' } });
+
+    service.createPet('owner-1', {
+      name: 'Nube', species: 'Canino', breed: null, sex: 'HEMBRA', birthDate: null, estimatedAgeMonths: 24, distinguishingMarks: null,
+    }).subscribe();
+    const pet = http.expectOne('/api/v1/owners/owner-1/pets');
+    expect(pet.request.method).toBe('POST');
+    expect(pet.request.body.name).toBe('Nube');
+    pet.flush({ data: { id: 'pet-1' } });
+
+    service.listPetsByOwner('owner-1').subscribe();
+    const ownerPets = http.expectOne('/api/v1/owners/owner-1/pets');
+    expect(ownerPets.request.method).toBe('GET');
+    ownerPets.flush({ data: [] });
+
+    service.getPet('pet-1').subscribe();
+    const petDetail = http.expectOne('/api/v1/pets/pet-1');
+    expect(petDetail.request.method).toBe('GET');
+    petDetail.flush({ data: { id: 'pet-1' } });
+
+    service.listClinicalEpisodes('pet-1').subscribe();
+    const history = http.expectOne('/api/v1/pets/pet-1/clinical-episodes');
+    expect(history.request.method).toBe('GET');
+    history.flush({ data: [] });
+
+    const clinicalRequest = { reason: 'Control', anamnesis: null, assessment: 'Sin hallazgos', diagnosis: null, treatmentPlan: null, observations: null };
+    service.createClinicalEpisode('pet-1', clinicalRequest).subscribe();
+    const episode = http.expectOne('/api/v1/pets/pet-1/clinical-episodes');
+    expect(episode.request.method).toBe('POST');
+    expect(episode.request.body).toEqual(clinicalRequest);
+    episode.flush({ data: { id: 'episode-1' } });
+
+    service.finalizeClinicalEpisode('episode-1', clinicalRequest).subscribe();
+    const finalization = http.expectOne('/api/v1/clinical-episodes/episode-1/finalization');
+    expect(finalization.request.method).toBe('POST');
+    expect(finalization.request.body).toEqual(clinicalRequest);
+    finalization.flush({ data: { id: 'episode-1', status: 'FINALIZADO' } });
   });
 
   afterEach(() => http.verify());

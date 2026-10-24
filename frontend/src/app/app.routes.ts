@@ -6,6 +6,7 @@ import { SaasLoginPageComponent } from './features/saas/saas-login-page.componen
 import { SaasConsolePageComponent } from './features/saas/saas-console-page.component';
 import { ClientSpacePageComponent } from './features/client/client-space-page.component';
 import { ClientAccessPageComponent } from './features/client/client-access-page.component';
+import { OwnerPetCarePageComponent } from './features/care/owner-pet-care-page.component';
 
 export const routes: Routes = [
   {
@@ -49,6 +50,12 @@ export const routes: Routes = [
     component: WorkspacePageComponent,
     canActivate: [sessionGuard],
     title: 'Espacio de trabajo | Arquitectura Veterinaria',
+  },
+  {
+    path: 'care',
+    component: OwnerPetCarePageComponent,
+    canActivate: [sessionGuard],
+    title: 'Propietarios y clínica | Arquitectura Veterinaria',
   },
   {
     path: 'saas/login',

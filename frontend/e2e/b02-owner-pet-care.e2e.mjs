@@ -1,0 +1,155 @@
+import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { chromium } from 'playwright-core';
+
+const required = ['AV_DEMO_AURORA_PASSWORD', 'AV_E2E_CHROME_PATH'];
+for (const key of required) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required local E2E environment variable: ${key}`);
+  }
+}
+
+const baseUrl = (process.env.AV_E2E_BASE_URL ?? 'http://127.0.0.1:4200').replace(/\/$/, '');
+const staffEmail = process.env.AV_E2E_AURORA_EMAIL ?? 'administracion@demo.invalid';
+const ownerFixture = {
+  givenNames: 'B02 E2E',
+  familyNames: 'Aurora',
+  phone: '900000000',
+  email: null,
+  address: 'Registro sintético local',
+};
+const petFixture = {
+  name: 'Nube E2E',
+  species: 'Canino',
+  breed: 'Mestizo',
+  sex: 'HEMBRA',
+  estimatedAgeMonths: 24,
+};
+const evidenceDirectory = process.env.AV_E2E_EVIDENCE_DIR
+  ? resolve(process.env.AV_E2E_EVIDENCE_DIR)
+  : null;
+if (evidenceDirectory) {
+  await mkdir(evidenceDirectory, { recursive: true });
+}
+
+const browser = await chromium.launch({ executablePath: process.env.AV_E2E_CHROME_PATH, headless: true });
+
+try {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await login(page);
+
+  const initialOwnersLoad = page.waitForResponse((response) => response.request().method() === 'GET'
+    && new URL(response.url()).pathname === '/api/v1/owners');
+  await page.getByRole('link', { name: 'Propietarios y clínica' }).click();
+  await page.waitForURL(`${baseUrl}/care`);
+  await page.getByRole('heading', { name: 'Registrar y atender' }).waitFor();
+  assert.equal((await initialOwnersLoad).status(), 200, 'the B02 page must load the tenant owner list');
+
+  let owner = await existingOwner(page);
+  if (!owner) {
+    const [response] = await Promise.all([
+      page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+        && candidate.url().endsWith('/api/v1/owners')),
+      (async () => {
+        await page.getByLabel('Nombres', { exact: true }).fill(ownerFixture.givenNames);
+        await page.getByLabel('Apellidos', { exact: true }).fill(ownerFixture.familyNames);
+        await page.getByLabel('Teléfono', { exact: true }).fill(ownerFixture.phone);
+        await page.getByLabel('Dirección', { exact: true }).fill(ownerFixture.address);
+        await page.getByRole('button', { name: 'Registrar propietario' }).click();
+      })(),
+    ]);
+    assert.equal(response.status(), 201, 'the owner form must persist through the authenticated API');
+    owner = (await response.json()).data;
+  }
+
+  const ownerButton = page.locator('.owner-list button').filter({ hasText: `${ownerFixture.familyNames}, ${ownerFixture.givenNames}` });
+  await ownerButton.waitFor();
+  await ownerButton.click();
+
+  let pet = await existingPet(page, owner.id);
+  if (!pet) {
+    const [response] = await Promise.all([
+      page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+        && candidate.url().endsWith(`/api/v1/owners/${owner.id}/pets`)),
+      (async () => {
+        await page.getByLabel('Nombre', { exact: true }).fill(petFixture.name);
+        await page.getByLabel('Especie', { exact: true }).fill(petFixture.species);
+        await page.getByLabel('Raza', { exact: true }).fill(petFixture.breed);
+        await page.getByLabel('o edad estimada (meses)', { exact: true }).fill(String(petFixture.estimatedAgeMonths));
+        await page.getByRole('button', { name: 'Crear ficha de mascota' }).click();
+      })(),
+    ]);
+    assert.equal(response.status(), 201, 'the pet form must persist through the authenticated API');
+    pet = (await response.json()).data;
+  } else {
+    const petButton = page.locator('.pet-list button').filter({ hasText: petFixture.name });
+    await petButton.waitFor();
+    await petButton.click();
+  }
+
+  await page.getByRole('heading', { name: petFixture.name }).waitFor();
+  await page.getByRole('heading', { name: 'Historia clínica protegida' }).waitFor();
+  const storedPet = await browserFetch(page, `/api/v1/pets/${pet.id}`);
+  assert.equal(storedPet.status, 200, 'the persisted pet must be readable after the browser form completes');
+  assert.equal(storedPet.body?.data?.currentOwnerId, owner.id, 'the pet must retain its owner association');
+  const deniedHistory = await browserFetch(page, `/api/v1/pets/${pet.id}/clinical-episodes`);
+  assert.equal(deniedHistory.status, 403, 'an administrator without VETERINARIO must not read the clinical history');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false,
+    'the B02 page must not overflow horizontally on a narrow viewport');
+  await page.evaluate(() => {
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement) {
+      focused.blur();
+    }
+    window.scrollTo(0, 0);
+  });
+  await captureEvidence(page, 'b02-owner-pet-mobile.png');
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await page.goto(`${baseUrl}/workspace`, { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+  await page.waitForURL(`${baseUrl}/login/veterinaria-aurora`);
+  await context.close();
+  process.stdout.write('B02_OWNER_PET_BROWSER_E2E=PASS\n');
+} finally {
+  await browser.close();
+}
+
+async function login(page) {
+  await page.goto(`${baseUrl}/login/veterinaria-aurora`, { waitUntil: 'networkidle' });
+  await page.getByLabel('Correo institucional').fill(staffEmail);
+  await page.getByLabel('Contraseña').fill(process.env.AV_DEMO_AURORA_PASSWORD);
+  await page.getByRole('button', { name: 'Ingresar' }).click();
+  await page.waitForURL(`${baseUrl}/workspace`);
+}
+
+async function existingOwner(page) {
+  const response = await browserFetch(page, `/api/v1/owners?query=${encodeURIComponent(ownerFixture.givenNames)}`);
+  assert.equal(response.status, 200, 'the authenticated administrator must list owners in its tenant');
+  return response.body?.data?.find((owner) => owner.givenNames === ownerFixture.givenNames
+    && owner.familyNames === ownerFixture.familyNames) ?? null;
+}
+
+async function existingPet(page, ownerId) {
+  const response = await browserFetch(page, `/api/v1/owners/${ownerId}/pets`);
+  assert.equal(response.status, 200, 'the selected owner must expose only its tenant pets');
+  return response.body?.data?.find((pet) => pet.name === petFixture.name) ?? null;
+}
+
+async function browserFetch(page, path, options = {}) {
+  return page.evaluate(async ({ path, options }) => {
+    const response = await fetch(path, options);
+    const text = await response.text();
+    return { status: response.status, body: text ? JSON.parse(text) : null };
+  }, { path, options });
+}
+
+async function captureEvidence(page, filename) {
+  if (evidenceDirectory) {
+    await page.screenshot({ path: resolve(evidenceDirectory, filename), fullPage: true });
+  }
+}

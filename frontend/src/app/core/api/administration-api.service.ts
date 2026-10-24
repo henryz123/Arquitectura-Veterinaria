@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdministrativeRecovery, ApiEnvelope, ClientSpace, Organization, RucReview, StaffAccount, StaffInvitation, StaffRole, VerificationStatus } from './api.models';
+import { AdministrativeRecovery, ApiEnvelope, ClientSpace, ClinicalEpisode, ClinicalEpisodeRequest, Organization, OwnerProfile, OwnerRequest, PetProfile, PetRequest, RucReview, StaffAccount, StaffInvitation, StaffRole, VerificationStatus } from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdministrationApiService {
@@ -93,5 +93,41 @@ export class AdministrationApiService {
 
   resetPassword(token: string, password: string): Observable<void> {
     return this.http.post<void>(`${this.apiBaseUrl}/auth/password-recoveries`, { token, password });
+  }
+
+  listOwners(query?: string): Observable<ApiEnvelope<OwnerProfile[]>> {
+    const suffix = query?.trim() ? `?query=${encodeURIComponent(query.trim())}` : '';
+    return this.http.get<ApiEnvelope<OwnerProfile[]>>(`${this.apiBaseUrl}/owners${suffix}`);
+  }
+
+  createOwner(request: OwnerRequest): Observable<ApiEnvelope<OwnerProfile>> {
+    return this.http.post<ApiEnvelope<OwnerProfile>>(`${this.apiBaseUrl}/owners`, request);
+  }
+
+  createPet(ownerId: string, request: PetRequest): Observable<ApiEnvelope<PetProfile>> {
+    return this.http.post<ApiEnvelope<PetProfile>>(`${this.apiBaseUrl}/owners/${encodeURIComponent(ownerId)}/pets`, request);
+  }
+
+  listPetsByOwner(ownerId: string): Observable<ApiEnvelope<PetProfile[]>> {
+    return this.http.get<ApiEnvelope<PetProfile[]>>(`${this.apiBaseUrl}/owners/${encodeURIComponent(ownerId)}/pets`);
+  }
+
+  getPet(petId: string): Observable<ApiEnvelope<PetProfile>> {
+    return this.http.get<ApiEnvelope<PetProfile>>(`${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}`);
+  }
+
+  listClinicalEpisodes(petId: string): Observable<ApiEnvelope<ClinicalEpisode[]>> {
+    return this.http.get<ApiEnvelope<ClinicalEpisode[]>>(`${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}/clinical-episodes`);
+  }
+
+  createClinicalEpisode(petId: string, request: ClinicalEpisodeRequest): Observable<ApiEnvelope<ClinicalEpisode>> {
+    return this.http.post<ApiEnvelope<ClinicalEpisode>>(`${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}/clinical-episodes`, request);
+  }
+
+  finalizeClinicalEpisode(episodeId: string, request: ClinicalEpisodeRequest): Observable<ApiEnvelope<ClinicalEpisode>> {
+    return this.http.post<ApiEnvelope<ClinicalEpisode>>(
+      `${this.apiBaseUrl}/clinical-episodes/${encodeURIComponent(episodeId)}/finalization`,
+      request,
+    );
   }
 }

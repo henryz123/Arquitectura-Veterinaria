@@ -1,0 +1,126 @@
+<div class="workspace-shell">
+  <a class="skip-link" href="#care-main">Saltar al contenido</a>
+  <aside class="sidebar" aria-label="Navegación administrativa">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">AV</span>
+      <div><strong>Arquitectura</strong><span>Veterinaria</span></div>
+    </div>
+    <nav>
+      <a routerLink="/workspace">Resumen</a>
+      <a routerLink="/care" aria-current="page">Propietarios y clínica</a>
+    </nav>
+    <p class="sidebar-note">Los datos se consultan únicamente dentro de la veterinaria de la sesión.</p>
+  </aside>
+
+  <div class="workspace-body">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">B02 · atención clínica</p>
+        <p class="topbar-title">Propietarios, mascotas e historia autorizada</p>
+      </div>
+      <a class="button button-quiet topbar-link" routerLink="/workspace">Volver al panel</a>
+    </header>
+
+    <main id="care-main" class="workspace-content" aria-labelledby="care-title">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Flujo operativo</p>
+          <h1 id="care-title">Registrar y atender</h1>
+          <p>Registra propietarios y mascotas del tenant actual. La atención clínica solo puede ser creada y consultada por un veterinario autorizado.</p>
+        </div>
+      </div>
+
+      <p class="loading" *ngIf="loading()">Cargando propietarios autorizados…</p>
+      <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
+      <p class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</p>
+
+      <section class="access-notice" *ngIf="!canManageRegistry()">
+        <h2>Registro limitado por rol</h2>
+        <p>Esta sesión puede consultar fichas según sus permisos. El alta de propietarios y mascotas requiere Administración o Recepción.</p>
+      </section>
+
+      <div class="care-layout">
+        <section class="panel owner-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Paso 1</p><h2>Propietarios</h2></div>
+            <span class="panel-caption">{{ owners().length }} visibles</span>
+          </div>
+          <form [formGroup]="ownerForm" (ngSubmit)="createOwner()" novalidate *ngIf="canManageRegistry()">
+            <div class="two-columns">
+              <div class="field-group"><label for="owner-given-names">Nombres</label><input id="owner-given-names" formControlName="givenNames" autocomplete="given-name" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.givenNames.invalid">Ingresa los nombres.</p></div>
+              <div class="field-group"><label for="owner-family-names">Apellidos</label><input id="owner-family-names" formControlName="familyNames" autocomplete="family-name" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.familyNames.invalid">Ingresa los apellidos.</p></div>
+            </div>
+            <div class="two-columns">
+              <div class="field-group"><label for="owner-phone">Teléfono</label><input id="owner-phone" formControlName="phone" autocomplete="tel" /></div>
+              <div class="field-group"><label for="owner-email">Correo</label><input id="owner-email" type="email" formControlName="email" autocomplete="email" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.email.invalid">Ingresa un correo válido o déjalo vacío.</p></div>
+            </div>
+            <div class="field-group"><label for="owner-address">Dirección</label><input id="owner-address" formControlName="address" autocomplete="street-address" /></div>
+            <button class="button button-primary" type="submit" [disabled]="actionPending()">Registrar propietario</button>
+          </form>
+          <div class="owner-list" aria-label="Propietarios del tenant">
+            <button type="button" *ngFor="let owner of owners(); trackBy: trackById" (click)="selectOwner(owner)" [class.is-selected]="selectedOwner()?.id === owner.id">
+              <strong>{{ ownerLabel(owner) }}</strong><span>{{ owner.phone || owner.email || 'Sin contacto registrado' }}</span>
+            </button>
+            <p class="empty-state compact" *ngIf="!loading() && owners().length === 0">Aún no hay propietarios registrados en este tenant.</p>
+          </div>
+        </section>
+
+        <section class="panel" *ngIf="selectedOwner() as owner">
+          <div class="panel-heading"><div><p class="eyebrow">Paso 2</p><h2>Mascota de {{ owner.givenNames }}</h2></div></div>
+          <form [formGroup]="petForm" (ngSubmit)="createPet()" novalidate *ngIf="canManageRegistry()">
+            <div class="two-columns">
+              <div class="field-group"><label for="pet-name">Nombre</label><input id="pet-name" formControlName="name" /><p class="field-error" *ngIf="petSubmitted() && petForm.controls.name.invalid">Ingresa el nombre de la mascota.</p></div>
+              <div class="field-group"><label for="pet-species">Especie</label><input id="pet-species" formControlName="species" placeholder="Ej. Canino" /><p class="field-error" *ngIf="petSubmitted() && petForm.controls.species.invalid">Ingresa la especie.</p></div>
+            </div>
+            <div class="two-columns">
+              <div class="field-group"><label for="pet-breed">Raza</label><input id="pet-breed" formControlName="breed" /></div>
+              <div class="field-group"><label for="pet-sex">Sexo</label><select id="pet-sex" formControlName="sex"><option value="DESCONOCIDO">No especificado</option><option value="HEMBRA">Hembra</option><option value="MACHO">Macho</option></select></div>
+            </div>
+            <div class="two-columns">
+              <div class="field-group"><label for="pet-birth-date">Fecha de nacimiento</label><input id="pet-birth-date" type="date" formControlName="birthDate" /></div>
+              <div class="field-group"><label for="pet-age">o edad estimada (meses)</label><input id="pet-age" type="number" min="0" max="480" formControlName="estimatedAgeMonths" /><p class="helper">Registra solo uno de estos dos datos.</p></div>
+            </div>
+            <div class="field-group"><label for="pet-marks">Señas particulares</label><input id="pet-marks" formControlName="distinguishingMarks" /></div>
+            <button class="button button-primary" type="submit" [disabled]="actionPending()">Crear ficha de mascota</button>
+          </form>
+          <p class="panel-note" *ngIf="!canManageRegistry()">Selecciona una ficha que ya esté autorizada para tu rol.</p>
+          <div class="pet-list" *ngIf="ownerPets().length">
+            <p class="eyebrow">Mascotas asociadas</p>
+            <button type="button" *ngFor="let pet of ownerPets(); trackBy: trackById" (click)="selectPet(pet)" [class.is-selected]="selectedPet()?.id === pet.id">
+              <strong>{{ pet.name }}</strong><span>{{ pet.species }} · {{ pet.breed || 'Sin raza registrada' }}</span>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel pet-summary" *ngIf="selectedPet() as pet">
+        <div class="panel-heading"><div><p class="eyebrow">Ficha activa</p><h2>{{ pet.name }}</h2></div><span class="status-pill status-ok">{{ pet.status }}</span></div>
+        <dl class="details-list"><div><dt>Especie</dt><dd>{{ pet.species }}</dd></div><div><dt>Raza</dt><dd>{{ pet.breed || 'No registrada' }}</dd></div><div><dt>Sexo</dt><dd>{{ pet.sex }}</dd></div><div><dt>Edad</dt><dd>{{ petAge(pet) }}</dd></div></dl>
+        <button class="button button-secondary" type="button" (click)="selectPet(pet)" [disabled]="actionPending()">Actualizar ficha e historial</button>
+      </section>
+
+      <section class="care-layout clinical-layout" *ngIf="selectedPet() as pet">
+        <article class="panel" *ngIf="canWriteClinical(); else restrictedClinical">
+          <div class="panel-heading"><div><p class="eyebrow">Paso 3</p><h2>Registrar atención de {{ pet.name }}</h2></div><span class="panel-caption">Solo veterinario</span></div>
+          <form [formGroup]="clinicalForm" (ngSubmit)="saveClinicalEpisode()" novalidate>
+            <div class="field-group"><label for="clinical-reason">Motivo de consulta</label><textarea id="clinical-reason" rows="3" formControlName="reason"></textarea><p class="field-error" *ngIf="clinicalSubmitted() && clinicalForm.controls.reason.invalid">El motivo es obligatorio.</p></div>
+            <div class="field-group"><label for="clinical-anamnesis">Anamnesis</label><textarea id="clinical-anamnesis" rows="3" formControlName="anamnesis"></textarea></div>
+            <div class="field-group"><label for="clinical-assessment">Evaluación</label><textarea id="clinical-assessment" rows="4" formControlName="assessment"></textarea><p class="field-error" *ngIf="clinicalSubmitted() && clinicalForm.controls.assessment.invalid">La evaluación es obligatoria para finalizar.</p></div>
+            <div class="two-columns"><div class="field-group"><label for="clinical-diagnosis">Diagnóstico</label><textarea id="clinical-diagnosis" rows="3" formControlName="diagnosis"></textarea></div><div class="field-group"><label for="clinical-plan">Plan de tratamiento</label><textarea id="clinical-plan" rows="3" formControlName="treatmentPlan"></textarea></div></div>
+            <div class="field-group"><label for="clinical-observations">Observaciones</label><textarea id="clinical-observations" rows="3" formControlName="observations"></textarea></div>
+            <button class="button button-primary" type="submit" [disabled]="actionPending()">Registrar y finalizar atención</button>
+          </form>
+        </article>
+        <ng-template #restrictedClinical><article class="access-notice"><h2>Historia clínica protegida</h2><p>Tu rol no puede consultar ni registrar la historia clínica completa. El servidor también rechaza estas operaciones.</p></article></ng-template>
+
+        <article class="panel" *ngIf="canWriteClinical()">
+          <div class="panel-heading"><div><p class="eyebrow">Historial autorizado</p><h2>Atenciones registradas</h2></div><span class="panel-caption">{{ clinicalHistory().length }} registros</span></div>
+          <div class="clinical-list" *ngIf="clinicalHistory().length; else emptyHistory">
+            <article *ngFor="let episode of clinicalHistory(); trackBy: trackById"><div><strong>{{ episode.reason || 'Atención sin motivo' }}</strong><span>{{ episode.openedAt | date:'mediumDate' }}</span></div><p>{{ episode.assessment || 'Sin evaluación registrada' }}</p><span class="status-pill status-ok">{{ episode.status }}</span></article>
+          </div>
+          <ng-template #emptyHistory><p class="empty-state compact">No hay atenciones clínicas visibles para esta mascota.</p></ng-template>
+        </article>
+      </section>
+    </main>
+  </div>
+</div>

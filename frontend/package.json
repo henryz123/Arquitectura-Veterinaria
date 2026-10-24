@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:e2e:g4-i01": "node e2e/g4-i01-authenticated.e2e.mjs",
+    "test:e2e:b02": "node e2e/b02-owner-pet-care.e2e.mjs",
     "validate:contract": "redocly lint ../docs/contracts/openapi-v1.yaml --extends=spec"
   },
   "private": true,

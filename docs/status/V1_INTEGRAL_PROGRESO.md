@@ -2,8 +2,8 @@
 
 **Rama de trabajo:** `codex/v1-integral`
 **Inicio de esta línea:** 2026-10-23
-**Último checkpoint funcional:** `300819814dcd0c021c2b5c12206ca1020f97132f`
-(`feat(b01): add client access workspace`)
+**Último checkpoint funcional anterior:** `fcc21ecb5ef3ca7b42cbbbd30fc03f45af33534d`
+(`fix(client): harden synthetic seed preflight`)
 **Fuente funcional:** `arquitectura_veterinaria_v1_FINAL/` (inmutable)
 **Autorización operativa vigente:** instrucción expresa de desarrollo integral
 V1 recibida el 2026-10-23. Sustituye únicamente la congelación temporal
@@ -30,8 +30,8 @@ fuera de V1.
 | Fase | Estado | Resultado verificable siguiente |
 |---|---|---|
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
-| B01 — Administración, identidad y acceso | En curso | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. Falta ejecutar la semilla y el E2E autenticado CLIENT: sus cuatro variables locales sintéticas no están configuradas. |
-| B02 — Propietarios, mascotas y clínica | Pendiente | Vertical navegador → API → PostgreSQL con aislamiento por tenant y permisos clínicos. |
+| B01 — Administración, identidad y acceso | Parcial | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. La semilla CLIENT se detiene antes de PostgreSQL: las dos contraseñas locales no cumplen todavía la regla de mayúscula ASCII; por ello falta el E2E autenticado CLIENT. |
+| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial implementado con PostgreSQL, RLS y Angular. El recorrido de navegador STAFF verifica propietario y mascota; la atención desde navegador exige una cuenta sintética VETERINARIO aún no disponible. Vinculación digital, transferencia, vacunas, recetas, rectificaciones y mascotas CLIENT siguen pendientes. |
 | B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
 | B05 — Tienda y pedidos | Pendiente | Catálogo, carrito, pedido y descuento de stock exactamente una vez al confirmar. |
@@ -45,6 +45,7 @@ fuera de V1.
 | V013 | Aplicada una vez | Redefinió exclusivamente `tenant_admin.review_administrative_recovery_for_session`; SHA-256 fuente `4B5F8EF040FCE0A0A8B97C33517E622090500C058A45B2FF45FCE171D2BE584D`, checksum Flyway `-57543870`. |
 | V014 | Aplicada una vez | Normalizó solo los dos nombres históricos de tenants sintéticos; SHA-256 fuente `60BAACFE40B1F0B545E093CF7283EFA0CC8E80743BCB033CE7B740F033D45E65`, checksum Flyway `505352357`. |
 | V015 | Aplicada una vez | Rota el hash CSRF exclusivamente para una sesión activa autorizada; SHA-256 fuente `7AFF333B71371063F8A31A5F252B4DDF0EA5754ED52AC3FFCD311DD71866BB19`, checksum Flyway `1029927636`. |
+| V016 | Aplicada una vez | Crea el núcleo B02 tenant-local (`owner_pet_care`), RLS y privilegios mínimos de `av_app`; SHA-256 fuente `8F8686A56F21930BDF20E56D9F5172FCAF06EF7C1A06EF2023F2434EE4D7B560`, checksum Flyway `893800378`. |
 
 ## Evidencia nueva de esta línea
 
@@ -115,10 +116,11 @@ fuera de V1.
 
 ## Próxima operación concreta
 
-Configurar exclusivamente en `.env.local` las cuatro variables CLIENT sintéticas
-requeridas por `scripts/invoke-client-synthetic-seed.ps1`, ejecutar la semilla
-transaccional y completar el E2E autenticado CLIENT. En paralelo, iniciar el
-vertical B02 propietario → mascota → atención → historial.
+Actualizar solamente las dos contraseñas CLIENT en `.env.local` para que cada
+una incluya una mayúscula ASCII, ejecutar la semilla idempotente y completar el
+E2E autenticado CLIENT. Para B02, preparar una credencial sintética local de
+VETERINARIO mediante el flujo aprobado y continuar con vinculación digital y
+transferencia de responsable antes de vacunas, recetas y rectificaciones.
 
 ## Checkpoint CLIENT público 2026-10-23
 
@@ -139,6 +141,28 @@ vertical B02 propietario → mascota → atención → historial.
   nativos y acciones navegables. La versión 0.27.0 no tiene subcomando
   automático `a11y`.
 - Se incorporó un fixture CLIENT separado, transaccional e idempotente, que
-  utiliza las funciones de registro y verificación ya auditadas. Su preflight
-  se detuvo antes de PostgreSQL porque faltan las cuatro variables CLIENT
-  locales; no se crearon cuentas ni se registraron secretos.
+  utiliza las funciones de registro y verificación ya auditadas. Las cuatro
+  variables CLIENT existen en `.env.local`, pero ambas contraseñas fallan la
+  regla de mayúscula ASCII; el preflight se detuvo antes de PostgreSQL, no creó
+  cuentas y no registró secretos.
+
+## Checkpoint B02 núcleo 2026-10-23
+
+- V016 establece tablas `owner_profile`, `pet`, `pet_ownership_period`,
+  `clinical_episode` y `care_audit_event` dentro de `owner_pet_care`. No crea
+  funciones privilegiadas ni permisos `PUBLIC`; todas las tablas están bajo
+  RLS y sus consultas se ejecutan con el contexto tenant confiable de la
+  sesión.
+- La interfaz `/care` permite a ADMIN_VETERINARIA o RECEPCION registrar y
+  consultar propietarios, crear mascotas con responsable actual y abrir su
+  ficha. Solo VETERINARIO puede crear, finalizar o leer el historial clínico;
+  la pantalla muestra la denegación de forma explícita a los demás roles.
+- La integración PostgreSQL verificó episodios clínicos por veterinario,
+  finalización con campos mínimos, ausencia de lectura desde Bosque y el
+  rechazo de un administrador sin rol VETERINARIO. La regresión E2E STAFF
+  verificó persistencia real de propietario/mascota, asociación y respuesta
+  403 para el historial clínico.
+- RF-B02-001, RF-B02-002 y RF-B02-016 tienen evidencia implementada y
+  verificada para el núcleo; RF-B02-008, RF-B02-009 y RF-B02-013 están
+  parcialmente verificados. Los demás RF-B02 permanecen pendientes y no se
+  presentan como completados.

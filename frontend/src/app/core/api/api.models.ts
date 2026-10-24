@@ -86,3 +86,79 @@ export interface AdministrativeRecovery {
   reviewedByPrincipalId: string | null;
   reviewedAt: string | null;
 }
+
+export interface OwnerProfile {
+  id: string;
+  tenantId: string;
+  givenNames: string;
+  familyNames: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  status: 'ACTIVA' | 'FALLECIDA';
+  origin: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OwnerRequest {
+  givenNames: string;
+  familyNames: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+}
+
+export interface PetProfile {
+  id: string;
+  tenantId: string;
+  currentOwnerId: string;
+  name: string;
+  species: string;
+  breed: string | null;
+  sex: 'HEMBRA' | 'MACHO' | 'DESCONOCIDO';
+  birthDate: string | null;
+  estimatedAgeMonths: number | null;
+  distinguishingMarks: string | null;
+  status: 'ACTIVO' | 'INACTIVO';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PetRequest {
+  name: string;
+  species: string;
+  breed: string | null;
+  sex: 'HEMBRA' | 'MACHO' | 'DESCONOCIDO';
+  birthDate: string | null;
+  estimatedAgeMonths: number | null;
+  distinguishingMarks: string | null;
+}
+
+export interface ClinicalEpisode {
+  id: string;
+  tenantId: string;
+  petId: string;
+  veterinarianPrincipalId: string;
+  appointmentId: string | null;
+  status: 'BORRADOR' | 'FINALIZADO';
+  reason: string | null;
+  anamnesis: string | null;
+  assessment: string | null;
+  diagnosis: string | null;
+  treatmentPlan: string | null;
+  observations: string | null;
+  openedAt: string;
+  finalizedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClinicalEpisodeRequest {
+  reason: string | null;
+  anamnesis: string | null;
+  assessment: string | null;
+  diagnosis: string | null;
+  treatmentPlan: string | null;
+  observations: string | null;
+}

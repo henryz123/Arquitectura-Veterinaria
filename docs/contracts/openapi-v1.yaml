@@ -1,17 +1,19 @@
 openapi: 3.1.0
 info:
   title: Arquitectura - Veterinaria API
-  version: 0.1.0-g4-i01
+  version: 0.2.0-v1-integral-b02
   description: |
-    Contrato de las rutas B01 implementadas y verificadas en G4-I01. Los bloques
-    B02-B06 continúan en la especificación funcional V1 y no se representan aquí
-    como endpoints implementados. Todo dato de demostración es sintético.
+    Contrato de las rutas B01 y del núcleo B02 implementadas y verificadas.
+    B03-B06 permanecen definidos únicamente en la especificación funcional V1
+    hasta que sus incrementos estén implementados y validados. Todo dato de
+    demostración es sintético.
 servers:
   - url: https://demo.invalid
     description: Marcador de una URL aún no desplegada.
 tags:
   - name: authentication
   - name: tenant-administration
+  - name: owner-pet-care
 paths:
   /api/v1/auth/tenants/{tenantSlug}/staff-sessions:
     post:
@@ -349,6 +351,131 @@ paths:
         '200': { $ref: '#/components/responses/ClientSpaceResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/owners:
+    post:
+      tags: [owner-pet-care]
+      summary: Registra un propietario presencial en el tenant de la sesión
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-001, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody: { $ref: '#/components/requestBodies/OwnerRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/OwnerResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [owner-pet-care]
+      summary: Lista propietarios visibles para personal autorizado del tenant
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-001, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: query
+          in: query
+          required: false
+          schema: { type: string, maxLength: 120 }
+      responses:
+        '200': { $ref: '#/components/responses/OwnersResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/owners/{ownerId}:
+    get:
+      tags: [owner-pet-care]
+      summary: Consulta un propietario visible para el tenant de la sesión
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-001, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/OwnerId' }]
+      responses:
+        '200': { $ref: '#/components/responses/OwnerResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/owners/{ownerId}/pets:
+    post:
+      tags: [owner-pet-care]
+      summary: Registra una mascota con un responsable principal vigente
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-002, RF-B02-015, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/OwnerId' }]
+      requestBody: { $ref: '#/components/requestBodies/PetRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/PetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [owner-pet-care]
+      summary: Lista las mascotas con responsable principal vigente
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-004, RF-B02-005]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/OwnerId' }]
+      responses:
+        '200': { $ref: '#/components/responses/PetsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/pets/{petId}:
+    get:
+      tags: [owner-pet-care]
+      summary: Consulta la ficha básica de una mascota del tenant
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-002, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      responses:
+        '200': { $ref: '#/components/responses/PetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/pets/{petId}/clinical-episodes:
+    post:
+      tags: [owner-pet-care]
+      summary: Crea un borrador clínico por un veterinario autorizado
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-008, RF-B02-009, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      requestBody: { $ref: '#/components/requestBodies/ClinicalEpisodeRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/ClinicalEpisodeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [owner-pet-care]
+      summary: Consulta el historial clínico completo solo para veterinarios del tenant
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-009, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      responses:
+        '200': { $ref: '#/components/responses/ClinicalEpisodesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/clinical-episodes/{episodeId}/finalization:
+    post:
+      tags: [owner-pet-care]
+      summary: Finaliza un borrador clínico del veterinario autor
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-008, RF-B02-009, RF-B02-012, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ClinicalEpisodeId' }]
+      requestBody: { $ref: '#/components/requestBodies/ClinicalEpisodeRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ClinicalEpisodeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 components:
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: AV_SESSION }
@@ -366,6 +493,9 @@ components:
     PrincipalId: { name: principalId, in: path, required: true, schema: { type: string, format: uuid } }
     ReviewId: { name: reviewId, in: path, required: true, schema: { type: string, format: uuid } }
     RecoveryId: { name: recoveryId, in: path, required: true, schema: { type: string, format: uuid } }
+    OwnerId: { name: ownerId, in: path, required: true, schema: { type: string, format: uuid } }
+    PetId: { name: petId, in: path, required: true, schema: { type: string, format: uuid } }
+    ClinicalEpisodeId: { name: episodeId, in: path, required: true, schema: { type: string, format: uuid } }
   requestBodies:
     LoginRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
     TenantRegistrationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TenantRegistrationRequest' } } } }
@@ -383,6 +513,9 @@ components:
     RucReviewResolutionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RucReviewResolutionRequest' } } } }
     AdministrativeRecoveryRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdministrativeRecoveryRequest' } } } }
     AdministrativeRecoveryReviewRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdministrativeRecoveryReviewRequest' } } } }
+    OwnerRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OwnerRequest' } } } }
+    PetRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PetRequest' } } } }
+    ClinicalEpisodeRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClinicalEpisodeRequest' } } } }
   schemas:
     LoginRequest:
       type: object
@@ -591,6 +724,88 @@ components:
         tenantSlug: { type: string }
         commercialName: { type: string }
         message: { type: string }
+    OwnerRequest:
+      type: object
+      required: [givenNames, familyNames]
+      properties:
+        givenNames: { type: string, minLength: 1, maxLength: 120 }
+        familyNames: { type: string, minLength: 1, maxLength: 120 }
+        phone: { type: [string, 'null'], maxLength: 40 }
+        email: { type: [string, 'null'], format: email, maxLength: 254 }
+        address: { type: [string, 'null'], maxLength: 240 }
+    PetRequest:
+      type: object
+      required: [name, species]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        species: { type: string, minLength: 1, maxLength: 80 }
+        breed: { type: [string, 'null'], maxLength: 120 }
+        sex: { type: [string, 'null'], enum: [HEMBRA, MACHO, DESCONOCIDO] }
+        birthDate: { type: [string, 'null'], format: date }
+        estimatedAgeMonths: { type: [integer, 'null'], minimum: 0, maximum: 480 }
+        distinguishingMarks: { type: [string, 'null'], maxLength: 500 }
+    ClinicalEpisodeRequest:
+      type: object
+      properties:
+        appointmentId: { type: [string, 'null'], format: uuid }
+        reason: { type: [string, 'null'], maxLength: 4000 }
+        anamnesis: { type: [string, 'null'], maxLength: 12000 }
+        assessment: { type: [string, 'null'], maxLength: 12000 }
+        diagnosis: { type: [string, 'null'], maxLength: 4000 }
+        treatmentPlan: { type: [string, 'null'], maxLength: 12000 }
+        observations: { type: [string, 'null'], maxLength: 12000 }
+    OwnerProfile:
+      type: object
+      required: [id, tenantId, givenNames, familyNames, status, origin, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        givenNames: { type: string }
+        familyNames: { type: string }
+        phone: { type: [string, 'null'] }
+        email: { type: [string, 'null'], format: email }
+        address: { type: [string, 'null'] }
+        status: { type: string, enum: [ACTIVO, INACTIVO] }
+        origin: { type: string, enum: [PRESENCIAL, DIGITAL] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PetProfile:
+      type: object
+      required: [id, tenantId, currentOwnerId, name, species, sex, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        currentOwnerId: { type: string, format: uuid }
+        name: { type: string }
+        species: { type: string }
+        breed: { type: [string, 'null'] }
+        sex: { type: string, enum: [HEMBRA, MACHO, DESCONOCIDO] }
+        birthDate: { type: [string, 'null'], format: date }
+        estimatedAgeMonths: { type: [integer, 'null'] }
+        distinguishingMarks: { type: [string, 'null'] }
+        status: { type: string, enum: [ACTIVA, FALLECIDA] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ClinicalEpisode:
+      type: object
+      required: [id, tenantId, petId, veterinarianPrincipalId, status, openedAt, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        petId: { type: string, format: uuid }
+        veterinarianPrincipalId: { type: string, format: uuid }
+        appointmentId: { type: [string, 'null'], format: uuid }
+        status: { type: string, enum: [BORRADOR, FINALIZADO] }
+        reason: { type: [string, 'null'] }
+        anamnesis: { type: [string, 'null'] }
+        assessment: { type: [string, 'null'] }
+        diagnosis: { type: [string, 'null'] }
+        treatmentPlan: { type: [string, 'null'] }
+        observations: { type: [string, 'null'] }
+        openedAt: { type: string, format: date-time }
+        finalizedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     Data:
       type: object
       required: [data]
@@ -667,5 +882,23 @@ components:
     CsrfOrForbidden: { description: 'Token CSRF inválido o autorización insuficiente.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     NotFound: { description: 'Recurso inexistente o no visible.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     Conflict: { description: 'Conflicto de estado o concurrencia.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    OwnerResponse:
+      description: Propietario visible para el tenant autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/OwnerProfile' } } } } }
+    OwnersResponse:
+      description: Propietarios visibles para el tenant autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/OwnerProfile' } } } } } }
+    PetResponse:
+      description: Ficha básica de mascota visible para el tenant autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/PetProfile' } } } } }
+    PetsResponse:
+      description: Mascotas del propietario visibles para el tenant autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/PetProfile' } } } } } }
+    ClinicalEpisodeResponse:
+      description: Episodio clínico visible solo para veterinario autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClinicalEpisode' } } } } }
+    ClinicalEpisodesResponse:
+      description: Historial clínico completo visible solo para veterinario autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ClinicalEpisode' } } } } } }
     ValidationError: { description: 'Validación semántica fallida.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     RateLimited: { description: 'Límite de intentos alcanzado.', headers: { Retry-After: { schema: { type: integer } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
