@@ -485,7 +485,48 @@ paths:
         '200': { $ref: '#/components/responses/ClientOwnerLinkStatusResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/client/owner-profile:
+    get:
+      tags: [owner-pet-care]
+      summary: Consulta la ficha basica propia tras una vinculacion aprobada
+      description: No modifica la cuenta de acceso ni expone registros de otros propietarios.
+      x-implementation-status: implemented-b02-client-self-service
+      x-v1-requirements: [RF-B02-003, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ClientOwnerProfileResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    put:
+      tags: [owner-pet-care]
+      summary: Actualiza datos basicos de la ficha propia ya vinculada
+      description: No cambia el correo de inicio de sesion, las responsabilidades ni datos clinicos.
+      x-implementation-status: implemented-b02-client-self-service
+      x-v1-requirements: [RF-B02-003, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody: { $ref: '#/components/requestBodies/OwnerRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ClientOwnerProfileResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/client/pets:
+    post:
+      tags: [owner-pet-care]
+      summary: Registra una mascota bajo la responsabilidad vigente del CLIENT vinculado
+      description: El propietario se resuelve en la sesion y nunca se acepta como identificador enviado por el navegador.
+      x-implementation-status: implemented-b02-client-self-service
+      x-v1-requirements: [RF-B02-003, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody: { $ref: '#/components/requestBodies/PetRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/ClientPetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
     get:
       tags: [owner-pet-care]
       summary: Lista solo las fichas básicas de mascotas con responsabilidad vigente del CLIENT
@@ -497,6 +538,35 @@ paths:
         '200': { $ref: '#/components/responses/ClientPetsResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/client/pets/{petId}:
+    get:
+      tags: [owner-pet-care]
+      summary: Consulta una ficha basica propia con responsabilidad vigente
+      description: No expone historia clinica, diagnósticos, prescripciones ni datos de otros propietarios.
+      x-implementation-status: implemented-b02-client-self-service
+      x-v1-requirements: [RF-B02-003, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      responses:
+        '200': { $ref: '#/components/responses/ClientPetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [owner-pet-care]
+      summary: Actualiza una ficha basica propia con responsabilidad vigente
+      description: No permite transferir responsabilidad, cambiar estado ni modificar información clinica.
+      x-implementation-status: implemented-b02-client-self-service
+      x-v1-requirements: [RF-B02-003, RF-B02-013, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      requestBody: { $ref: '#/components/requestBodies/PetRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ClientPetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/owner-link-requests:
     get:
       tags: [owner-pet-care]
@@ -1218,6 +1288,12 @@ components:
     ClientPetsResponse:
       description: Fichas basicas de mascotas con responsabilidad vigente para el CLIENT autenticado; no incluye historia clinica.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ClientPetProfile' } } } } } }
+    ClientOwnerProfileResponse:
+      description: Ficha basica del propietario vinculado al CLIENT autenticado; no cambia la identidad de acceso.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/OwnerProfile' } } } } }
+    ClientPetResponse:
+      description: Ficha basica propia visible para el CLIENT autenticado; no incluye historia clinica.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClientPetProfile' } } } } }
     Unauthorized: { description: 'Sesión ausente, inválida o grant de registro ausente.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     Forbidden: { description: 'Operación no autorizada para el rol o tenant efectivo.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     CsrfRejected: { description: 'Token CSRF ausente o inválido.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

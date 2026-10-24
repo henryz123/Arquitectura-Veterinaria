@@ -99,6 +99,36 @@ describe('AdministrationApiService', () => {
     expect(clientPets.request.method).toBe('GET');
     clientPets.flush({ data: [] });
 
+    service.getClientOwnerProfile().subscribe();
+    const clientOwner = http.expectOne('/api/v1/client/owner-profile');
+    expect(clientOwner.request.method).toBe('GET');
+    clientOwner.flush({ data: { id: 'owner-1' } });
+
+    const ownProfile = { givenNames: 'Cliente', familyNames: 'Sintetico', phone: null, email: 'cliente@demo.invalid', address: null };
+    service.updateClientOwnerProfile(ownProfile).subscribe();
+    const updateOwner = http.expectOne('/api/v1/client/owner-profile');
+    expect(updateOwner.request.method).toBe('PUT');
+    expect(updateOwner.request.body).toEqual(ownProfile);
+    updateOwner.flush({ data: { id: 'owner-1' } });
+
+    const clientPet = { name: 'Luna', species: 'Canino', breed: null, sex: 'HEMBRA' as const, birthDate: '2022-01-01', estimatedAgeMonths: null, distinguishingMarks: null };
+    service.createClientPet(clientPet).subscribe();
+    const createClientPet = http.expectOne('/api/v1/client/pets');
+    expect(createClientPet.request.method).toBe('POST');
+    expect(createClientPet.request.body).toEqual(clientPet);
+    createClientPet.flush({ data: { id: 'pet-1' } });
+
+    service.getClientPet('pet-1').subscribe();
+    const getClientPet = http.expectOne('/api/v1/client/pets/pet-1');
+    expect(getClientPet.request.method).toBe('GET');
+    getClientPet.flush({ data: { id: 'pet-1' } });
+
+    service.updateClientPet('pet-1', clientPet).subscribe();
+    const updateClientPet = http.expectOne('/api/v1/client/pets/pet-1');
+    expect(updateClientPet.request.method).toBe('PUT');
+    expect(updateClientPet.request.body).toEqual(clientPet);
+    updateClientPet.flush({ data: { id: 'pet-1' } });
+
     service.listClientOwnerLinkRequests().subscribe();
     const pendingLinks = http.expectOne('/api/v1/owner-link-requests?status=PENDIENTE');
     expect(pendingLinks.request.method).toBe('GET');

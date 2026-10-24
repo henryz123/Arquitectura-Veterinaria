@@ -1,14 +1,15 @@
 import { NgFor, NgIf } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize, forkJoin } from 'rxjs';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
-import { ClientOwnerLinkStatus, ClientPetProfile, ClientSpace } from '../../core/api/api.models';
+import { ClientOwnerLinkStatus, ClientPetProfile, ClientSpace, OwnerProfile, OwnerRequest, PetRequest } from '../../core/api/api.models';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 
 @Component({
   selector: 'app-client-space-page',
-  imports: [NgFor, NgIf, RouterLink],
+  imports: [FormsModule, NgFor, NgIf, RouterLink],
   templateUrl: './client-space-page.component.html',
   styleUrl: './client-space-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -20,10 +21,15 @@ export class ClientSpacePageComponent implements OnInit {
   readonly space = signal<ClientSpace | null>(null);
   readonly linkStatus = signal<ClientOwnerLinkStatus | null>(null);
   readonly pets = signal<ClientPetProfile[]>([]);
+  readonly ownerProfile = signal<OwnerProfile | null>(null);
+  readonly editingPet = signal<ClientPetProfile | null>(null);
   readonly loading = signal(true);
   readonly actionPending = signal(false);
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
+  readonly ownerDraft: OwnerRequest = { givenNames: '', familyNames: '', phone: null, email: null, address: null };
+  readonly newPetDraft: PetRequest = this.emptyPetDraft();
+  readonly petEditDraft: PetRequest = this.emptyPetDraft();
 
   ngOnInit(): void {
     forkJoin({
@@ -35,6 +41,9 @@ export class ClientSpacePageComponent implements OnInit {
         this.space.set(response.space.data);
         this.linkStatus.set(response.linkStatus.data);
         this.pets.set(response.pets.data);
+        if (response.linkStatus.data.status === 'APROBADA') {
+          this.loadOwnerProfile();
+        }
         this.loading.set(false);
       },
       error: () => {
@@ -65,11 +74,116 @@ export class ClientSpacePageComponent implements OnInit {
     });
   }
 
+  saveOwnerProfile(): void {
+    if (this.actionPending()) {
+      return;
+    }
+    this.error.set(null);
+    this.notice.set(null);
+    this.actionPending.set(true);
+    this.administrationApi.updateClientOwnerProfile({ ...this.ownerDraft }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+      next: (response) => {
+        this.applyOwnerProfile(response.data);
+        this.notice.set('Tus datos basicos fueron actualizados. El correo de acceso no se modifica desde esta pantalla.');
+      },
+      error: () => this.error.set('No fue posible actualizar la ficha basica autorizada.'),
+    });
+  }
+
+  createPet(): void {
+    const request = this.validPetRequest(this.newPetDraft);
+    if (!request || this.actionPending()) {
+      return;
+    }
+    this.error.set(null);
+    this.notice.set(null);
+    this.actionPending.set(true);
+    this.administrationApi.createClientPet(request).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+      next: (response) => {
+        this.pets.update((pets) => [...pets, response.data].sort((left, right) => left.name.localeCompare(right.name)));
+        Object.assign(this.newPetDraft, this.emptyPetDraft());
+        this.notice.set('La ficha basica de tu mascota fue registrada. La historia clinica sigue siendo privada.');
+      },
+      error: () => this.error.set('No fue posible registrar la mascota. Verifica los datos basicos e intentalo nuevamente.'),
+    });
+  }
+
+  beginPetEdit(pet: ClientPetProfile): void {
+    this.editingPet.set(pet);
+    Object.assign(this.petEditDraft, {
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed,
+      sex: pet.sex,
+      birthDate: pet.birthDate,
+      estimatedAgeMonths: pet.estimatedAgeMonths,
+      distinguishingMarks: pet.distinguishingMarks,
+    });
+  }
+
+  cancelPetEdit(): void {
+    this.editingPet.set(null);
+    Object.assign(this.petEditDraft, this.emptyPetDraft());
+  }
+
+  savePet(): void {
+    const pet = this.editingPet();
+    const request = this.validPetRequest(this.petEditDraft);
+    if (!pet || !request || this.actionPending()) {
+      return;
+    }
+    this.error.set(null);
+    this.notice.set(null);
+    this.actionPending.set(true);
+    this.administrationApi.updateClientPet(pet.id, request).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+      next: (response) => {
+        this.pets.update((pets) => pets.map((item) => item.id === response.data.id ? response.data : item));
+        this.cancelPetEdit();
+        this.notice.set('La ficha basica fue actualizada. No se modificaron datos clinicos ni responsabilidades.');
+      },
+      error: () => this.error.set('No fue posible actualizar esta ficha. Puede que ya no tengas la responsabilidad vigente.'),
+    });
+  }
+
   logout(): void {
     const tenantSlug = this.auth.context()?.tenant?.slug ?? 'veterinaria-aurora';
     this.auth.logout().subscribe({
       next: () => void this.router.navigate(['/client/login', tenantSlug]),
       error: () => void this.router.navigate(['/client/login', tenantSlug]),
     });
+  }
+
+  private loadOwnerProfile(): void {
+    this.administrationApi.getClientOwnerProfile().subscribe({
+      next: (response) => this.applyOwnerProfile(response.data),
+      error: () => this.error.set('La vinculacion fue aprobada, pero no fue posible cargar tu ficha basica.'),
+    });
+  }
+
+  private applyOwnerProfile(owner: OwnerProfile): void {
+    this.ownerProfile.set(owner);
+    Object.assign(this.ownerDraft, {
+      givenNames: owner.givenNames,
+      familyNames: owner.familyNames,
+      phone: owner.phone,
+      email: owner.email,
+      address: owner.address,
+    });
+  }
+
+  private validPetRequest(draft: PetRequest): PetRequest | null {
+    if (draft.birthDate && draft.estimatedAgeMonths !== null) {
+      this.error.set('Indica una fecha de nacimiento o una edad estimada, pero no ambas.');
+      return null;
+    }
+    if (!draft.birthDate && draft.estimatedAgeMonths === null) {
+      this.error.set('Indica una fecha de nacimiento o una edad estimada para la mascota.');
+      return null;
+    }
+    return { ...draft, birthDate: draft.birthDate || null };
+  }
+
+  private emptyPetDraft(): PetRequest {
+    return { name: '', species: '', breed: null, sex: 'DESCONOCIDO', birthDate: null, estimatedAgeMonths: null, distinguishingMarks: null };
   }
 }

@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService;
@@ -125,6 +126,40 @@ public class OwnerPetCareController {
 	@GetMapping("/client/pets")
 	ApiEnvelope<List<ClientPetProfile>> listClientPets(@AuthenticationPrincipal SessionPrincipal principal) {
 		return ApiEnvelope.of(service.listCurrentPetsForClient(principal));
+	}
+
+	@GetMapping("/client/owner-profile")
+	ApiEnvelope<OwnerProfile> getClientOwnerProfile(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(service.getClientOwnerProfile(principal));
+	}
+
+	@PutMapping("/client/owner-profile")
+	ApiEnvelope<OwnerProfile> updateClientOwnerProfile(@AuthenticationPrincipal SessionPrincipal principal,
+			@Valid @RequestBody OwnerRequest request) {
+		return ApiEnvelope.of(service.updateClientOwnerProfile(principal,
+				new OwnerCommand(request.givenNames(), request.familyNames(), request.phone(), request.email(), request.address())));
+	}
+
+	@PostMapping("/client/pets")
+	ResponseEntity<ApiEnvelope<ClientPetProfile>> createClientPet(@AuthenticationPrincipal SessionPrincipal principal,
+			@Valid @RequestBody PetRequest request) {
+		ClientPetProfile pet = service.createClientPet(principal, new PetCommand(request.name(), request.species(), request.breed(),
+				request.sex(), request.birthDate(), request.estimatedAgeMonths(), request.distinguishingMarks()));
+		return ResponseEntity.status(HttpStatus.CREATED).location(URI.create("/api/v1/client/pets/" + pet.id()))
+				.body(ApiEnvelope.of(pet));
+	}
+
+	@GetMapping("/client/pets/{petId}")
+	ApiEnvelope<ClientPetProfile> getClientPet(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID petId) {
+		return ApiEnvelope.of(service.getClientPet(principal, petId));
+	}
+
+	@PutMapping("/client/pets/{petId}")
+	ApiEnvelope<ClientPetProfile> updateClientPet(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID petId,
+			@Valid @RequestBody PetRequest request) {
+		return ApiEnvelope.of(service.updateClientPet(principal, petId,
+				new PetCommand(request.name(), request.species(), request.breed(), request.sex(), request.birthDate(),
+						request.estimatedAgeMonths(), request.distinguishingMarks())));
 	}
 
 	@GetMapping("/owner-link-requests")

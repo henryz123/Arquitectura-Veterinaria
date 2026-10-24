@@ -32,6 +32,19 @@ fuera de V1.
 - Agent Browser verificó de nuevo la pantalla pública CLIENT sin autenticarse: `main`, encabezado, etiquetas nativas de correo/contraseña y navegación hacia registro, recuperación y personal. La versión instalada no expone `agent-browser a11y`; no se declara una auditoría automática de accesibilidad.
 - B02 continúa **parcial**: las pantallas y APIs clínicas existen, pero el E2E de navegador con rol VETERINARIO está bloqueado hasta disponer de variables locales sintéticas para esa cuenta. Permanecen además alta/edición CLIENT autorizada y la gestión humana de posibles duplicados.
 
+## Checkpoint B02 - autoservicio CLIENT de ficha basica (2026-10-24)
+
+- No se creo migracion nueva: V001-V018 permanecen inmutables y Flyway sigue desactivado en pruebas ordinarias. El vertical usa exclusivamente las relaciones tenant-locales ya verificadas de V016/V017.
+- CLIENT con una vinculacion aprobada puede consultar y actualizar solamente su propia ficha basica mediante `GET/PUT /api/v1/client/owner-profile`, crear una mascota bajo su responsabilidad vigente mediante `POST /api/v1/client/pets` y consultar/editar solo esa ficha mediante `GET/PUT /api/v1/client/pets/{petId}`.
+- El propietario no llega desde Angular: el backend lo resuelve desde la sesion y la vinculacion aprobada. Cada lectura y escritura vuelve a comprobar tenant, cuenta CLIENT y responsabilidad vigente. No hay rutas CLIENT para transferir responsable, cambiar estado, acceder a episodios, diagnosticos, prescripciones o adendas.
+- La regresion `OwnerPetCareDatabaseIntegrationTest,B02AccessPolicyTest` paso 11/11 con Java 21, PostgreSQL local y Flyway desactivado. Cubre actualizacion propia, alta de mascota, edicion basica, rechazo de historia clinica, rechazo Aurora/Bosque y rechazo del anterior responsable despues de la transferencia. Sus fixtures son transaccionales; la comprobacion posterior encontro 0 cuentas transitorias de prueba.
+- Angular paso 4 archivos / 9 pruebas y `npm.cmd run build`; Redocly valido el contrato actualizado. El E2E CLIENT no se declara ejecutado: las dos contrasenas CLIENT locales siguen sin cumplir la politica, por lo que la semilla controlada no se ejecuto ni se generaron credenciales persistentes.
+- B02 continua **parcial**. RF-B02-003 y RF-B02-013 ganan implementacion de extremo a extremo con prueba de integracion, pero requieren recorrido de navegador CLIENT. Persisten la validacion visual clinica con VETERINARIO y la gestion humana de duplicados (RF-B02-014).
+
+## Proxima operacion actualizada (2026-10-24)
+
+Cuando el responsable actualice las dos contrasenas CLIENT locales para cumplir la politica, ejecutar la semilla idempotente y completar el E2E CLIENT de vinculacion, ficha y mascotas propias. En paralelo, preparar la gestion no destructiva de posibles duplicados B02 y una cuenta VETERINARIO local mediante los mecanismos ya autorizados.
+
 ## Estado recuperado
 
 - Git parte del commit consolidado `b333a1602ac1fd6541efcc11b8034a7a7ca06212`

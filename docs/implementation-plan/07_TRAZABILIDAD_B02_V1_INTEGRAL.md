@@ -71,6 +71,24 @@ RF-B02-012. No modifica la especificación V1.
 - `npm.cmd run test:e2e:b02`: `B02_OWNER_PET_BROWSER_E2E=PASS` tras V018 para el recorrido STAFF ya consolidado. No sustituye el E2E clínico VETERINARIO pendiente.
 - Agent Browser comprobó la estructura pública CLIENT sin autenticación. La versión 0.27 no proporciona un subcomando `a11y`, por lo que la auditoría automática de accesibilidad no se marca como ejecutada.
 
+## Actualizacion verificable - autoservicio CLIENT de ficha basica (2026-10-24)
+
+Esta actualizacion prevalece sobre los limites anteriores de RF-B02-003 y RF-B02-013. No modifica la especificacion funcional V1.
+
+| Requisito | Estado actualizado | Evidencia y limite actual |
+|---|---|---|
+| RF-B02-003 | Parcial verificado | CLIENT vinculado puede consultar/editar su ficha basica y crear/editar mascotas propias con Angular -> Spring Boot -> PostgreSQL. El servidor resuelve el propietario desde la sesion, no desde un ID de navegador. Falta E2E autenticado con semilla CLIENT local valida. |
+| RF-B02-013 | Parcial verificado | Las respuestas CLIENT solo incluyen la proyeccion basica de mascota. Las nuevas rutas no exponen episodios, diagnosticos, prescripciones, adendas, transferencias ni cambios de estado. La integracion rechaza la historia clinica para CLIENT; falta E2E autenticado. |
+| RF-B02-016 | Verificado | La integracion prueba que CLIENT de Bosque no consulta mascota de Aurora y que el CLIENT anterior no edita tras una transferencia. RLS y predicados tenant-locales siguen vigentes. |
+
+### Evidencia del checkpoint de autoservicio
+
+- Sin migracion adicional: V001-V018 no se modificaron ni se ejecutaron de nuevo.
+- `mvnw.cmd '-Dtest=OwnerPetCareDatabaseIntegrationTest,B02AccessPolicyTest' test`: 11/11 correctas con Java 21, Flyway desactivado y rollback transaccional de fixtures.
+- `npm.cmd test -- --watch=false`: 4 archivos / 9 pruebas correctas. `npm.cmd run build`: correcto. `npm.cmd run validate:contract`: OpenAPI valido.
+- La comprobacion posterior de cuentas transitorias CLIENT/VETERINARIO de pruebas devolvio 0. No se imprimieron contrasenas, tokens ni enlaces.
+- E2E CLIENT queda bloqueado de forma explicita: las dos variables de contrasena CLIENT locales no cumplen la politica. No se rebajo la politica, no se ejecuto la semilla y no se declara evidencia de navegador para este vertical.
+
 ## Verificaciones del checkpoint
 
 - `mvnw.cmd -Dtest=B02AccessPolicyTest,OwnerPetCareDatabaseIntegrationTest test`: 6/6 correctas con Java 21; las pruebas de integración son transaccionales y se revierten.

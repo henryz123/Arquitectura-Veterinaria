@@ -16,3 +16,10 @@ a { color: var(--accent-teal-dark); font-weight: 700; }
 .pet-cards { display: grid; gap: .7rem; }
 .pet-cards article { display: grid; gap: .2rem; border-left: 3px solid var(--accent-teal); padding: .75rem .9rem; background: var(--surface-raised); }
 .pet-cards span { color: var(--ink-muted); font-size: .9rem; }
+.profile-panel { margin: 1.75rem 0; padding: 1.2rem; border: 1px solid var(--border-subtle); background: var(--surface-canvas); }
+.profile-panel h2 { margin: .25rem 0 .65rem; font-size: 1.3rem; }
+.profile-panel form { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .8rem; margin-top: 1rem; }
+.profile-panel label { display: grid; gap: .3rem; color: var(--ink-muted); font-size: .9rem; }
+.profile-panel input, .profile-panel select { min-height: 2.6rem; border: 1px solid var(--border-strong); border-radius: .25rem; padding: .45rem .55rem; color: var(--ink-strong); background: var(--surface-raised); font: inherit; }
+.profile-panel .link-action, .form-actions { grid-column: 1 / -1; }
+.form-actions { display: flex; flex-wrap: wrap; gap: .6rem; }

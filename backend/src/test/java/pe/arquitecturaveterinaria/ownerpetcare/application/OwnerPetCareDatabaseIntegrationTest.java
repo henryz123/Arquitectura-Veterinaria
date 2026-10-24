@@ -167,6 +167,55 @@ class OwnerPetCareDatabaseIntegrationTest {
 	}
 
 	@Test
+	void letsAnApprovedClientCreateAndEditOnlyItsOwnBasicProfiles() {
+		SessionPrincipal auroraAdministrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		SessionPrincipal client = client("veterinaria-aurora");
+		var owner = ownerPetCareService.createOwner(auroraAdministrator,
+				new OwnerCommand("Claudia", "Propietaria", "999100200", "claudia@demo.invalid", "Direccion inicial"));
+		var originalPet = ownerPetCareService.createPet(auroraAdministrator, owner.id(),
+				new PetCommand("Trigo", "Canino", null, "MACHO", null, 30, null));
+		var requested = ownerPetCareService.requestClientOwnerLink(client);
+		var pending = ownerPetCareService.listClientOwnerLinkRequests(auroraAdministrator, null).stream()
+				.filter(item -> item.requestReference().equals(requested.requestReference())).findFirst().orElseThrow();
+		ownerPetCareService.resolveClientOwnerLinkRequest(auroraAdministrator, pending.id(),
+				new ClientOwnerLinkResolutionCommand("APROBADA", owner.id(), "Verificacion presencial", null, true));
+
+		assertEquals(owner.id(), ownerPetCareService.getClientOwnerProfile(client).id());
+		var updatedOwner = ownerPetCareService.updateClientOwnerProfile(client,
+				new OwnerCommand("Claudia", "Propietaria", "999300400", "contacto@demo.invalid", "Direccion actualizada"));
+		assertEquals("999300400", updatedOwner.phone());
+		assertEquals("contacto@demo.invalid", updatedOwner.email());
+
+		var createdPet = ownerPetCareService.createClientPet(client,
+				new PetCommand("Mora", "Felino", "Comun", "HEMBRA", LocalDate.of(2023, 4, 1), null,
+						"Collar verde"));
+		assertTrue(ownerPetCareService.listCurrentPetsForClient(client).stream().map(item -> item.id()).toList()
+				.containsAll(List.of(originalPet.id(), createdPet.id())));
+		var updatedPet = ownerPetCareService.updateClientPet(client, createdPet.id(),
+				new PetCommand("Mora", "Felino", "Comun europeo", "HEMBRA", null, 42, "Collar azul"));
+		assertEquals("Comun europeo", updatedPet.breed());
+		assertEquals(Integer.valueOf(42), updatedPet.estimatedAgeMonths());
+
+		ApiException clinicalDenied = assertThrows(ApiException.class,
+				() -> ownerPetCareService.listClinicalHistory(client, createdPet.id()));
+		assertEquals("B02_STAFF_REQUIRED", clinicalDenied.code());
+
+		SessionPrincipal bosqueClient = client("veterinaria-bosque");
+		ApiException crossTenant = assertThrows(ApiException.class,
+				() -> ownerPetCareService.getClientPet(bosqueClient, createdPet.id()));
+		assertEquals(HttpStatus.NOT_FOUND, crossTenant.status());
+
+		var successor = ownerPetCareService.createOwner(auroraAdministrator,
+				new OwnerCommand("Raul", "Sucesor", null, null, null));
+		ownerPetCareService.transferPetOwnership(auroraAdministrator, createdPet.id(),
+				new OwnershipTransferCommand(owner.id(), successor.id(), "Cambio verificado", true));
+		ApiException formerOwnerDenied = assertThrows(ApiException.class,
+				() -> ownerPetCareService.updateClientPet(client, createdPet.id(),
+						new PetCommand("Mora", "Felino", null, "HEMBRA", null, 42, null)));
+		assertEquals(HttpStatus.NOT_FOUND, formerOwnerDenied.status());
+	}
+
+	@Test
 	void rejectsAnIncompatibleSecondClientLinkForTheSameOwner() {
 		SessionPrincipal auroraAdministrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
 		var owner = ownerPetCareService.createOwner(auroraAdministrator,

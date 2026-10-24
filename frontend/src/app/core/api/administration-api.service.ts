@@ -83,6 +83,26 @@ export class AdministrationApiService {
     return this.http.get<ApiEnvelope<ClientPetProfile[]>>(`${this.apiBaseUrl}/client/pets`);
   }
 
+  getClientOwnerProfile(): Observable<ApiEnvelope<OwnerProfile>> {
+    return this.http.get<ApiEnvelope<OwnerProfile>>(`${this.apiBaseUrl}/client/owner-profile`);
+  }
+
+  updateClientOwnerProfile(request: OwnerRequest): Observable<ApiEnvelope<OwnerProfile>> {
+    return this.http.put<ApiEnvelope<OwnerProfile>>(`${this.apiBaseUrl}/client/owner-profile`, request);
+  }
+
+  createClientPet(request: PetRequest): Observable<ApiEnvelope<ClientPetProfile>> {
+    return this.http.post<ApiEnvelope<ClientPetProfile>>(`${this.apiBaseUrl}/client/pets`, request);
+  }
+
+  getClientPet(petId: string): Observable<ApiEnvelope<ClientPetProfile>> {
+    return this.http.get<ApiEnvelope<ClientPetProfile>>(`${this.apiBaseUrl}/client/pets/${encodeURIComponent(petId)}`);
+  }
+
+  updateClientPet(petId: string, request: PetRequest): Observable<ApiEnvelope<ClientPetProfile>> {
+    return this.http.put<ApiEnvelope<ClientPetProfile>>(`${this.apiBaseUrl}/client/pets/${encodeURIComponent(petId)}`, request);
+  }
+
   listClientOwnerLinkRequests(status = 'PENDIENTE'): Observable<ApiEnvelope<ClientOwnerLinkRequest[]>> {
     return this.http.get<ApiEnvelope<ClientOwnerLinkRequest[]>>(
       `${this.apiBaseUrl}/owner-link-requests?status=${encodeURIComponent(status)}`,

@@ -185,6 +185,66 @@ public class OwnerPetCareService {
 	}
 
 	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public OwnerProfile getClientOwnerProfile(SessionPrincipal actor) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		return clientOwnerOrRequired(actor);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public OwnerProfile updateClientOwnerProfile(SessionPrincipal actor, OwnerCommand command) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		OwnerProfile owner = clientOwnerOrRequired(actor);
+		OwnerProfile updated = repository.updateOwnerForClient(actor.session().tenantId(), actor.session().accountId(), owner.id(),
+				new OwnerDraft(required(command.givenNames(), "givenNames"), required(command.familyNames(), "familyNames"),
+						optional(command.phone()), normalizedEmail(command.email()), optional(command.address()), owner.origin()))
+				.orElseThrow(() -> notFound("No se encontro la ficha propia autorizada."));
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLIENT_OWNER_PROFILE_UPDATED", "OWNER", updated.id());
+		return updated;
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ClientPetProfile createClientPet(SessionPrincipal actor, PetCommand command) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		OwnerProfile owner = clientOwnerOrRequired(actor);
+		if (!"ACTIVO".equals(owner.status())) {
+			throw conflict("OWNER_INACTIVE", "No se puede registrar una mascota para una ficha inactiva.");
+		}
+		validatePetAge(command.birthDate(), command.estimatedAgeMonths());
+		PetProfile pet = repository.createPet(actor.session().tenantId(), actor.session().accountId(), owner.id(),
+				new PetDraft(required(command.name(), "name"), required(command.species(), "species"), optional(command.breed()),
+						normalizedSex(command.sex()), command.birthDate(), command.estimatedAgeMonths(),
+						optional(command.distinguishingMarks())));
+		repository.createInitialOwnership(actor.session().tenantId(), pet.id(), owner.id(), actor.session().accountId(),
+				"Alta digital por propietario vinculado");
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLIENT_PET_CREATED", "PET", pet.id());
+		return clientPetOrNotFound(actor, pet.id());
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public ClientPetProfile getClientPet(SessionPrincipal actor, UUID petId) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		return clientPetOrNotFound(actor, petId);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ClientPetProfile updateClientPet(SessionPrincipal actor, UUID petId, PetCommand command) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		validatePetAge(command.birthDate(), command.estimatedAgeMonths());
+		ClientPetProfile updated = repository.updateCurrentPetForClient(actor.session().tenantId(), actor.session().accountId(), petId,
+				new PetDraft(required(command.name(), "name"), required(command.species(), "species"), optional(command.breed()),
+						normalizedSex(command.sex()), command.birthDate(), command.estimatedAgeMonths(),
+						optional(command.distinguishingMarks())))
+				.orElseThrow(() -> notFound("No se encontro la ficha propia autorizada."));
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLIENT_PET_UPDATED", "PET", updated.id());
+		return updated;
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
 	public List<ClientOwnerLinkRequest> listClientOwnerLinkRequests(SessionPrincipal actor, String status) {
 		accessPolicy.requireRegistryManager(actor);
 		setTrustedContext(actor);
@@ -364,6 +424,17 @@ public class OwnerPetCareService {
 	private PetProfile petOrNotFound(UUID petId) {
 		return repository.findPet(petId)
 				.orElseThrow(() -> notFound("No se encontró el recurso solicitado."));
+	}
+
+	private OwnerProfile clientOwnerOrRequired(SessionPrincipal actor) {
+		return repository.findOwnerForClient(actor.session().accountId())
+				.orElseThrow(() -> conflict("B02_CLIENT_OWNER_LINK_REQUIRED",
+						"La operacion requiere una vinculacion digital aprobada para la ficha propia."));
+	}
+
+	private ClientPetProfile clientPetOrNotFound(SessionPrincipal actor, UUID petId) {
+		return repository.findCurrentPetForClient(actor.session().accountId(), petId)
+				.orElseThrow(() -> notFound("No se encontro la ficha propia autorizada."));
 	}
 
 	private ClinicalEpisode episodeOrNotFound(UUID episodeId) {

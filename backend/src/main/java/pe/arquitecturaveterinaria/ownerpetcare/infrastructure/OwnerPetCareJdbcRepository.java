@@ -54,6 +54,32 @@ public class OwnerPetCareJdbcRepository {
 				""", this::mapOwner, ownerId).stream().findFirst();
 	}
 
+	public Optional<OwnerProfile> findOwnerForClient(UUID clientPrincipalId) {
+		return jdbcTemplate.query("""
+				select owner.id, owner.tenant_id, owner.given_names, owner.family_names, owner.phone, owner.email,
+				       owner.address, owner.status, owner.origin, owner.created_at, owner.updated_at
+				from owner_pet_care.owner_profile owner
+				join owner_pet_care.client_owner_link link
+				  on link.tenant_id = owner.tenant_id and link.owner_id = owner.id
+				where link.client_principal_id = ?
+				""", this::mapOwner, clientPrincipalId).stream().findFirst();
+	}
+
+	public Optional<OwnerProfile> updateOwnerForClient(UUID tenantId, UUID clientPrincipalId, UUID ownerId, OwnerDraft draft) {
+		return jdbcTemplate.query("""
+				update owner_pet_care.owner_profile owner
+				set given_names = ?, family_names = ?, phone = ?, email = ?, address = ?, updated_at = statement_timestamp()
+				from owner_pet_care.client_owner_link link
+				where owner.tenant_id = ? and owner.id = ?
+				  and link.tenant_id = owner.tenant_id
+				  and link.owner_id = owner.id
+				  and link.client_principal_id = ?
+				returning owner.id, owner.tenant_id, owner.given_names, owner.family_names, owner.phone, owner.email,
+				          owner.address, owner.status, owner.origin, owner.created_at, owner.updated_at
+				""", this::mapOwner, draft.givenNames(), draft.familyNames(), draft.phone(), draft.email(), draft.address(),
+				tenantId, ownerId, clientPrincipalId).stream().findFirst();
+	}
+
 	public PetProfile createPet(UUID tenantId, UUID actorPrincipalId, UUID ownerId, PetDraft draft) {
 		return jdbcTemplate.queryForObject("""
 				insert into owner_pet_care.pet (
@@ -206,6 +232,34 @@ public class OwnerPetCareJdbcRepository {
 				where link.client_principal_id = ?
 				order by pet.name, pet.created_at
 				""", this::mapClientPet, clientPrincipalId);
+	}
+
+	public Optional<ClientPetProfile> findCurrentPetForClient(UUID clientPrincipalId, UUID petId) {
+		return jdbcTemplate.query("""
+				select pet.id, pet.name, pet.species, pet.breed, pet.sex, pet.birth_date, pet.estimated_age_months,
+				       pet.distinguishing_marks, pet.status
+				from owner_pet_care.pet pet
+				join owner_pet_care.client_owner_link link
+				  on link.tenant_id = pet.tenant_id and link.owner_id = pet.current_owner_id
+				where link.client_principal_id = ? and pet.id = ?
+				""", this::mapClientPet, clientPrincipalId, petId).stream().findFirst();
+	}
+
+	public Optional<ClientPetProfile> updateCurrentPetForClient(UUID tenantId, UUID clientPrincipalId, UUID petId,
+			PetDraft draft) {
+		return jdbcTemplate.query("""
+				update owner_pet_care.pet pet
+				set name = ?, species = ?, breed = ?, sex = ?, birth_date = ?, estimated_age_months = ?,
+				    distinguishing_marks = ?, updated_at = statement_timestamp()
+				from owner_pet_care.client_owner_link link
+				where pet.tenant_id = ? and pet.id = ?
+				  and link.tenant_id = pet.tenant_id
+				  and link.owner_id = pet.current_owner_id
+				  and link.client_principal_id = ?
+				returning pet.id, pet.name, pet.species, pet.breed, pet.sex, pet.birth_date, pet.estimated_age_months,
+				          pet.distinguishing_marks, pet.status
+				""", this::mapClientPet, draft.name(), draft.species(), draft.breed(), draft.sex(), draft.birthDate(),
+				draft.estimatedAgeMonths(), draft.distinguishingMarks(), tenantId, petId, clientPrincipalId).stream().findFirst();
 	}
 
 	public int moveCurrentOwner(UUID tenantId, UUID petId, UUID expectedOwnerId, UUID newOwnerId) {
