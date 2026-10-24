@@ -30,20 +30,22 @@ if ($missing.Count -gt 0) {
 }
 
 $databaseUrl = $values['AV_DB_URL'] -replace '^jdbc:'
+$migrationUser = $values['AV_MIGRATION_DB_USER']
+$migrationPassword = $values['AV_MIGRATION_DB_PASSWORD']
 if ($databaseUrl -notmatch '/arquitectura_veterinaria(?:\?.*)?$') {
     throw 'AV_DB_URL no corresponde exactamente a la base local arquitectura_veterinaria. No se ejecutó ninguna semilla.'
 }
 
 foreach ($name in $required) {
-    Set-Item -Path "Env:$name" -Value $values[$name]
+    Set-Item -Path "Env:$name" -Value ($values[$name])
 }
-$env:PGPASSWORD = $values['AV_MIGRATION_DB_PASSWORD']
+$env:PGPASSWORD = $migrationPassword
 $env:PGAPPNAME = 'av-client-synthetic-seed'
 
 try {
     $psql = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
     $seed = Join-Path $PSScriptRoot '..\database\demo\seed-client-synthetic.psql'
-    & $psql --no-psqlrc --single-transaction --set ON_ERROR_STOP=1 --dbname=$databaseUrl --username=$values['AV_MIGRATION_DB_USER'] --file=$seed
+    & $psql --no-psqlrc --single-transaction --set ON_ERROR_STOP=1 --dbname=$databaseUrl --username=$migrationUser --file=$seed
     if ($LASTEXITCODE -ne 0) {
         throw "La semilla CLIENT terminó con código $LASTEXITCODE. La transacción fue revertida."
     }

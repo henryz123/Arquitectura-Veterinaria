@@ -26,7 +26,7 @@
 \endif
 
 select
-    lower(:'av_demo_client_aurora_email') ~ '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$'
+    lower(:'av_demo_client_aurora_email') ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'
     and length(:'av_demo_client_aurora_password') between 12 and 72
     and :'av_demo_client_aurora_password' ~ '[A-Z]'
     and :'av_demo_client_aurora_password' ~ '[a-z]'
@@ -39,7 +39,7 @@ select
 \endif
 
 select
-    lower(:'av_demo_client_bosque_email') ~ '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$'
+    lower(:'av_demo_client_bosque_email') ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'
     and length(:'av_demo_client_bosque_password') between 12 and 72
     and :'av_demo_client_bosque_password' ~ '[A-Z]'
     and :'av_demo_client_bosque_password' ~ '[a-z]'
