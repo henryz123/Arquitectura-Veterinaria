@@ -10,6 +10,10 @@ import {
   OperatingHoursRequest,
   ProfessionalAvailability,
   ProfessionalAvailabilityRequest,
+  ClientScheduleRequest,
+  ScheduleAvailability,
+  ScheduleRequest,
+  ScheduleReservation,
 } from './api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -42,5 +46,32 @@ export class ScheduleApiService {
 
   createProfessionalAvailability(request: ProfessionalAvailabilityRequest): Observable<ApiEnvelope<ProfessionalAvailability>> {
     return this.http.post<ApiEnvelope<ProfessionalAvailability>>('/api/v1/schedule/professional-availability', request);
+  }
+
+  listScheduleRequests(): Observable<ApiEnvelope<ScheduleRequest[]>> {
+    return this.http.get<ApiEnvelope<ScheduleRequest[]>>('/api/v1/schedule/requests');
+  }
+
+  checkAvailability(serviceId: string, professionalPrincipalId: string, startsAt: string): Observable<ApiEnvelope<ScheduleAvailability>> {
+    const query = new URLSearchParams({ serviceId, professionalPrincipalId, startsAt });
+    return this.http.get<ApiEnvelope<ScheduleAvailability>>(`/api/v1/schedule/availability?${query.toString()}`);
+  }
+
+  confirmScheduleRequest(requestId: string, professionalPrincipalId: string): Observable<ApiEnvelope<ScheduleReservation>> {
+    return this.http.post<ApiEnvelope<ScheduleReservation>>(
+      `/api/v1/schedule/requests/${encodeURIComponent(requestId)}/confirmation`, { professionalPrincipalId },
+    );
+  }
+
+  listClientScheduleServices(): Observable<ApiEnvelope<OfferedService[]>> {
+    return this.http.get<ApiEnvelope<OfferedService[]>>('/api/v1/client/schedule/services');
+  }
+
+  listClientScheduleRequests(): Observable<ApiEnvelope<ScheduleRequest[]>> {
+    return this.http.get<ApiEnvelope<ScheduleRequest[]>>('/api/v1/client/schedule/requests');
+  }
+
+  createClientScheduleRequest(request: ClientScheduleRequest): Observable<ApiEnvelope<ScheduleRequest>> {
+    return this.http.post<ApiEnvelope<ScheduleRequest>>('/api/v1/client/schedule/requests', request);
   }
 }

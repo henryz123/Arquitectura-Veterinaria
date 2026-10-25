@@ -8,6 +8,7 @@ import {
   OfferedService,
   OperatingHours,
   ProfessionalAvailability,
+  ScheduleRequest,
 } from '../../core/api/api.models';
 import { ScheduleApiService } from '../../core/api/schedule-api.service';
 import { AuthStateService } from '../../core/auth/auth-state.service';
@@ -29,6 +30,7 @@ export class SchedulePageComponent implements OnInit {
   readonly services = signal<OfferedService[]>([]);
   readonly operatingHours = signal<OperatingHours[]>([]);
   readonly professionalAvailability = signal<ProfessionalAvailability[]>([]);
+	readonly scheduleRequests = signal<ScheduleRequest[]>([]);
   readonly selectedProfessionalId = signal<string>('');
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -92,12 +94,14 @@ export class SchedulePageComponent implements OnInit {
       services: this.scheduleApi.listOfferedServices(),
       operatingHours: this.scheduleApi.listOperatingHours(),
       professionalAvailability: this.scheduleApi.listProfessionalAvailability(),
+		scheduleRequests: this.scheduleApi.listScheduleRequests(),
     }).subscribe({
       next: (response) => {
         this.professionals.set(response.professionals.data);
         this.services.set(response.services.data);
         this.operatingHours.set(response.operatingHours.data);
         this.professionalAvailability.set(response.professionalAvailability.data);
+		this.scheduleRequests.set(response.scheduleRequests.data);
         const current = this.selectedProfessionalId();
         const selected = response.professionals.data.find((professional) => professional.principalId === current)
           ?? response.professionals.data[0];
@@ -161,6 +165,30 @@ export class SchedulePageComponent implements OnInit {
     });
   }
 
+	confirmRequest(request: ScheduleRequest): void {
+		const professionalPrincipalId = this.selectedProfessionalId();
+		if (!professionalPrincipalId || this.saving()) {
+			this.error.set('Selecciona un profesional vigente antes de confirmar la solicitud.');
+			return;
+		}
+		this.saving.set(true);
+		this.error.set(null);
+		this.notice.set(null);
+		this.scheduleApi.checkAvailability(request.serviceId, professionalPrincipalId, request.requestedStartsAt).subscribe({
+			next: (availability) => {
+				if (!availability.data.available) {
+					this.failSave(`El intervalo ya no es confirmable: ${this.availabilityReason(availability.data.reasonCode)}.`);
+					return;
+				}
+				this.scheduleApi.confirmScheduleRequest(request.id, professionalPrincipalId).subscribe({
+					next: () => this.finishSave('La cita fue confirmada con el profesional seleccionado. El servidor revalidÃ³ el intervalo dentro de la transacciÃ³n.'),
+					error: () => this.failSave('No fue posible confirmar la cita. La disponibilidad pudo cambiar mientras se realizaba la operaciÃ³n.'),
+				});
+			},
+			error: () => this.failSave('No fue posible consultar la disponibilidad actual del profesional.'),
+		});
+	}
+
   selectProfessional(principalId: string): void {
     this.selectedProfessionalId.set(principalId);
     this.professionalAvailabilityForm.controls.professionalPrincipalId.setValue(principalId);
@@ -184,6 +212,25 @@ export class SchedulePageComponent implements OnInit {
   serviceState(service: OfferedService): string {
     return service.status === 'ACTIVO' && service.published ? 'Publicado' : service.status === 'ACTIVO' ? 'Borrador' : 'Inactivo';
   }
+
+	serviceName(serviceId: string): string {
+		return this.services().find((service) => service.id === serviceId)?.name ?? 'Servicio no disponible';
+	}
+
+	requestDateTime(value: string): string {
+		return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima' })
+			.format(new Date(value));
+	}
+
+	availabilityReason(reasonCode: string | null): string {
+		return ({
+			PROFESSIONAL_NOT_ASSIGNABLE: 'el profesional ya no tiene el rol vigente requerido',
+			OUTSIDE_OPERATING_HOURS: 'la hora queda fuera del horario de la veterinaria',
+			OUTSIDE_PROFESSIONAL_AVAILABILITY: 'la hora queda fuera de su disponibilidad',
+			SCHEDULE_BLOCKED: 'hay un bloqueo registrado',
+			PROFESSIONAL_INTERVAL_CONFLICT: 'existe otra reserva confirmada para ese profesional',
+		} as Record<string, string>)[reasonCode ?? ''] ?? 'el intervalo no puede confirmarse';
+	}
 
   trackById(_: number, item: { id: string }): string {
     return item.id;

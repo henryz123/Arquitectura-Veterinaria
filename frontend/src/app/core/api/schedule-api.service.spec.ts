@@ -38,4 +38,27 @@ describe('ScheduleApiService', () => {
     request.flush({ data: { ...body, id: 'service-1', tenantId: 'tenant-1', status: 'ACTIVO' } });
     http.verify();
   });
+
+  it('keeps client requests separate from staff confirmation endpoints', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const service = TestBed.inject(ScheduleApiService);
+    const http = TestBed.inject(HttpTestingController);
+    const request = {
+      petId: 'pet-1', serviceId: 'service-1', requestedStartsAt: '2030-01-02T14:00:00.000Z', observation: null,
+      idempotencyKey: 'operation-1',
+    };
+
+    service.createClientScheduleRequest(request).subscribe();
+    const create = http.expectOne('/api/v1/client/schedule/requests');
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual(request);
+    create.flush({ data: { ...request, id: 'request-1', status: 'PENDIENTE' } });
+
+    service.confirmScheduleRequest('request-1', 'professional-1').subscribe();
+    const confirm = http.expectOne('/api/v1/schedule/requests/request-1/confirmation');
+    expect(confirm.request.method).toBe('POST');
+    expect(confirm.request.body).toEqual({ professionalPrincipalId: 'professional-1' });
+    confirm.flush({ data: { id: 'reservation-1', requestId: 'request-1', status: 'CONFIRMADA' } });
+    http.verify();
+  });
 });

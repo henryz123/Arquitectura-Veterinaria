@@ -44,6 +44,38 @@
       <ng-template #noPets><p class="notice">No tienes fichas de mascotas vigentes autorizadas todavia. El portal no muestra historia clinica, diagnosticos ni prescripciones.</p></ng-template>
     </section>
 
+    <section class="schedule-panel" *ngIf="linkStatus()?.status === 'APROBADA'" aria-labelledby="client-schedule-title">
+      <p class="eyebrow">Solicitar cita o grooming</p>
+      <h2 id="client-schedule-title">Proponer un horario</h2>
+      <p>La solicitud no reserva un cupo. Recepcion o administracion la revisara, asignara al profesional disponible y confirmara el resultado.</p>
+      <form #scheduleForm="ngForm" (ngSubmit)="createScheduleRequest()">
+        <label>Mascota
+          <select name="schedulePet" [(ngModel)]="scheduleDraft.petId" required>
+            <option value="" disabled>Selecciona una mascota</option>
+            <option *ngFor="let pet of pets()" [value]="pet.id">{{ pet.name }} · {{ pet.species }}</option>
+          </select>
+        </label>
+        <label>Servicio
+          <select name="scheduleService" [(ngModel)]="scheduleDraft.serviceId" required>
+            <option value="" disabled>Selecciona un servicio publicado</option>
+            <option *ngFor="let service of scheduleServices()" [value]="service.id">{{ service.name }} · {{ service.durationMinutes }} min</option>
+          </select>
+        </label>
+        <label>Fecha y hora propuestas<input name="scheduleDateTime" [(ngModel)]="scheduleDraft.requestedStartsAt" type="datetime-local" required></label>
+        <label>Observacion general (opcional)<input name="scheduleObservation" [(ngModel)]="scheduleDraft.observation" maxlength="1000"></label>
+        <button class="link-action" type="submit" [disabled]="scheduleForm.invalid || actionPending() || !pets().length || !scheduleServices().length">Enviar solicitud</button>
+      </form>
+      <p class="notice" *ngIf="!pets().length || !scheduleServices().length">Necesitas una mascota vigente y un servicio publicado para enviar una solicitud.</p>
+      <div class="schedule-list" *ngIf="scheduleRequests().length; else noScheduleRequests">
+        <article *ngFor="let request of scheduleRequests()">
+          <strong>{{ serviceName(request.serviceId) }}</strong>
+          <span>{{ petName(request.petId) }} · {{ request.requestedStartsAt }}</span>
+          <span>Estado: {{ request.status }}</span>
+        </article>
+      </div>
+      <ng-template #noScheduleRequests><p class="notice">Aun no has enviado solicitudes de cita o grooming.</p></ng-template>
+    </section>
+
     <section class="profile-panel" *ngIf="linkStatus()?.status === 'APROBADA' && ownerProfile()" aria-labelledby="client-profile-title">
       <p class="eyebrow">Datos propios</p>
       <h2 id="client-profile-title">Ficha basica autorizada</h2>

@@ -8,30 +8,31 @@
 |---|---|---|---|
 | RF-B03-001 | Parcial verificado | V022 persiste horario semanal local y disponibilidad de profesionales con RLS; Angular permite registrar/listar ambos; E2E lo confirma. | Bloqueos, ausencias, edición y su efecto sobre reservas futuras. |
 | RF-B03-002 | Parcial verificado | V022 y `/schedule` crean/listan servicios clínica/grooming con duración por 15 minutos, precio referencial, publicación y estado; E2E persiste un servicio real. | Edición visual, inactivación y consumo solo de servicios publicados desde CLIENT. |
-| RF-B03-003 | Pendiente | No existe solicitud de cita desde CLIENT ni STAFF. | Validar mascota/responsabilidad, fecha y clave de idempotencia. |
+| RF-B03-003 | Verificado | CLIENT solicita desde Angular una cita con mascota propia vigente, servicio activo/publicado, fecha futura e idempotency key; PostgreSQL persiste una solicitud `PENDIENTE` sin reservar cupo. El E2E autentica CLIENT y comprueba la respuesta visible. | Incluir la solicitud de grooming y las reglas de contrapropuesta en sus verticales. |
 | RF-B03-004 | Pendiente | Solo existe el modelo persistente de propuesta. | API/UI de contrapropuesta e historial visible. |
 | RF-B03-005 | Pendiente | No existe aceptación CLIENT. | Revalidación al aceptar y rechazo sin reserva. |
-| RF-B03-006 | Pendiente | El modelo de reserva está preparado; no hay confirmación. | Revalidación dentro de transacción, conflicto y rollback. |
-| RF-B03-007 | Pendiente | V022 indexa reservas vigentes, pero aún no hay operación de confirmación. | Serialización por profesional y prueba concurrente de ambos roles. |
+| RF-B03-006 | Parcial verificado | ADMIN_VETERINARIA/RECEPCION confirma una solicitud `PENDIENTE`; la transacción crea una sola reserva, cambia el estado y registra el evento. El reintento de la misma solicitud devuelve la misma reserva. | Reprogramación, contrapropuesta, cancelación y sus transiciones autorizadas. |
+| RF-B03-007 | Parcial verificado | La confirmación bloquea la solicitud y serializa por profesional con bloqueo asesor transaccional; dentro de la misma transacción revalida rol, horario, disponibilidad, bloqueos y reservas. La integración verifica rechazo de solape y rollback funcional. | Ejecutar una regresión de dos transacciones realmente simultáneas antes del cierre B03. |
 | RF-B03-008 | Parcial verificado | V020 y el servicio revalidan profesionales activos con rol `VETERINARIO`/`GROOMING`; UI no expone identidad sensible. | Obligación de veterinario al confirmar una cita clínica. |
 | RF-B03-009 | Pendiente | Existe tabla de eventos de agenda sin escritor funcional. | Reasignación, aviso y traza para cambios autorizados. |
-| RF-B03-010 | Parcial verificado | Catálogo y disponibilidad admiten `GROOMING`; el selector aplica rol vigente. | Solicitud, confirmación y contrapropuesta grooming. |
+| RF-B03-010 | Parcial verificado | Servicios y reservas usan el mismo modelo para `GROOMING`, y la confirmación exige rol GROOMING vigente. | Recorrido de navegador de grooming, contrapropuesta y confirmación por personal asignado. |
 | RF-B03-011 | Pendiente | Existe tabla `grooming_attention`, sin API/UI. | Inicio, finalización y notas operativas por encargado. |
 | RF-B03-012 | Pendiente | El modelo contempla estados, sin transiciones funcionales. | Cancelación directa pendiente y solicitud de cancelación confirmada. |
 | RF-B03-013 | Pendiente | B02 mantiene la restricción clínica por veterinario. | Asociar atención clínica a una cita sin ampliar acceso de recepción/grooming. |
 | RF-B03-014 | Pendiente | V022 persiste bloqueos, sin gestión ni inasistencia. | Gestión autorizada y efecto sobre reservas. |
 | RF-B03-015 | Pendiente | El evento reserva `notification_emitted_at`, sin mecanismo de emisión. | Notificaciones conforme a cambios válidos. |
-| RF-B03-016 | Pendiente | V022 conserva tablas de propuesta, reserva y evento. | Escritores, consulta protegida y evidencia de trazabilidad en flujos. |
+| RF-B03-016 | Parcial verificado | La creación de solicitud y la confirmación escriben eventos tenant-locales; CLIENT y STAFF consultan proyecciones limitadas de sus solicitudes. | Historial de propuestas, cancelaciones, reprogramaciones y grooming. |
 
 ## Evidencia del checkpoint
 
 - V022 aplicada una sola vez; SHA-256 fuente `1CCDE1A6BDD3512371CC59D21BCE7D61182C22BCA3EC3FC5651285EB6391929D`, checksum Flyway `2011436639`.
 - La auditoría de SQL, preflight reversible, ACL, RLS y catálogo se registran en `docs/audits/B03_V022_PREAUDITORIA_Y_VERIFICACION.md`.
-- Backend: 6/6 pruebas de política y servicio B03 correctas.
-- Angular: 11/11 pruebas correctas, build correcto con advertencia de presupuesto inicial no bloqueante.
+- Backend: 11/11 pruebas de política, servicio e integración B03 correctas contra PostgreSQL local, con Flyway desactivado durante pruebas.
+- Angular: 12/12 pruebas correctas, build correcto con advertencia de presupuesto inicial no bloqueante.
 - OpenAPI: Redocly válido.
-- Playwright: `B03_SERVICES_AVAILABILITY_BROWSER_E2E=PASS`, incluida la separación Aurora/Bosque.
+- Playwright: `B03_SERVICES_AVAILABILITY_BROWSER_E2E=PASS` y `B03_CLIENT_CONFIRMATION_BROWSER_E2E=PASS`; ambos usan Chrome local, datos sintéticos y comprueban aislamiento Aurora/Bosque.
+- Agent Browser: la ruta protegida `/schedule` redirige a autenticación y su árbol accesible expone `main`, título, etiquetas nativas y navegación de contexto. La versión instalada no tiene subcomando `a11y`.
 
 ## Próxima operación concreta
 
-Implementar `SolicitudAgenda` usando exclusivamente servicios publicados y mascotas autorizadas, luego confirmar una reserva mediante serialización por profesional y pruebas de conflicto antes de construir el calendario de citas.
+Implementar contrapropuesta/reprogramación con aceptación CLIENT, después cancelaciones y estados. Antes del cierre B03, añadir la prueba de dos confirmaciones realmente simultáneas para complementar el rechazo de solape ya verificado.

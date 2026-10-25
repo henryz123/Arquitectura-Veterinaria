@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Arquitectura - Veterinaria API
-  version: 0.2.0-v1-integral-b03-foundation
+  version: 0.3.0-v1-integral-b03-requests-confirmation
   description: |
    B03-B06 permanecen definidos únicamente en la especificación funcional V1
    hasta que sus incrementos estén implementados y validados. Todo dato de
@@ -463,6 +463,92 @@ paths:
         '201': { $ref: '#/components/responses/ProfessionalAvailabilityItemResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/client/schedule/services:
+    get:
+      tags: [appointment-management]
+      summary: Lista exclusivamente los servicios publicados y activos para una sesiÃ³n CLIENT
+      x-implementation-status: implemented-b03-requests-confirmation
+      x-v1-requirements: [RF-B03-003, RF-B03-010]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ClientOfferedServicesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/client/schedule/requests:
+    get:
+      tags: [appointment-management]
+      summary: Lista solo las solicitudes creadas por la sesiÃ³n CLIENT actual
+      x-implementation-status: implemented-b03-requests-confirmation
+      x-v1-requirements: [RF-B03-003, RF-B03-012, RF-B03-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ClientScheduleRequestsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [appointment-management]
+      summary: Crea una solicitud CLIENT idempotente para una mascota vinculada y activa, sin reservar cupo
+      x-implementation-status: implemented-b03-requests-confirmation
+      x-v1-requirements: [RF-B03-003, RF-B03-010, RF-B03-015]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ClientScheduleRequest' } } }
+      responses:
+        '201': { $ref: '#/components/responses/ScheduleRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/schedule/requests:
+    get:
+      tags: [appointment-management]
+      summary: Lista las solicitudes de agenda del tenant para recepciÃ³n o administraciÃ³n
+      x-implementation-status: implemented-b03-requests-confirmation
+      x-v1-requirements: [RF-B03-003, RF-B03-010, RF-B03-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleRequestsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/schedule/availability:
+    get:
+      tags: [appointment-management]
+      summary: Consulta una disponibilidad sin reservarla; la confirmaciÃ³n la revalida bajo bloqueo transaccional
+      x-implementation-status: implemented-b03-requests-confirmation
+      x-v1-requirements: [RF-B03-006, RF-B03-007, RF-B03-008, RF-B03-010]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: serviceId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: professionalPrincipalId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: startsAt, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleAvailabilityResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/schedule/requests/{requestId}/confirmation:
+    post:
+      tags: [appointment-management]
+      summary: Confirma manualmente una solicitud pendiente tras revalidar disponibilidad dentro de la transacciÃ³n
+      x-implementation-status: implemented-b03-requests-confirmation
+      x-v1-requirements: [RF-B03-006, RF-B03-007, RF-B03-008, RF-B03-010, RF-B03-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleConfirmationRequest' } } }
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleReservationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/owners:
     post:
@@ -1499,6 +1585,63 @@ components:
           required: [professionalPrincipalId]
           properties:
             professionalPrincipalId: { type: string, format: uuid }
+    ClientScheduleRequest:
+      type: object
+      required: [petId, serviceId, requestedStartsAt, idempotencyKey]
+      properties:
+        petId: { type: string, format: uuid }
+        serviceId: { type: string, format: uuid }
+        requestedStartsAt: { type: string, format: date-time }
+        observation: { type: [string, 'null'], maxLength: 1000 }
+        idempotencyKey: { type: string, format: uuid }
+    ScheduleConfirmationRequest:
+      type: object
+      required: [professionalPrincipalId]
+      properties:
+        professionalPrincipalId: { type: string, format: uuid }
+    ScheduleRequest:
+      type: object
+      required: [id, tenantId, requesterPrincipalId, ownerId, petId, serviceId, requestedStartsAt, requestedDurationMinutes, status, idempotencyKey, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        requesterPrincipalId: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid }
+        petId: { type: string, format: uuid }
+        serviceId: { type: string, format: uuid }
+        requestedStartsAt: { type: string, format: date-time }
+        requestedDurationMinutes: { type: integer, minimum: 15, maximum: 480, multipleOf: 15 }
+        status: { type: string, enum: [PENDIENTE, PROPUESTA, CONFIRMADA, REPROGRAMACION_PROPUESTA, PENDIENTE_REPROGRAMACION, CANCELACION_SOLICITADA, EN_ATENCION, COMPLETADA, CANCELADA, INASISTENCIA, CERRADA] }
+        observation: { type: [string, 'null'], maxLength: 1000 }
+        idempotencyKey: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ScheduleReservation:
+      type: object
+      required: [id, tenantId, requestId, professionalPrincipalId, startsAt, endsAt, status, current, version, confirmedByPrincipalId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        requestId: { type: string, format: uuid }
+        professionalPrincipalId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        status: { type: string, enum: [CONFIRMADA, EN_ATENCION, COMPLETADA, INASISTENCIA, CANCELADA] }
+        current: { type: boolean }
+        version: { type: integer, minimum: 1 }
+        confirmedByPrincipalId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ScheduleAvailability:
+      type: object
+      required: [professionalPrincipalId, serviceId, startsAt, endsAt, available]
+      properties:
+        professionalPrincipalId: { type: string, format: uuid }
+        serviceId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        available: { type: boolean }
+        reasonCode: { type: [string, 'null'], enum: [PROFESSIONAL_NOT_ASSIGNABLE, OUTSIDE_OPERATING_HOURS, OUTSIDE_PROFESSIONAL_AVAILABILITY, SCHEDULE_BLOCKED, PROFESSIONAL_INTERVAL_CONFLICT, null] }
     PetProfile:
       type: object
       required: [id, tenantId, currentOwnerId, name, species, sex, status, createdAt, updatedAt]
@@ -1719,6 +1862,24 @@ components:
     ProfessionalAvailabilityResponse:
       description: Disponibilidades semanales visibles para la administración o recepción autorizada del tenant.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ProfessionalAvailability' } } } } } }
+    ClientOfferedServicesResponse:
+      description: Servicios publicados y activos visibles para el CLIENT autenticado de su tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/OfferedService' } } } } } }
+    ScheduleRequestResponse:
+      description: Solicitud de agenda persistida sin reserva efectiva hasta que sea confirmada por personal autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ScheduleRequest' } } } } }
+    ScheduleRequestsResponse:
+      description: Solicitudes del tenant visibles para recepcion o administracion autorizada.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ScheduleRequest' } } } } } }
+    ClientScheduleRequestsResponse:
+      description: Solicitudes creadas por el CLIENT autenticado; no expone solicitudes de otras personas.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ScheduleRequest' } } } } } }
+    ScheduleReservationResponse:
+      description: Reserva efectiva creada por una confirmacion manual con revalidacion transaccional.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ScheduleReservation' } } } } }
+    ScheduleAvailabilityResponse:
+      description: Resultado no vinculante de disponibilidad; la confirmacion repite todos los controles bajo bloqueo.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ScheduleAvailability' } } } } }
     PetResponse:
       description: Ficha básica de mascota visible para el tenant autorizado.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/PetProfile' } } } } }

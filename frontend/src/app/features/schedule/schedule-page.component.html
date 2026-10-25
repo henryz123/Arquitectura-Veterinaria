@@ -51,6 +51,11 @@
           <strong>{{ professionalAvailability().length }}</strong>
           <span>disponibilidades guardadas</span>
         </article>
+        <article class="panel summary-card">
+          <p class="eyebrow">Solicitudes</p>
+          <strong>{{ scheduleRequests().length }}</strong>
+          <span>registros reales de agenda</span>
+        </article>
       </section>
 
       <section class="schedule-grid" *ngIf="!loading() && canManageSchedule()">
@@ -156,6 +161,22 @@
             </li>
           </ul>
         </article>
+      </section>
+
+      <section class="panel agenda-panel" *ngIf="!loading() && canManageSchedule()" aria-labelledby="agenda-requests-title">
+        <div class="panel-heading">
+          <div><p class="eyebrow">Agenda consolidada</p><h2 id="agenda-requests-title">Solicitudes y confirmaciones</h2></div>
+          <span class="panel-caption">{{ scheduleRequests().length }} registros</span>
+        </div>
+        <p class="helper" *ngIf="selectedProfessional() as professional">ConfirmarÃ¡s con: {{ professionalLabel(professional) }}. Antes de guardar, el servidor vuelve a comprobar rol, horario, disponibilidad, bloqueos y traslapes.</p>
+        <p class="empty-state" *ngIf="scheduleRequests().length === 0">AÃºn no hay solicitudes de CLIENT. Las solicitudes pendientes no consumen cupos hasta la confirmaciÃ³n manual.</p>
+        <ol class="agenda-list" *ngIf="scheduleRequests().length > 0">
+          <li *ngFor="let request of scheduleRequests(); trackBy: trackById" [attr.data-request-id]="request.id">
+            <div class="agenda-time"><strong>{{ requestDateTime(request.requestedStartsAt) }}</strong><span>{{ request.requestedDurationMinutes }} min</span></div>
+            <div class="agenda-details"><strong>{{ serviceName(request.serviceId) }}</strong><span>Mascota registrada: {{ request.petId.slice(0, 8) }}</span><span *ngIf="request.observation">ObservaciÃ³n: {{ request.observation }}</span></div>
+            <div class="agenda-action"><span class="status-pill" [class.status-ok]="request.status === 'CONFIRMADA'">{{ request.status }}</span><button class="button button-primary" type="button" *ngIf="request.status === 'PENDIENTE'" [disabled]="saving() || !selectedProfessionalId()" (click)="confirmRequest(request)">Comprobar y confirmar</button></div>
+          </li>
+        </ol>
       </section>
     </main>
   </div>

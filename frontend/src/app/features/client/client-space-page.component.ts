@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize, forkJoin } from 'rxjs';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
-import { ClientOwnerLinkStatus, ClientPetProfile, ClientSpace, OwnerProfile, OwnerRequest, PetRequest } from '../../core/api/api.models';
+import { ClientOwnerLinkStatus, ClientPetProfile, ClientSpace, OfferedService, OwnerProfile, OwnerRequest, PetRequest, ScheduleRequest } from '../../core/api/api.models';
+import { ScheduleApiService } from '../../core/api/schedule-api.service';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 
 @Component({
@@ -16,11 +17,14 @@ import { AuthStateService } from '../../core/auth/auth-state.service';
 })
 export class ClientSpacePageComponent implements OnInit {
   private readonly administrationApi = inject(AdministrationApiService);
+  private readonly scheduleApi = inject(ScheduleApiService);
   private readonly auth = inject(AuthStateService);
   private readonly router = inject(Router);
   readonly space = signal<ClientSpace | null>(null);
   readonly linkStatus = signal<ClientOwnerLinkStatus | null>(null);
   readonly pets = signal<ClientPetProfile[]>([]);
+  readonly scheduleServices = signal<OfferedService[]>([]);
+  readonly scheduleRequests = signal<ScheduleRequest[]>([]);
   readonly ownerProfile = signal<OwnerProfile | null>(null);
   readonly editingPet = signal<ClientPetProfile | null>(null);
   readonly loading = signal(true);
@@ -30,17 +34,22 @@ export class ClientSpacePageComponent implements OnInit {
   readonly ownerDraft: OwnerRequest = { givenNames: '', familyNames: '', phone: null, email: null, address: null };
   readonly newPetDraft: PetRequest = this.emptyPetDraft();
   readonly petEditDraft: PetRequest = this.emptyPetDraft();
+  readonly scheduleDraft = { petId: '', serviceId: '', requestedStartsAt: '', observation: '' };
 
   ngOnInit(): void {
     forkJoin({
       space: this.administrationApi.clientSpace(),
       linkStatus: this.administrationApi.getClientOwnerLinkStatus(),
       pets: this.administrationApi.listClientPets(),
+	  scheduleServices: this.scheduleApi.listClientScheduleServices(),
+	  scheduleRequests: this.scheduleApi.listClientScheduleRequests(),
     }).subscribe({
       next: (response) => {
         this.space.set(response.space.data);
         this.linkStatus.set(response.linkStatus.data);
         this.pets.set(response.pets.data);
+		this.scheduleServices.set(response.scheduleServices.data);
+		this.scheduleRequests.set(response.scheduleRequests.data);
         if (response.linkStatus.data.status === 'APROBADA') {
           this.loadOwnerProfile();
         }
@@ -144,6 +153,47 @@ export class ClientSpacePageComponent implements OnInit {
       error: () => this.error.set('No fue posible actualizar esta ficha. Puede que ya no tengas la responsabilidad vigente.'),
     });
   }
+
+	createScheduleRequest(): void {
+		if (this.actionPending()) {
+			return;
+		}
+		if (!this.scheduleDraft.petId || !this.scheduleDraft.serviceId || !this.scheduleDraft.requestedStartsAt) {
+			this.error.set('Selecciona una mascota, un servicio y una fecha futura para enviar la solicitud.');
+			return;
+		}
+		const requestedStartsAt = new Date(this.scheduleDraft.requestedStartsAt);
+		if (Number.isNaN(requestedStartsAt.getTime()) || requestedStartsAt.getTime() <= Date.now()) {
+			this.error.set('La solicitud debe proponer una fecha futura. La veterinaria confirmarÃ¡ manualmente la disponibilidad.');
+			return;
+		}
+		this.error.set(null);
+		this.notice.set(null);
+		this.actionPending.set(true);
+		this.scheduleApi.createClientScheduleRequest({
+			petId: this.scheduleDraft.petId,
+			serviceId: this.scheduleDraft.serviceId,
+			requestedStartsAt: requestedStartsAt.toISOString(),
+			observation: this.scheduleDraft.observation.trim() || null,
+			idempotencyKey: crypto.randomUUID(),
+		}).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+			next: (response) => {
+				this.scheduleRequests.update((requests) => [...requests, response.data]
+					.sort((left, right) => left.requestedStartsAt.localeCompare(right.requestedStartsAt)));
+				Object.assign(this.scheduleDraft, { petId: '', serviceId: '', requestedStartsAt: '', observation: '' });
+				this.notice.set('Tu solicitud quedÃ³ registrada. AÃºn no reserva un cupo: recepciÃ³n o administraciÃ³n confirmarÃ¡ la disponibilidad.');
+			},
+			error: () => this.error.set('No fue posible registrar la solicitud. Verifica que tu vinculaciÃ³n y la mascota sigan vigentes.'),
+		});
+	}
+
+	serviceName(serviceId: string): string {
+		return this.scheduleServices().find((service) => service.id === serviceId)?.name ?? 'Servicio no disponible';
+	}
+
+	petName(petId: string): string {
+		return this.pets().find((pet) => pet.id === petId)?.name ?? 'Mascota no disponible';
+	}
 
   logout(): void {
     const tenantSlug = this.auth.context()?.tenant?.slug ?? 'veterinaria-aurora';

@@ -3,6 +3,7 @@ package pe.arquitecturaveterinaria.appointmentmanagement.infrastructure;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
@@ -18,6 +19,8 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.OperatingHou
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ProfessionalAvailability;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedServiceDraft;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedServiceUpdateDraft;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleRequest;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleReservation;
 
 /** JDBC adapter for V020; it has no direct read privilege on identity tables. */
 @Repository
@@ -69,6 +72,25 @@ public class SchedulingJdbcRepository {
 				draft.referencePrice(), draft.published(), draft.status(), tenantId, serviceId).stream().findFirst();
 	}
 
+	public Optional<OfferedService> findOfferedService(UUID serviceId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, service_type, name, public_description, duration_minutes, reference_price,
+				       published, status, created_at, updated_at
+				from appointment_management.offered_service
+				where id = ?
+				""", this::mapOfferedService, serviceId).stream().findFirst();
+	}
+
+	public List<OfferedService> listPublishedOfferedServices() {
+		return jdbcTemplate.query("""
+				select id, tenant_id, service_type, name, public_description, duration_minutes, reference_price,
+				       published, status, created_at, updated_at
+				from appointment_management.offered_service
+				where status = 'ACTIVO' and published
+				order by service_type, name, id
+				""", this::mapOfferedService);
+	}
+
 	public List<OperatingHours> listOperatingHours() {
 		return jdbcTemplate.query("""
 				select id, weekday, starts_at_local, ends_at_local, created_at, updated_at
@@ -106,6 +128,145 @@ public class SchedulingJdbcRepository {
 				endsAtLocal, actorPrincipalId);
 	}
 
+	public Optional<ScheduleRequest> createScheduleRequest(UUID tenantId, UUID requesterPrincipalId, UUID ownerId, UUID petId,
+			UUID serviceId, Instant requestedStartsAt, int requestedDurationMinutes, String observation, UUID idempotencyKey) {
+		return jdbcTemplate.query("""
+				insert into appointment_management.schedule_request (
+				    tenant_id, requester_principal_id, owner_id, pet_id, service_id, requested_starts_at,
+				    requested_duration_minutes, observation, idempotency_key
+				) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				on conflict (tenant_id, requester_principal_id, idempotency_key) do nothing
+				returning id, tenant_id, requester_principal_id, owner_id, pet_id, service_id, requested_starts_at,
+				          requested_duration_minutes, status, observation, idempotency_key, created_at, updated_at
+				""", this::mapScheduleRequest, tenantId, requesterPrincipalId, ownerId, petId, serviceId, timestamp(requestedStartsAt),
+				requestedDurationMinutes, observation, idempotencyKey).stream().findFirst();
+	}
+
+	public Optional<ScheduleRequest> findScheduleRequestByIdempotency(UUID requesterPrincipalId, UUID idempotencyKey) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, requester_principal_id, owner_id, pet_id, service_id, requested_starts_at,
+				       requested_duration_minutes, status, observation, idempotency_key, created_at, updated_at
+				from appointment_management.schedule_request
+				where requester_principal_id = ? and idempotency_key = ?
+				""", this::mapScheduleRequest, requesterPrincipalId, idempotencyKey).stream().findFirst();
+	}
+
+	public Optional<ScheduleRequest> lockScheduleRequest(UUID requestId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, requester_principal_id, owner_id, pet_id, service_id, requested_starts_at,
+				       requested_duration_minutes, status, observation, idempotency_key, created_at, updated_at
+				from appointment_management.schedule_request
+				where id = ?
+				for update
+				""", this::mapScheduleRequest, requestId).stream().findFirst();
+	}
+
+	public List<ScheduleRequest> listScheduleRequests() {
+		return jdbcTemplate.query("""
+				select id, tenant_id, requester_principal_id, owner_id, pet_id, service_id, requested_starts_at,
+				       requested_duration_minutes, status, observation, idempotency_key, created_at, updated_at
+				from appointment_management.schedule_request
+				order by requested_starts_at, created_at, id
+				""", this::mapScheduleRequest);
+	}
+
+	public List<ScheduleRequest> listScheduleRequestsForRequester(UUID requesterPrincipalId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, requester_principal_id, owner_id, pet_id, service_id, requested_starts_at,
+				       requested_duration_minutes, status, observation, idempotency_key, created_at, updated_at
+				from appointment_management.schedule_request
+				where requester_principal_id = ?
+				order by requested_starts_at, created_at, id
+				""", this::mapScheduleRequest, requesterPrincipalId);
+	}
+
+	/** Serializes confirmation for one person until the surrounding JDBC transaction completes. */
+	public void lockProfessionalSchedule(UUID professionalPrincipalId) {
+		jdbcTemplate.query("select pg_advisory_xact_lock(hashtextextended(?::text, 8303))",
+				(resultSet, rowNumber) -> null, professionalPrincipalId.toString());
+	}
+
+	public boolean isWithinOperatingHours(int weekday, LocalTime startsAtLocal, LocalTime endsAtLocal) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+				select exists (
+				    select 1 from appointment_management.operating_hours
+				    where weekday = ? and starts_at_local <= ? and ends_at_local >= ?
+				)
+				""", Boolean.class, weekday, startsAtLocal, endsAtLocal));
+	}
+
+	public boolean isWithinProfessionalAvailability(UUID professionalPrincipalId, int weekday, LocalTime startsAtLocal,
+			LocalTime endsAtLocal) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+				select exists (
+				    select 1 from appointment_management.professional_availability
+				    where professional_principal_id = ? and weekday = ? and starts_at_local <= ? and ends_at_local >= ?
+				)
+				""", Boolean.class, professionalPrincipalId, weekday, startsAtLocal, endsAtLocal));
+	}
+
+	public boolean hasScheduleBlock(UUID professionalPrincipalId, Instant startsAt, Instant endsAt) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+				select exists (
+				    select 1 from appointment_management.schedule_block
+				    where starts_at < ? and ends_at > ?
+				      and (block_scope = 'ORGANIZACION' or professional_principal_id = ?)
+				)
+				""", Boolean.class, timestamp(endsAt), timestamp(startsAt), professionalPrincipalId));
+	}
+
+	public boolean hasCurrentReservationConflict(UUID professionalPrincipalId, Instant startsAt, Instant endsAt) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+				select exists (
+				    select 1 from appointment_management.schedule_reservation
+				    where professional_principal_id = ? and is_current
+				      and status in ('CONFIRMADA', 'EN_ATENCION')
+				      and starts_at < ? and ends_at > ?
+				)
+				""", Boolean.class, professionalPrincipalId, timestamp(endsAt), timestamp(startsAt)));
+	}
+
+	public Optional<ScheduleReservation> findCurrentReservation(UUID requestId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, request_id, professional_principal_id, starts_at, ends_at, status, is_current,
+				       version, confirmed_by_principal_id, created_at, updated_at
+				from appointment_management.schedule_reservation
+				where request_id = ? and is_current
+				""", this::mapScheduleReservation, requestId).stream().findFirst();
+	}
+
+	public ScheduleReservation createConfirmedReservation(UUID tenantId, UUID requestId, UUID professionalPrincipalId,
+			Instant startsAt, Instant endsAt, UUID confirmedByPrincipalId) {
+		return jdbcTemplate.queryForObject("""
+				insert into appointment_management.schedule_reservation (
+				    tenant_id, request_id, professional_principal_id, starts_at, ends_at, confirmed_by_principal_id
+				) values (?, ?, ?, ?, ?, ?)
+				returning id, tenant_id, request_id, professional_principal_id, starts_at, ends_at, status, is_current,
+				          version, confirmed_by_principal_id, created_at, updated_at
+				""", this::mapScheduleReservation, tenantId, requestId, professionalPrincipalId, timestamp(startsAt), timestamp(endsAt),
+				confirmedByPrincipalId);
+	}
+
+	public int markScheduleRequestConfirmed(UUID tenantId, UUID requestId) {
+		return jdbcTemplate.update("""
+				update appointment_management.schedule_request
+				set status = 'CONFIRMADA', updated_at = statement_timestamp()
+				where tenant_id = ? and id = ? and status = 'PENDIENTE'
+				""", tenantId, requestId);
+	}
+
+	public void recordScheduleChange(UUID tenantId, UUID requestId, UUID actorPrincipalId, String actionCode,
+			Instant previousStartsAt, Instant newStartsAt, UUID previousProfessionalPrincipalId,
+			UUID newProfessionalPrincipalId, String reason) {
+		jdbcTemplate.update("""
+				insert into appointment_management.schedule_change_event (
+				    tenant_id, request_id, actor_principal_id, action_code, previous_starts_at, new_starts_at,
+				    previous_professional_principal_id, new_professional_principal_id, reason
+				) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				""", tenantId, requestId, actorPrincipalId, actionCode, timestamp(previousStartsAt), timestamp(newStartsAt),
+				previousProfessionalPrincipalId, newProfessionalPrincipalId, reason);
+	}
+
 	private AssignableProfessional mapAssignableProfessional(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new AssignableProfessional(resultSet.getObject("principal_id", java.util.UUID.class),
 				parseRoles(resultSet.getString("roles")));
@@ -132,8 +293,30 @@ public class SchedulingJdbcRepository {
 				instant(resultSet, "created_at"), instant(resultSet, "updated_at"));
 	}
 
+	private ScheduleRequest mapScheduleRequest(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new ScheduleRequest(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
+				resultSet.getObject("requester_principal_id", UUID.class), resultSet.getObject("owner_id", UUID.class),
+				resultSet.getObject("pet_id", UUID.class), resultSet.getObject("service_id", UUID.class),
+				instant(resultSet, "requested_starts_at"), resultSet.getInt("requested_duration_minutes"),
+				resultSet.getString("status"), resultSet.getString("observation"),
+				resultSet.getObject("idempotency_key", UUID.class), instant(resultSet, "created_at"), instant(resultSet, "updated_at"));
+	}
+
+	private ScheduleReservation mapScheduleReservation(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new ScheduleReservation(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
+				resultSet.getObject("request_id", UUID.class), resultSet.getObject("professional_principal_id", UUID.class),
+				instant(resultSet, "starts_at"), instant(resultSet, "ends_at"), resultSet.getString("status"),
+				resultSet.getBoolean("is_current"), resultSet.getInt("version"),
+				resultSet.getObject("confirmed_by_principal_id", UUID.class), instant(resultSet, "created_at"),
+				instant(resultSet, "updated_at"));
+	}
+
 	private Instant instant(ResultSet resultSet, String column) throws SQLException {
 		return resultSet.getTimestamp(column).toInstant();
+	}
+
+	private Timestamp timestamp(Instant value) {
+		return value == null ? null : Timestamp.from(value);
 	}
 
 	private List<String> parseRoles(String rawRoles) {

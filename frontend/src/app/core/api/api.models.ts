@@ -155,6 +155,54 @@ export interface ProfessionalAvailabilityRequest {
   endsAtLocal: string;
 }
 
+export interface ScheduleRequest {
+  id: string;
+  tenantId: string;
+  requesterPrincipalId: string;
+  ownerId: string;
+  petId: string;
+  serviceId: string;
+  requestedStartsAt: string;
+  requestedDurationMinutes: number;
+  status: 'PENDIENTE' | 'PROPUESTA' | 'CONFIRMADA' | 'REPROGRAMACION_PROPUESTA' | 'PENDIENTE_REPROGRAMACION' | 'CANCELACION_SOLICITADA' | 'EN_ATENCION' | 'COMPLETADA' | 'CANCELADA' | 'INASISTENCIA' | 'CERRADA';
+  observation: string | null;
+  idempotencyKey: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientScheduleRequest {
+  petId: string;
+  serviceId: string;
+  requestedStartsAt: string;
+  observation: string | null;
+  idempotencyKey: string;
+}
+
+export interface ScheduleReservation {
+  id: string;
+  tenantId: string;
+  requestId: string;
+  professionalPrincipalId: string;
+  startsAt: string;
+  endsAt: string;
+  status: 'CONFIRMADA' | 'EN_ATENCION' | 'COMPLETADA' | 'INASISTENCIA' | 'CANCELADA';
+  current: boolean;
+  version: number;
+  confirmedByPrincipalId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduleAvailability {
+  professionalPrincipalId: string;
+  serviceId: string;
+  startsAt: string;
+  endsAt: string;
+  available: boolean;
+  reasonCode: string | null;
+}
+
 export interface Organization {
   id: string;
   commercialName: string;

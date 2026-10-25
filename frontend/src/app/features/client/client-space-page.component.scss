@@ -8,8 +8,8 @@ dl { display: grid; gap: .8rem; margin: 1.5rem 0; } dt { color: var(--ink-muted)
 .notice { padding: 1rem; border-left: 3px solid var(--accent-warm); background: var(--surface-canvas); }
 a { color: var(--accent-teal-dark); font-weight: 700; }
 .feedback-success { border-top-color: var(--accent-warm); }
-.link-panel, .pet-panel { margin: 1.75rem 0; padding: 1.2rem; border: 1px solid var(--border-subtle); background: var(--surface-canvas); }
-.link-panel h2, .pet-panel h2 { margin: .25rem 0 .65rem; font-size: 1.3rem; }
+.link-panel, .pet-panel, .schedule-panel { margin: 1.75rem 0; padding: 1.2rem; border: 1px solid var(--border-subtle); background: var(--surface-canvas); }
+.link-panel h2, .pet-panel h2, .schedule-panel h2 { margin: .25rem 0 .65rem; font-size: 1.3rem; }
 .link-panel p { line-height: 1.55; }
 .link-action { min-height: 2.7rem; border: 1px solid var(--accent-teal-dark); border-radius: .35rem; padding: .55rem .9rem; color: var(--surface-raised); background: var(--accent-teal-dark); font: inherit; font-weight: 700; }
 .link-action:disabled { cursor: wait; opacity: .65; }
@@ -23,3 +23,10 @@ a { color: var(--accent-teal-dark); font-weight: 700; }
 .profile-panel input, .profile-panel select { min-height: 2.6rem; border: 1px solid var(--border-strong); border-radius: .25rem; padding: .45rem .55rem; color: var(--ink-strong); background: var(--surface-raised); font: inherit; }
 .profile-panel .link-action, .form-actions { grid-column: 1 / -1; }
 .form-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.schedule-panel form { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .8rem; margin: 1rem 0; }
+.schedule-panel label { display: grid; gap: .3rem; color: var(--ink-muted); font-size: .9rem; }
+.schedule-panel input, .schedule-panel select { min-height: 2.6rem; border: 1px solid var(--border-strong); border-radius: .25rem; padding: .45rem .55rem; color: var(--ink-strong); background: var(--surface-raised); font: inherit; }
+.schedule-panel .link-action { grid-column: 1 / -1; }
+.schedule-list { display: grid; gap: .65rem; margin-top: 1rem; }
+.schedule-list article { display: grid; gap: .2rem; border-left: 3px solid var(--accent-warm); padding: .75rem .9rem; background: var(--surface-raised); }
+.schedule-list span { color: var(--ink-muted); font-size: .9rem; }

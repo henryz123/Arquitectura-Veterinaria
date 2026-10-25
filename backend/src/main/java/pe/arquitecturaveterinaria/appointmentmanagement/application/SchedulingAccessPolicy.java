@@ -30,4 +30,15 @@ public final class SchedulingAccessPolicy {
 					"Se requiere administraciÃ³n o recepciÃ³n para gestionar la agenda.");
 		}
 	}
+
+	public void requireClient(SessionPrincipal actor) {
+		if (actor == null || actor.accountType() != AccountType.CLIENT || actor.session().tenantId() == null) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "B03_CLIENT_REQUIRED",
+					"La operaciÃ³n requiere una cuenta CLIENT autorizada de la veterinaria.");
+		}
+		if (!"ACTIVO".equals(actor.session().tenantStatus())) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "TENANT_NOT_ACTIVE",
+					"La veterinaria no estÃ¡ disponible para esta operaciÃ³n.");
+		}
+	}
 }

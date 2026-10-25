@@ -2,12 +2,14 @@ package pe.arquitecturaveterinaria.appointmentmanagement.api;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -24,17 +26,24 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import pe.arquitecturaveterinaria.appointmentmanagement.application.AssignableProfessional;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedService;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OperatingHours;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ProfessionalAvailability;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleAvailability;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleRequest;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleReservation;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.OfferedServiceCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.OfferedServiceUpdateCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.OperatingHoursCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ProfessionalAvailabilityCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.AvailabilityCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ClientScheduleRequestCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ConfirmationCommand;
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.shared.api.ApiEnvelope;
 
@@ -109,6 +118,45 @@ public class SchedulingController {
 				.body(ApiEnvelope.of(availability));
 	}
 
+	@GetMapping("/schedule/requests")
+	ApiEnvelope<List<ScheduleRequest>> listScheduleRequests(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(schedulingService.listScheduleRequests(principal));
+	}
+
+	@GetMapping("/schedule/availability")
+	ApiEnvelope<ScheduleAvailability> checkAvailability(@AuthenticationPrincipal SessionPrincipal principal,
+			@RequestParam UUID serviceId, @RequestParam UUID professionalPrincipalId, @RequestParam Instant startsAt) {
+		return ApiEnvelope.of(schedulingService.checkAvailability(principal,
+				new AvailabilityCommand(serviceId, professionalPrincipalId, startsAt)));
+	}
+
+	@PostMapping("/schedule/requests/{requestId}/confirmation")
+	ApiEnvelope<ScheduleReservation> confirmScheduleRequest(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID requestId, @Valid @RequestBody ConfirmationRequest request) {
+		return ApiEnvelope.of(schedulingService.confirmScheduleRequest(principal, requestId,
+				new ConfirmationCommand(request.professionalPrincipalId())));
+	}
+
+	@GetMapping("/client/schedule/services")
+	ApiEnvelope<List<OfferedService>> listClientScheduleServices(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(schedulingService.listPublishedServicesForClient(principal));
+	}
+
+	@GetMapping("/client/schedule/requests")
+	ApiEnvelope<List<ScheduleRequest>> listClientScheduleRequests(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(schedulingService.listClientScheduleRequests(principal));
+	}
+
+	@PostMapping("/client/schedule/requests")
+	ResponseEntity<ApiEnvelope<ScheduleRequest>> createClientScheduleRequest(@AuthenticationPrincipal SessionPrincipal principal,
+			@Valid @RequestBody ClientScheduleRequest request) {
+		ScheduleRequest created = schedulingService.createClientScheduleRequest(principal,
+				new ClientScheduleRequestCommand(request.petId(), request.serviceId(), request.requestedStartsAt(), request.observation(),
+						request.idempotencyKey()));
+		return ResponseEntity.status(HttpStatus.CREATED).location(URI.create("/api/v1/client/schedule/requests/" + created.id()))
+				.body(ApiEnvelope.of(created));
+	}
+
 	record ServiceRequest(
 			@NotBlank @Pattern(regexp = "CLINICA|GROOMING") String serviceType,
 			@NotBlank @Size(max = 160) String name,
@@ -138,5 +186,16 @@ public class SchedulingController {
 			@Min(1) @Max(7) int weekday,
 			@NotNull LocalTime startsAtLocal,
 			@NotNull LocalTime endsAtLocal) {
+	}
+
+	record ConfirmationRequest(@NotNull UUID professionalPrincipalId) {
+	}
+
+	record ClientScheduleRequest(
+			@NotNull UUID petId,
+			@NotNull UUID serviceId,
+			@NotNull @Future Instant requestedStartsAt,
+			@Size(max = 1000) String observation,
+			@NotNull UUID idempotencyKey) {
 	}
 }
