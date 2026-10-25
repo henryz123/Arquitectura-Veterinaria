@@ -38,6 +38,13 @@ fuera de V1.
 - Angular mantuvo 4 archivos/9 pruebas, build correcto y Redocly validó el contrato OpenAPI. Chrome pasó `B02_OWNER_PET_BROWSER_E2E=PASS`: edita la ficha desde el navegador y después verifica mascota, transferencia, períodos históricos y la denegación de historia clínica para ADMIN sin VETERINARIO.
 - B02 continúa **parcial**: falta una cuenta sintética `VETERINARIO` legítima para validar desde navegador atención, vacunación, prescripción, adenda y confirmación clínica de duplicados. Ninguna de esas funciones se marca completada solo por la cobertura de integración.
 
+## Checkpoint B02 — procedimiento local de cuenta VETERINARIO (2026-10-24)
+
+- Se preparó una semilla local idempotente mediante las funciones ya autorizadas de autenticación, invitación, aceptación y revocación. No es una migración, no modifica V001–V019 y exige `av_app` contra la única base en alcance.
+- El lanzador valida antes de conectarse que el correo sea sintético `*.invalid` y que la contraseña local satisfaga la política existente. Requiere `AV_DEMO_VETERINARIO_AURORA_EMAIL` y `AV_DEMO_VETERINARIO_AURORA_PASSWORD` en `.env.local`, que continúa ignorado por Git. La semilla sigue **sin ejecutar** porque esas variables no existen.
+- La revisión estática confirma una transacción única, ningún `GRANT`, cambio de roles, SQL dinámico, acceso directo a tablas de identidad ni secreto versionado. El SHA-256 actual de `seed-veterinarian-synthetic.psql` es `B0C6A8D2A3AD0F423FAFEF3D49F25A0A85D39F66354896ABFE8522C8C8E71EFD`.
+- B02 continúa **parcial**: el siguiente paso condicionado es ejecutar la semilla con credenciales sintéticas locales y luego el recorrido Chrome de atención, vacunación, indicación, adenda y revisión clínica de duplicados; no se concede el rol a la cuenta administrativa como atajo.
+
 ## Checkpoint B02 — edición básica STAFF de mascota (2026-10-24)
 
 - No se creó migración: V001–V019, RLS, privilegios y roles permanecen inmutables. La nueva operación usa la ficha tenant-local existente y no modifica `current_owner_id`, condición ni información clínica.

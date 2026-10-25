@@ -1,0 +1,103 @@
+\set ON_ERROR_STOP on
+\getenv av_demo_aurora_password AV_DEMO_AURORA_PASSWORD
+\getenv av_demo_veterinarian_email AV_DEMO_VETERINARIO_AURORA_EMAIL
+\getenv av_demo_veterinarian_password AV_DEMO_VETERINARIO_AURORA_PASSWORD
+
+\if :{?av_demo_aurora_password}
+\else
+  \echo 'Falta AV_DEMO_AURORA_PASSWORD en el entorno local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'VETERINARIAN_SEED_ABORTED'; END $seed_abort$;
+\endif
+\if :{?av_demo_veterinarian_email}
+\else
+  \echo 'Falta AV_DEMO_VETERINARIO_AURORA_EMAIL en el entorno local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'VETERINARIAN_SEED_ABORTED'; END $seed_abort$;
+\endif
+\if :{?av_demo_veterinarian_password}
+\else
+  \echo 'Falta AV_DEMO_VETERINARIO_AURORA_PASSWORD en el entorno local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'VETERINARIAN_SEED_ABORTED'; END $seed_abort$;
+\endif
+
+select case when
+    lower(:'av_demo_veterinarian_email') ~ '^[^@[:space:]]+@[a-z0-9.-]+\.invalid$'
+    and length(:'av_demo_veterinarian_password') between 12 and 72
+    and :'av_demo_veterinarian_password' ~ '[A-Z]'
+    and :'av_demo_veterinarian_password' ~ '[a-z]'
+    and :'av_demo_veterinarian_password' ~ '[0-9]'
+  then 'true' else 'false' end as av_veterinarian_credentials_valid \gset
+\if :av_veterinarian_credentials_valid
+\else
+  \echo 'Las credenciales sintéticas VETERINARIO no cumplen la política local.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'VETERINARIAN_SEED_ABORTED'; END $seed_abort$;
+\endif
+
+select encode(gen_random_bytes(32), 'hex') as av_admin_session_token,
+       encode(gen_random_bytes(32), 'hex') as av_admin_csrf_token \gset
+
+select case when exists (
+    select 1
+      from identity_auth.authenticate_and_create_session(
+          'STAFF',
+          'veterinaria-aurora',
+          'administracion@demo.invalid',
+          :'av_demo_aurora_password',
+          encode(digest(:'av_admin_session_token', 'sha256'), 'hex'),
+          encode(digest(:'av_admin_csrf_token', 'sha256'), 'hex'),
+          statement_timestamp() + interval '8 hours'
+       )
+) then 'true' else 'false' end as av_admin_authenticated \gset
+\if :av_admin_authenticated
+\else
+  \echo 'No fue posible autenticar al administrador sintético de Aurora.'
+  DO $seed_abort$ BEGIN RAISE EXCEPTION 'VETERINARIAN_SEED_ABORTED'; END $seed_abort$;
+\endif
+
+select case when coalesce((
+    select staff.account_status = 'ACTIVA' and staff.roles ? 'VETERINARIO'
+      from identity_auth.list_staff_for_session(encode(digest(:'av_admin_session_token', 'sha256'), 'hex')) staff
+     where staff.normalized_email = lower(:'av_demo_veterinarian_email')
+), false) then 'true' else 'false' end as av_veterinarian_active \gset
+
+\if :av_veterinarian_active
+  select identity_auth.revoke_session_by_token(encode(digest(:'av_admin_session_token', 'sha256'), 'hex'))
+    as av_admin_session_revoked \gset
+  \echo 'La cuenta sintética VETERINARIO de Aurora ya está activa; se conserva sin cambios.'
+\else
+  select encode(gen_random_bytes(32), 'hex') as av_veterinarian_invitation_token \gset
+  select case when exists (
+      select 1
+        from identity_auth.invite_staff(
+            encode(digest(:'av_admin_session_token', 'sha256'), 'hex'),
+            lower(:'av_demo_veterinarian_email'),
+            jsonb_build_array('VETERINARIO'),
+            encode(digest(:'av_veterinarian_invitation_token', 'sha256'), 'hex'),
+            statement_timestamp() + interval '24 hours'
+        )
+  ) then 'true' else 'false' end as av_veterinarian_invited \gset
+  \if :av_veterinarian_invited
+  \else
+    \echo 'No fue posible registrar la invitación sintética VETERINARIO.'
+    DO $seed_abort$ BEGIN RAISE EXCEPTION 'VETERINARIAN_SEED_ABORTED'; END $seed_abort$;
+  \endif
+
+  select identity_auth.accept_staff_invitation(
+      encode(digest(:'av_veterinarian_invitation_token', 'sha256'), 'hex'),
+      crypt(:'av_demo_veterinarian_password', gen_salt('bf', 10))
+  ) as av_veterinarian_principal_id \gset
+
+  select case when coalesce((
+      select staff.account_status = 'ACTIVA' and staff.roles ? 'VETERINARIO'
+        from identity_auth.list_staff_for_session(encode(digest(:'av_admin_session_token', 'sha256'), 'hex')) staff
+       where staff.normalized_email = lower(:'av_demo_veterinarian_email')
+  ), false) then 'true' else 'false' end as av_veterinarian_activated \gset
+  \if :av_veterinarian_activated
+  \else
+    \echo 'La invitación no activó una cuenta VETERINARIO válida.'
+    DO $seed_abort$ BEGIN RAISE EXCEPTION 'VETERINARIAN_SEED_ABORTED'; END $seed_abort$;
+  \endif
+
+  select identity_auth.revoke_session_by_token(encode(digest(:'av_admin_session_token', 'sha256'), 'hex'))
+    as av_admin_session_revoked \gset
+  \echo 'Cuenta sintética VETERINARIO de Aurora preparada mediante invitación y aceptación autorizadas.'
+\endif

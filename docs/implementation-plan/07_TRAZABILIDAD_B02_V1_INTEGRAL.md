@@ -177,3 +177,10 @@ Esta actualización completa la edición básica pendiente de RF-B02-002; no cre
 ## Riesgos y límite vigente
 
 No hay cuenta sintética VETERINARIO activa en Aurora ni Bosque; por tanto, la pantalla clínica, vacunas, indicaciones, adendas y confirmación clínica de duplicados no se declaran validadas por navegador. La evidencia de integración sí confirma el flujo de veterinario contra PostgreSQL. La edición administrativa presencial de propietario ya cuenta con vertical completo y evidencia de navegador.
+
+## Procedimiento local preparado — cuenta sintética VETERINARIO (2026-10-24)
+
+- Se incorporó `database/demo/seed-veterinarian-synthetic.psql` junto con el lanzador local `scripts/invoke-veterinarian-synthetic-seed.ps1`. Ambos quedan fuera de las migraciones Flyway y no modifican V001–V019.
+- El lanzador exige, sin imprimir sus valores, `AV_DEMO_VETERINARIO_AURORA_EMAIL` y `AV_DEMO_VETERINARIO_AURORA_PASSWORD` en `.env.local`, además de las variables locales ya existentes de conexión y administrador Aurora. Rechaza una dirección que no sea sintética `*.invalid` o una contraseña que no satisfaga la política actual antes de invocar PostgreSQL.
+- La semilla permanece **no ejecutada** mientras falten dichas variables. Cuando estén disponibles, usará solo `av_app`, una transacción única y las funciones existentes de autenticación, invitación, aceptación y revocación para crear o reutilizar exclusivamente la cuenta Aurora con rol `VETERINARIO`; no otorga permisos a `ADMIN_VETERINARIA`, no lee tablas de identidades ni expone tokens, hashes o contraseñas.
+- La primera comprobación local deberá confirmar que la cuenta queda activa con el rol requerido; el siguiente paso será ejecutar el recorrido Chrome de atención, vacuna, indicación, adenda y evaluación de duplicado, manteniendo el rechazo para personal sin rol clínico y el aislamiento Aurora/Bosque.
