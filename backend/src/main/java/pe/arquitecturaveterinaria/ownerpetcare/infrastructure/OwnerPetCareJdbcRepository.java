@@ -54,6 +54,16 @@ public class OwnerPetCareJdbcRepository {
 				""", this::mapOwner, ownerId).stream().findFirst();
 	}
 
+	/** Locks one tenant-visible owner while an operation changes a responsibility or status. */
+	public Optional<OwnerProfile> lockOwner(UUID ownerId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, given_names, family_names, phone, email, address, status, origin, created_at, updated_at
+				from owner_pet_care.owner_profile
+				where id = ?
+				for update
+				""", this::mapOwner, ownerId).stream().findFirst();
+	}
+
 	public Optional<OwnerProfile> findOwnerForClient(UUID clientPrincipalId) {
 		return jdbcTemplate.query("""
 				select owner.id, owner.tenant_id, owner.given_names, owner.family_names, owner.phone, owner.email,
@@ -204,6 +214,232 @@ public class OwnerPetCareJdbcRepository {
 				""", this::mapPet, petId).stream().findFirst();
 	}
 
+	public List<DuplicateCandidate> findPotentialOwnerDuplicates(UUID ownerId) {
+		return jdbcTemplate.query("""
+				with source as (
+				    select id, given_names, family_names, phone, email
+				    from owner_pet_care.owner_profile
+				    where id = ? and status = 'ACTIVO'
+				)
+				select candidate.id,
+				       candidate.family_names || ', ' || candidate.given_names as label,
+				       case
+				           when source.phone is not null and candidate.phone = source.phone then 'Teléfono coincidente'
+				           when source.email is not null and lower(candidate.email) = lower(source.email) then 'Correo coincidente'
+				           else 'Nombres y apellidos coincidentes'
+				       end as match_reason
+				from source
+				join owner_pet_care.owner_profile candidate on candidate.id <> source.id
+				where candidate.status = 'ACTIVO'
+				  and (
+				      (lower(candidate.given_names) = lower(source.given_names)
+				       and lower(candidate.family_names) = lower(source.family_names))
+				      or (source.phone is not null and candidate.phone = source.phone)
+				      or (source.email is not null and lower(candidate.email) = lower(source.email))
+				  )
+				order by candidate.family_names, candidate.given_names, candidate.id
+				limit 20
+				""", this::mapDuplicateCandidate, ownerId);
+	}
+
+	public List<DuplicateCandidate> findPotentialPetDuplicates(UUID petId) {
+		return jdbcTemplate.query("""
+				with source as (
+				    select id, name, species, birth_date, estimated_age_months
+				    from owner_pet_care.pet
+				    where id = ? and status = 'ACTIVA'
+				)
+				select candidate.id,
+				       candidate.name || ' · ' || candidate.species as label,
+				       case
+				           when source.birth_date is not null and candidate.birth_date = source.birth_date
+				               then 'Nombre, especie y fecha de nacimiento coincidentes'
+				           else 'Nombre, especie y edad estimada coincidentes'
+				       end as match_reason
+				from source
+				join owner_pet_care.pet candidate on candidate.id <> source.id
+				where candidate.status = 'ACTIVA'
+				  and lower(candidate.name) = lower(source.name)
+				  and lower(candidate.species) = lower(source.species)
+				  and (
+				      (source.birth_date is not null and candidate.birth_date = source.birth_date)
+				      or (source.estimated_age_months is not null
+				          and candidate.estimated_age_months = source.estimated_age_months)
+				  )
+				order by candidate.name, candidate.id
+				limit 20
+				""", this::mapDuplicateCandidate, petId);
+	}
+
+	public Optional<OwnerDuplicateReview> createOwnerDuplicateReview(UUID tenantId, UUID actorPrincipalId, UUID duplicateOwnerId,
+			UUID referenceOwnerId) {
+		return jdbcTemplate.query("""
+				insert into owner_pet_care.owner_duplicate_review (
+				    tenant_id, duplicate_owner_id, reference_owner_id, reported_by_principal_id
+				) values (?, ?, ?, ?)
+				on conflict do nothing
+				returning id, duplicate_owner_id, reference_owner_id, reported_at
+				""", this::mapCreatedOwnerDuplicateReview, tenantId, duplicateOwnerId, referenceOwnerId, actorPrincipalId)
+				.stream().findFirst();
+	}
+
+	/**
+	 * Serializes the two append-only review decisions inside the current JDBC
+	 * transaction. It avoids granting UPDATE merely to obtain a row lock.
+	 */
+	public void lockDuplicateReviewOperation(UUID reviewId) {
+		jdbcTemplate.query("select pg_advisory_xact_lock(hashtextextended(?::text, 29019))", resultSet -> { },
+				reviewId.toString());
+	}
+
+	public Optional<OwnerDuplicateReview> lockOwnerDuplicateReview(UUID reviewId) {
+		return jdbcTemplate.query("""
+				select review.id, review.duplicate_owner_id, review.reference_owner_id, review.reported_at,
+				       null::text as duplicate_label, null::text as reference_label,
+				       resolution.outcome, resolution.resolved_at
+				from owner_pet_care.owner_duplicate_review review
+				left join owner_pet_care.owner_duplicate_resolution resolution
+				  on resolution.tenant_id = review.tenant_id and resolution.review_id = review.id
+				where review.id = ?
+				""", this::mapOwnerDuplicateReview, reviewId).stream().findFirst();
+	}
+
+	public List<OwnerDuplicateReview> listOwnerDuplicateReviews() {
+		return jdbcTemplate.query("""
+				select review.id, review.duplicate_owner_id, review.reference_owner_id, review.reported_at,
+				       duplicate_owner.family_names || ', ' || duplicate_owner.given_names as duplicate_label,
+				       reference_owner.family_names || ', ' || reference_owner.given_names as reference_label,
+				       resolution.outcome, resolution.resolved_at
+				from owner_pet_care.owner_duplicate_review review
+				join owner_pet_care.owner_profile duplicate_owner
+				  on duplicate_owner.tenant_id = review.tenant_id and duplicate_owner.id = review.duplicate_owner_id
+				join owner_pet_care.owner_profile reference_owner
+				  on reference_owner.tenant_id = review.tenant_id and reference_owner.id = review.reference_owner_id
+				left join owner_pet_care.owner_duplicate_resolution resolution
+				  on resolution.tenant_id = review.tenant_id and resolution.review_id = review.id
+				order by review.reported_at desc, review.id desc
+				""", this::mapOwnerDuplicateReview);
+	}
+
+	public boolean ownerHasActiveResponsibilities(UUID ownerId) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+				select exists (
+				    select 1 from owner_pet_care.pet where current_owner_id = ? and status = 'ACTIVA'
+				)
+				""", Boolean.class, ownerId));
+	}
+
+	public boolean ownerHasApprovedClientLink(UUID ownerId) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+				select exists (select 1 from owner_pet_care.client_owner_link where owner_id = ?)
+				""", Boolean.class, ownerId));
+	}
+
+	public int deactivateOwnerIfActive(UUID tenantId, UUID ownerId) {
+		return jdbcTemplate.update("""
+				update owner_pet_care.owner_profile
+				set status = 'INACTIVO', updated_at = statement_timestamp()
+				where tenant_id = ? and id = ? and status = 'ACTIVO'
+				""", tenantId, ownerId);
+	}
+
+	public boolean createOwnerDuplicateResolution(UUID tenantId, UUID reviewId, String outcome, UUID actorPrincipalId,
+			String reason) {
+		return jdbcTemplate.update("""
+				insert into owner_pet_care.owner_duplicate_resolution (
+				    tenant_id, review_id, outcome, resolved_by_principal_id, resolution_reason
+				) values (?, ?, ?, ?, ?)
+				on conflict do nothing
+				""", tenantId, reviewId, outcome, actorPrincipalId, reason) == 1;
+	}
+
+	public Optional<PetDuplicateReview> createPetDuplicateReview(UUID tenantId, UUID actorPrincipalId, UUID duplicatePetId,
+			UUID referencePetId) {
+		return jdbcTemplate.query("""
+				insert into owner_pet_care.pet_duplicate_review (
+				    tenant_id, duplicate_pet_id, reference_pet_id, reported_by_principal_id
+				) values (?, ?, ?, ?)
+				on conflict do nothing
+				returning id, duplicate_pet_id, reference_pet_id, reported_at
+				""", this::mapCreatedPetDuplicateReview, tenantId, duplicatePetId, referencePetId, actorPrincipalId)
+				.stream().findFirst();
+	}
+
+	public Optional<PetDuplicateReview> lockPetDuplicateReview(UUID reviewId) {
+		return jdbcTemplate.query("""
+				select review.id, review.duplicate_pet_id, review.reference_pet_id, review.reported_at,
+				       null::text as duplicate_label, null::text as reference_label,
+				       resolution.outcome, resolution.resolved_at, evaluation.evaluated_at,
+				       false as requires_clinical_evaluation
+				from owner_pet_care.pet_duplicate_review review
+				left join owner_pet_care.pet_duplicate_resolution resolution
+				  on resolution.tenant_id = review.tenant_id and resolution.review_id = review.id
+				left join owner_pet_care.pet_duplicate_clinical_evaluation evaluation
+				  on evaluation.tenant_id = review.tenant_id and evaluation.review_id = review.id
+				where review.id = ?
+				""", this::mapPetDuplicateReview, reviewId).stream().findFirst();
+	}
+
+	public List<PetDuplicateReview> listPetDuplicateReviews() {
+		return jdbcTemplate.query("""
+				select review.id, review.duplicate_pet_id, review.reference_pet_id, review.reported_at,
+				       duplicate_pet.name || ' · ' || duplicate_pet.species as duplicate_label,
+				       reference_pet.name || ' · ' || reference_pet.species as reference_label,
+				       resolution.outcome, resolution.resolved_at, evaluation.evaluated_at,
+				       exists (select 1 from owner_pet_care.clinical_episode episode
+				               where episode.tenant_id = review.tenant_id and episode.pet_id = review.duplicate_pet_id) as requires_clinical_evaluation
+				from owner_pet_care.pet_duplicate_review review
+				join owner_pet_care.pet duplicate_pet
+				  on duplicate_pet.tenant_id = review.tenant_id and duplicate_pet.id = review.duplicate_pet_id
+				join owner_pet_care.pet reference_pet
+				  on reference_pet.tenant_id = review.tenant_id and reference_pet.id = review.reference_pet_id
+				left join owner_pet_care.pet_duplicate_resolution resolution
+				  on resolution.tenant_id = review.tenant_id and resolution.review_id = review.id
+				left join owner_pet_care.pet_duplicate_clinical_evaluation evaluation
+				  on evaluation.tenant_id = review.tenant_id and evaluation.review_id = review.id
+				order by review.reported_at desc, review.id desc
+				""", this::mapPetDuplicateReview);
+	}
+
+	public boolean petHasClinicalData(UUID petId) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+				select exists (select 1 from owner_pet_care.clinical_episode where pet_id = ?)
+				""", Boolean.class, petId));
+	}
+
+	public boolean hasPetDuplicateClinicalEvaluation(UUID reviewId) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+				select exists (select 1 from owner_pet_care.pet_duplicate_clinical_evaluation where review_id = ?)
+				""", Boolean.class, reviewId));
+	}
+
+	public boolean createPetDuplicateClinicalEvaluation(UUID tenantId, UUID reviewId, UUID veterinarianPrincipalId) {
+		return jdbcTemplate.update("""
+				insert into owner_pet_care.pet_duplicate_clinical_evaluation (
+				    tenant_id, review_id, evaluated_by_principal_id
+				) values (?, ?, ?)
+				on conflict do nothing
+				""", tenantId, reviewId, veterinarianPrincipalId) == 1;
+	}
+
+	public int deactivatePetIfActive(UUID tenantId, UUID petId) {
+		return jdbcTemplate.update("""
+				update owner_pet_care.pet
+				set status = 'INACTIVA', updated_at = statement_timestamp()
+				where tenant_id = ? and id = ? and status = 'ACTIVA'
+				""", tenantId, petId);
+	}
+
+	public boolean createPetDuplicateResolution(UUID tenantId, UUID reviewId, String outcome, UUID actorPrincipalId,
+			String reason) {
+		return jdbcTemplate.update("""
+				insert into owner_pet_care.pet_duplicate_resolution (
+				    tenant_id, review_id, outcome, resolved_by_principal_id, resolution_reason
+				) values (?, ?, ?, ?, ?)
+				on conflict do nothing
+				""", tenantId, reviewId, outcome, actorPrincipalId, reason) == 1;
+	}
+
 	public List<PetProfile> listPetsByOwner(UUID ownerId) {
 		return jdbcTemplate.query("""
 				select id, tenant_id, current_owner_id, name, species, breed, sex, birth_date, estimated_age_months,
@@ -253,6 +489,7 @@ public class OwnerPetCareJdbcRepository {
 				    distinguishing_marks = ?, updated_at = statement_timestamp()
 				from owner_pet_care.client_owner_link link
 				where pet.tenant_id = ? and pet.id = ?
+				  and pet.status = 'ACTIVA'
 				  and link.tenant_id = pet.tenant_id
 				  and link.owner_id = pet.current_owner_id
 				  and link.client_principal_id = ?
@@ -430,6 +667,36 @@ public class OwnerPetCareJdbcRepository {
 				resultSet.getString("origin"), instant(resultSet, "created_at"), instant(resultSet, "updated_at"));
 	}
 
+	private DuplicateCandidate mapDuplicateCandidate(ResultSet resultSet, int rowNum) throws SQLException {
+		return new DuplicateCandidate(resultSet.getObject("id", UUID.class), resultSet.getString("label"),
+				resultSet.getString("match_reason"));
+	}
+
+	private OwnerDuplicateReview mapCreatedOwnerDuplicateReview(ResultSet resultSet, int rowNum) throws SQLException {
+		return new OwnerDuplicateReview(resultSet.getObject("id", UUID.class), resultSet.getObject("duplicate_owner_id", UUID.class),
+				resultSet.getObject("reference_owner_id", UUID.class), null, null, instant(resultSet, "reported_at"), null, null);
+	}
+
+	private OwnerDuplicateReview mapOwnerDuplicateReview(ResultSet resultSet, int rowNum) throws SQLException {
+		return new OwnerDuplicateReview(resultSet.getObject("id", UUID.class), resultSet.getObject("duplicate_owner_id", UUID.class),
+				resultSet.getObject("reference_owner_id", UUID.class), resultSet.getString("duplicate_label"),
+				resultSet.getString("reference_label"), instant(resultSet, "reported_at"), resultSet.getString("outcome"),
+				instant(resultSet, "resolved_at"));
+	}
+
+	private PetDuplicateReview mapCreatedPetDuplicateReview(ResultSet resultSet, int rowNum) throws SQLException {
+		return new PetDuplicateReview(resultSet.getObject("id", UUID.class), resultSet.getObject("duplicate_pet_id", UUID.class),
+				resultSet.getObject("reference_pet_id", UUID.class), null, null, instant(resultSet, "reported_at"), null, null, null, false);
+	}
+
+	private PetDuplicateReview mapPetDuplicateReview(ResultSet resultSet, int rowNum) throws SQLException {
+		return new PetDuplicateReview(resultSet.getObject("id", UUID.class), resultSet.getObject("duplicate_pet_id", UUID.class),
+				resultSet.getObject("reference_pet_id", UUID.class), resultSet.getString("duplicate_label"),
+				resultSet.getString("reference_label"), instant(resultSet, "reported_at"), resultSet.getString("outcome"),
+				instant(resultSet, "resolved_at"), instant(resultSet, "evaluated_at"),
+				resultSet.getBoolean("requires_clinical_evaluation"));
+	}
+
 	private PetProfile mapPet(ResultSet resultSet, int rowNum) throws SQLException {
 		return new PetProfile(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
 				resultSet.getObject("current_owner_id", UUID.class), resultSet.getString("name"), resultSet.getString("species"),
@@ -509,6 +776,12 @@ public class OwnerPetCareJdbcRepository {
 	}
 
 	public record OwnerDraft(String givenNames, String familyNames, String phone, String email, String address, String origin) { }
+	public record DuplicateCandidate(UUID id, String label, String matchReason) { }
+	public record OwnerDuplicateReview(UUID id, UUID duplicateOwnerId, UUID referenceOwnerId, String duplicateLabel,
+			String referenceLabel, Instant reportedAt, String outcome, Instant resolvedAt) { }
+	public record PetDuplicateReview(UUID id, UUID duplicatePetId, UUID referencePetId, String duplicateLabel,
+			String referenceLabel, Instant reportedAt, String outcome, Instant resolvedAt, Instant clinicalEvaluatedAt,
+			boolean requiresClinicalEvaluation) { }
 	public record OwnerProfile(UUID id, UUID tenantId, String givenNames, String familyNames, String phone, String email,
 			String address, String status, String origin, Instant createdAt, Instant updatedAt) { }
 	public record PetDraft(String name, String species, String breed, String sex, LocalDate birthDate,

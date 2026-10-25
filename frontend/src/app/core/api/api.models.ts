@@ -70,7 +70,7 @@ export interface ClientPetProfile {
 	birthDate: string | null;
 	estimatedAgeMonths: number | null;
 	distinguishingMarks: string | null;
-	status: 'ACTIVA' | 'FALLECIDA';
+	status: 'ACTIVA' | 'FALLECIDA' | 'INACTIVA';
 }
 
 export interface VerificationStatus {
@@ -139,7 +139,7 @@ export interface OwnerProfile {
   phone: string | null;
   email: string | null;
   address: string | null;
-  status: 'ACTIVA' | 'FALLECIDA';
+  status: 'ACTIVO' | 'INACTIVO';
   origin: string;
   createdAt: string;
   updatedAt: string;
@@ -164,7 +164,7 @@ export interface PetProfile {
   birthDate: string | null;
   estimatedAgeMonths: number | null;
   distinguishingMarks: string | null;
-  status: 'ACTIVO' | 'INACTIVO';
+  status: 'ACTIVA' | 'FALLECIDA' | 'INACTIVA';
   createdAt: string;
   updatedAt: string;
 }
@@ -177,6 +177,46 @@ export interface PetRequest {
   birthDate: string | null;
   estimatedAgeMonths: number | null;
   distinguishingMarks: string | null;
+}
+
+export interface DuplicateCandidate {
+  id: string;
+  label: string;
+  matchReason: string;
+}
+
+export interface DuplicateReviewRequest {
+  duplicateId: string;
+  referenceId: string;
+}
+
+export interface DuplicateResolutionRequest {
+  outcome: 'DESCARTADA' | 'CONFIRMADA_INACTIVA';
+  reason: string;
+}
+
+export interface OwnerDuplicateReview {
+  id: string;
+  duplicateOwnerId: string;
+  referenceOwnerId: string;
+  duplicateLabel: string | null;
+  referenceLabel: string | null;
+  reportedAt: string;
+  outcome: 'DESCARTADA' | 'CONFIRMADA_INACTIVA' | null;
+  resolvedAt: string | null;
+}
+
+export interface PetDuplicateReview {
+  id: string;
+  duplicatePetId: string;
+  referencePetId: string;
+  duplicateLabel: string | null;
+  referenceLabel: string | null;
+  reportedAt: string;
+  outcome: 'DESCARTADA' | 'CONFIRMADA_INACTIVA' | null;
+  resolvedAt: string | null;
+  clinicalEvaluatedAt: string | null;
+  requiresClinicalEvaluation: boolean;
 }
 
 export interface ClinicalEpisode {

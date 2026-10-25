@@ -24,6 +24,8 @@ import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClinicalEpisodeCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.AmendmentCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClientOwnerLinkResolutionCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.DuplicateResolutionCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.DuplicateReviewCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnerCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnershipTransferCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PetCommand;
@@ -289,6 +291,84 @@ class OwnerPetCareDatabaseIntegrationTest {
 		ApiException crossTenant = assertThrows(ApiException.class,
 				() -> ownerPetCareService.listVaccinations(bosqueVeterinarian, pet.id()));
 		assertEquals(HttpStatus.NOT_FOUND, crossTenant.status());
+	}
+
+	@Test
+	void resolvesOwnerDuplicateReviewsWithoutMergingOrLeavingPartialInactivation() {
+		SessionPrincipal administrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		var duplicate = ownerPetCareService.createOwner(administrator,
+				new OwnerCommand("Rosa", "Coincidente", "999555100", null, null));
+		var reference = ownerPetCareService.createOwner(administrator,
+				new OwnerCommand("Rosa", "Coincidente", "999555200", null, null));
+
+		assertTrue(ownerPetCareService.findPotentialOwnerDuplicates(administrator, duplicate.id()).stream()
+				.map(item -> item.id()).toList().contains(reference.id()));
+		var review = ownerPetCareService.reportOwnerDuplicate(administrator,
+				new DuplicateReviewCommand(duplicate.id(), reference.id()));
+		ownerPetCareService.resolveOwnerDuplicate(administrator, review.id(),
+				new DuplicateResolutionCommand("DESCARTADA", "La revisión manual confirmó que son personas distintas."));
+		assertEquals("DESCARTADA", ownerPetCareService.listOwnerDuplicateReviews(administrator).stream()
+				.filter(item -> item.id().equals(review.id())).findFirst().orElseThrow().outcome());
+		assertEquals("ACTIVO", ownerPetCareService.getOwner(administrator, duplicate.id()).status());
+		assertEquals("B02_DUPLICATE_REVIEW_ALREADY_EXISTS", assertThrows(ApiException.class,
+				() -> ownerPetCareService.reportOwnerDuplicate(administrator,
+						new DuplicateReviewCommand(reference.id(), duplicate.id()))).code());
+
+		var duplicateWithPet = ownerPetCareService.createOwner(administrator,
+				new OwnerCommand("Rosa", "ConMascota", "999555300", null, null));
+		var referenceWithoutPet = ownerPetCareService.createOwner(administrator,
+				new OwnerCommand("Rosa", "ConMascota", "999555400", null, null));
+		ownerPetCareService.createPet(administrator, duplicateWithPet.id(),
+				new PetCommand("Nina", "Canino", null, "HEMBRA", null, 24, null));
+		var blockedReview = ownerPetCareService.reportOwnerDuplicate(administrator,
+				new DuplicateReviewCommand(duplicateWithPet.id(), referenceWithoutPet.id()));
+		ApiException activeRelation = assertThrows(ApiException.class,
+				() -> ownerPetCareService.resolveOwnerDuplicate(administrator, blockedReview.id(),
+						new DuplicateResolutionCommand("CONFIRMADA_INACTIVA", "La revisión no puede dejar una responsabilidad activa.")));
+		assertEquals("B02_DUPLICATE_OWNER_HAS_ACTIVE_RELATIONS", activeRelation.code());
+		assertEquals("ACTIVO", ownerPetCareService.getOwner(administrator, duplicateWithPet.id()).status());
+	}
+
+	@Test
+	void requiresVeterinaryEvaluationBeforeInactivatingDuplicatePetWithClinicalData() {
+		SessionPrincipal administrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		var duplicateOwner = ownerPetCareService.createOwner(administrator,
+				new OwnerCommand("Marco", "Duplicado", null, null, null));
+		var referenceOwner = ownerPetCareService.createOwner(administrator,
+				new OwnerCommand("Marta", "Referencia", null, null, null));
+		var duplicatePet = ownerPetCareService.createPet(administrator, duplicateOwner.id(),
+				new PetCommand("Toby", "Canino", null, "MACHO", null, 30, null));
+		var referencePet = ownerPetCareService.createPet(administrator, referenceOwner.id(),
+				new PetCommand("Toby", "Canino", null, "MACHO", null, 30, null));
+		SessionPrincipal veterinarian = veterinarian(administrator);
+		var episode = ownerPetCareService.createClinicalEpisode(veterinarian, duplicatePet.id(),
+				new ClinicalEpisodeCommand(null, "Revisión", null, "Sin alarma", null, null, null));
+		ownerPetCareService.finalizeClinicalEpisode(veterinarian, episode.id(),
+				new ClinicalEpisodeCommand(null, "Revisión", null, "Sin alarma", null, null, null));
+
+		assertTrue(ownerPetCareService.findPotentialPetDuplicates(administrator, duplicatePet.id()).stream()
+				.map(item -> item.id()).toList().contains(referencePet.id()));
+		var review = ownerPetCareService.reportPetDuplicate(administrator,
+				new DuplicateReviewCommand(duplicatePet.id(), referencePet.id()));
+		ApiException requiredEvaluation = assertThrows(ApiException.class,
+				() -> ownerPetCareService.resolvePetDuplicate(administrator, review.id(),
+						new DuplicateResolutionCommand("CONFIRMADA_INACTIVA", "La revisión requiere evaluación clínica.")));
+		assertEquals("B02_DUPLICATE_CLINICAL_EVALUATION_REQUIRED", requiredEvaluation.code());
+		assertEquals("ACTIVA", ownerPetCareService.getPet(administrator, duplicatePet.id()).status());
+		ownerPetCareService.evaluatePetDuplicateClinically(veterinarian, review.id());
+		ownerPetCareService.resolvePetDuplicate(administrator, review.id(),
+				new DuplicateResolutionCommand("CONFIRMADA_INACTIVA", "La revisión humana confirmó el registro duplicado."));
+		assertEquals("INACTIVA", ownerPetCareService.getPet(administrator, duplicatePet.id()).status());
+		assertEquals("CONFIRMADA_INACTIVA", ownerPetCareService.listPetDuplicateReviews(administrator).stream()
+				.filter(item -> item.id().equals(review.id())).findFirst().orElseThrow().outcome());
+		assertEquals("B02_PET_INACTIVE", assertThrows(ApiException.class,
+				() -> ownerPetCareService.createClinicalEpisode(veterinarian, duplicatePet.id(),
+						new ClinicalEpisodeCommand(null, "No procede", null, "No procede", null, null, null))).code());
+
+		SessionPrincipal bosqueAdministrator = administrator("veterinaria-bosque", "AV_DEMO_BOSQUE_PASSWORD");
+		assertEquals(HttpStatus.NOT_FOUND, assertThrows(ApiException.class,
+				() -> ownerPetCareService.resolvePetDuplicate(bosqueAdministrator, review.id(),
+						new DuplicateResolutionCommand("DESCARTADA", "Intento entre veterinarias."))).status());
 	}
 
 	private SessionPrincipal veterinarian(SessionPrincipal administrator) {

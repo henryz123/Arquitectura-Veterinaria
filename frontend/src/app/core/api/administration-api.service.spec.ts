@@ -212,6 +212,58 @@ describe('AdministrationApiService', () => {
     expect(transfer.request.body).toEqual(transferRequest);
     transfer.flush({ data: { id: 'pet-1', currentOwnerId: 'owner-2' } });
 
+    service.findPotentialOwnerDuplicates('owner-1').subscribe();
+    const ownerCandidates = http.expectOne('/api/v1/owners/owner-1/duplicate-candidates');
+    expect(ownerCandidates.request.method).toBe('GET');
+    ownerCandidates.flush({ data: [] });
+
+    const duplicateReview = { duplicateId: 'owner-1', referenceId: 'owner-2' };
+    service.reportOwnerDuplicate(duplicateReview).subscribe();
+    const ownerReview = http.expectOne('/api/v1/owner-duplicate-reviews');
+    expect(ownerReview.request.method).toBe('POST');
+    expect(ownerReview.request.body).toEqual(duplicateReview);
+    ownerReview.flush({ data: { id: 'owner-review-1' } });
+
+    service.listOwnerDuplicateReviews().subscribe();
+    const ownerReviews = http.expectOne('/api/v1/owner-duplicate-reviews');
+    expect(ownerReviews.request.method).toBe('GET');
+    ownerReviews.flush({ data: [] });
+
+    const duplicateResolution = { outcome: 'DESCARTADA' as const, reason: 'Fichas verificadas como distintas.' };
+    service.resolveOwnerDuplicate('owner-review-1', duplicateResolution).subscribe();
+    const ownerResolution = http.expectOne('/api/v1/owner-duplicate-reviews/owner-review-1/resolution');
+    expect(ownerResolution.request.method).toBe('POST');
+    expect(ownerResolution.request.body).toEqual(duplicateResolution);
+    ownerResolution.flush(null);
+
+    service.findPotentialPetDuplicates('pet-1').subscribe();
+    const petCandidates = http.expectOne('/api/v1/pets/pet-1/duplicate-candidates');
+    expect(petCandidates.request.method).toBe('GET');
+    petCandidates.flush({ data: [] });
+
+    service.reportPetDuplicate({ duplicateId: 'pet-1', referenceId: 'pet-2' }).subscribe();
+    const petReview = http.expectOne('/api/v1/pet-duplicate-reviews');
+    expect(petReview.request.method).toBe('POST');
+    expect(petReview.request.body).toEqual({ duplicateId: 'pet-1', referenceId: 'pet-2' });
+    petReview.flush({ data: { id: 'pet-review-1' } });
+
+    service.listPetDuplicateReviews().subscribe();
+    const petReviews = http.expectOne('/api/v1/pet-duplicate-reviews');
+    expect(petReviews.request.method).toBe('GET');
+    petReviews.flush({ data: [] });
+
+    service.evaluatePetDuplicateClinically('pet-review-1').subscribe();
+    const clinicalEvaluation = http.expectOne('/api/v1/pet-duplicate-reviews/pet-review-1/clinical-evaluation');
+    expect(clinicalEvaluation.request.method).toBe('POST');
+    expect(clinicalEvaluation.request.body).toEqual({});
+    clinicalEvaluation.flush(null);
+
+    service.resolvePetDuplicate('pet-review-1', duplicateResolution).subscribe();
+    const petResolution = http.expectOne('/api/v1/pet-duplicate-reviews/pet-review-1/resolution');
+    expect(petResolution.request.method).toBe('POST');
+    expect(petResolution.request.body).toEqual(duplicateResolution);
+    petResolution.flush(null);
+
     service.listClinicalEpisodes('pet-1').subscribe();
     const history = http.expectOne('/api/v1/pets/pet-1/clinical-episodes');
     expect(history.request.method).toBe('GET');

@@ -10,6 +10,17 @@ V1 recibida el 2026-10-23. Sustituye únicamente la congelación temporal
 anterior; no autoriza remoto, push, despliegue público, datos reales ni cambios
 fuera de V1.
 
+## Checkpoint B02 — revisión humana de posibles duplicados (2026-10-24)
+
+- V019 `b02 human duplicate review` está aplicada una sola vez mediante el lanzador Flyway acotado `scripts/invoke-authorized-flyway-v019.cmd`. Su SHA-256 es `5F197536F4C0B7043B06E1C1246C50EB5C2CC61513D57DFB1B99378BC9BCF8FF` y su checksum Flyway es `887362817`.
+- La migración es aditiva y crea cinco registros append-only tenant-locales: expediente y resolución de posibles duplicados de propietarios; expediente, evaluación clínica y resolución de posibles duplicados de mascotas. No contiene funciones, `SECURITY DEFINER`, SQL dinámico, permisos `PUBLIC` ni cambios de roles.
+- Las cinco tablas tienen RLS. El propietario es `av_schema_owner`, sin superusuario ni `BYPASSRLS`; `av_app` no puede actualizar ni borrar y conserva únicamente `SELECT/INSERT`. Las parejas se normalizan para impedir un segundo expediente invirtiendo los mismos dos identificadores; V1 no contempla reapertura del mismo caso inmutable.
+- La detección es una señal de apoyo, no una decisión automática. Recepción o administración registra el caso y una resolución explícita. La confirmación de propietario queda acoplada a su inactivación y se rechaza si conserva una responsabilidad activa o vínculo CLIENT aprobado. La confirmación de mascota queda acoplada a `INACTIVA`; si tiene episodios clínicos, exige primero una evaluación append-only de VETERINARIO.
+- Las acciones que compiten sobre un expediente se serializan con un bloqueo asesor transaccional por `review_id`, sin ampliar ACL de las tablas append-only. Los `INSERT ... ON CONFLICT DO NOTHING` convierten reintentos en respuestas controladas y evitan abortar la transacción de prueba por una unicidad esperada.
+- La revisión independiente señaló inicialmente la necesidad de garantizar atomicidad de resolución y evaluación VETERINARIO. Ambas condiciones quedaron cubiertas en el servicio y en la integración PostgreSQL antes de aplicar V019. Permanece documentada la decisión de no reabrir una pareja ya revisada dentro de V1.
+- Backend B02 pasó 13/13 con Java 21, Flyway desactivado y rollback transaccional. Angular pasó 4 archivos/9 pruebas y el build; Redocly validó OpenAPI. Playwright Chrome pasó el recorrido STAFF de detección, expediente y descarte persistente. El E2E de evaluación y confirmación con VETERINARIO sigue pendiente de una cuenta sintética local legítima.
+- B02 continúa **parcial**: se verificó la interfaz STAFF para señalización, expediente y descarte, y la confirmación condicionada a evaluación clínica por integración. Siguen pendientes E2E CLIENT autenticado, E2E clínico VETERINARIO y los criterios funcionales B02 aún no cubiertos por recorrido de navegador.
+
 ## Checkpoint B02 — vinculación digital CLIENT–propietario (2026-10-24)
 
 - V017 `b02 client owner linking` está aplicada una sola vez mediante el lanzador Flyway acotado. Su SHA-256 es `4C21E0DA91A39499F6EF13097FE1185BAE42D99D526F2C0C7465E85D358DCE80` y su checksum Flyway es `337349119`.
@@ -41,9 +52,9 @@ fuera de V1.
 - Angular paso 4 archivos / 9 pruebas y `npm.cmd run build`; Redocly valido el contrato actualizado. El E2E CLIENT no se declara ejecutado: las dos contrasenas CLIENT locales siguen sin cumplir la politica, por lo que la semilla controlada no se ejecuto ni se generaron credenciales persistentes.
 - B02 continua **parcial**. RF-B02-003 y RF-B02-013 ganan implementacion de extremo a extremo con prueba de integracion, pero requieren recorrido de navegador CLIENT. Persisten la validacion visual clinica con VETERINARIO y la gestion humana de duplicados (RF-B02-014).
 
-## Proxima operacion actualizada (2026-10-24)
+## Próxima operación actualizada (2026-10-24)
 
-Cuando el responsable actualice las dos contrasenas CLIENT locales para cumplir la politica, ejecutar la semilla idempotente y completar el E2E CLIENT de vinculacion, ficha y mascotas propias. En paralelo, preparar la gestion no destructiva de posibles duplicados B02 y una cuenta VETERINARIO local mediante los mecanismos ya autorizados.
+Cuando el responsable actualice las dos contraseñas CLIENT locales para cumplir la política, ejecutar la semilla idempotente y completar el E2E CLIENT de vinculación, ficha y mascotas propias. Preparar además una cuenta VETERINARIO sintética mediante invitación y asignación de rol ya autorizadas, con variables locales excluidas de Git; después ejecutar el recorrido clínico y la confirmación de posible duplicado de mascota desde navegador. Continuar con los requisitos B02 que aún no tienen vertical completo, incluida la edición administrativa de propietario.
 
 ## Estado recuperado
 
@@ -52,7 +63,7 @@ Cuando el responsable actualice las dos contrasenas CLIENT locales para cumplir 
 - La especificación V1 conserva 19 archivos físicos y los 18 hashes declarados
   en su manifiesto.
 - PostgreSQL local 18.6: `arquitectura_veterinaria` es la única base en alcance.
-  Flyway registra V001–V018 una sola vez y correctamente.
+  Flyway registra V001–V019 una sola vez y correctamente.
 - El único cambio preexistente no confirmado es
   `frontend/angular.json`: desactiva la analítica de Angular. Se conserva sin
   atribuirlo a esta línea y queda fuera de cualquier staging hasta confirmar su
@@ -66,7 +77,7 @@ Cuando el responsable actualice las dos contrasenas CLIENT locales para cumplir 
 |---|---|---|
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
 | B01 — Administración, identidad y acceso | Parcial | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. La semilla CLIENT se detiene antes de PostgreSQL: las dos contraseñas locales no cumplen todavía la regla de mayúscula ASCII; por ello falta el E2E autenticado CLIENT. |
-| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial y transferencia de responsable implementado con PostgreSQL, RLS y Angular. El recorrido de navegador STAFF verifica propietario, mascota, transferencia histórica y restricción clínica; la atención desde navegador exige una cuenta sintética VETERINARIO aún no disponible. Vinculación digital, vacunas, recetas, rectificaciones y mascotas CLIENT siguen pendientes. |
+| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial, transferencia, vínculo CLIENT, registros clínicos inmutables y revisión humana de duplicados implementado con PostgreSQL, RLS y Angular. El recorrido STAFF verifica propietario, mascota, transferencia y descarte de duplicado; la atención y confirmación clínica desde navegador exigen una cuenta sintética VETERINARIO aún no disponible. CLIENT autenticado aún exige contraseñas locales válidas. Persisten criterios B02 no cubiertos por recorrido completo, incluida la edición administrativa de propietario. |
 | B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
 | B05 — Tienda y pedidos | Pendiente | Catálogo, carrito, pedido y descuento de stock exactamente una vez al confirmar. |

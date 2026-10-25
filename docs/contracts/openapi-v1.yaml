@@ -462,6 +462,131 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/owners/{ownerId}/duplicate-candidates:
+    get:
+      tags: [owner-pet-care]
+      summary: Lista señales de posible duplicado de un propietario dentro del tenant
+      description: Solo personal de registro. Es una señal revisable; nunca fusiona ni desactiva registros.
+      x-implementation-status: implemented-b02-duplicate-review
+      x-v1-requirements: [RF-B02-014, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/OwnerId' }]
+      responses:
+        '200': { $ref: '#/components/responses/DuplicateCandidatesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/owner-duplicate-reviews:
+    post:
+      tags: [owner-pet-care]
+      summary: Abre un expediente inmutable de revisión de propietarios
+      description: Administración o recepción selecciona explícitamente el registro duplicado y su referencia; no existe combinación automática.
+      x-implementation-status: implemented-b02-duplicate-review
+      x-v1-requirements: [RF-B02-014, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody: { $ref: '#/components/requestBodies/DuplicateReviewRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/OwnerDuplicateReviewResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [owner-pet-care]
+      summary: Lista expedientes de revisión de propietarios del tenant
+      x-implementation-status: implemented-b02-duplicate-review
+      x-v1-requirements: [RF-B02-014, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/OwnerDuplicateReviewsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/owner-duplicate-reviews/{reviewId}/resolution:
+    post:
+      tags: [owner-pet-care]
+      summary: Registra una decisión inmutable sobre un expediente de propietario
+      description: La inactivación confirmada y su resolución ocurren en una sola transacción; se rechaza si quedan mascotas activas o vínculo CLIENT vigente.
+      x-implementation-status: implemented-b02-duplicate-review
+      x-v1-requirements: [RF-B02-014, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ReviewId' }]
+      requestBody: { $ref: '#/components/requestBodies/DuplicateResolutionRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pets/{petId}/duplicate-candidates:
+    get:
+      tags: [owner-pet-care]
+      summary: Lista señales de posible duplicado de una mascota dentro del tenant
+      description: Solo personal de registro. Las señales no fusionan historias ni cambian responsables.
+      x-implementation-status: implemented-b02-duplicate-review
+      x-v1-requirements: [RF-B02-014, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      responses:
+        '200': { $ref: '#/components/responses/DuplicateCandidatesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/pet-duplicate-reviews:
+    post:
+      tags: [owner-pet-care]
+      summary: Abre un expediente inmutable de revisión de mascotas
+      x-implementation-status: implemented-b02-duplicate-review
+      x-v1-requirements: [RF-B02-014, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody: { $ref: '#/components/requestBodies/DuplicateReviewRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/PetDuplicateReviewResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [owner-pet-care]
+      summary: Lista expedientes de revisión de mascotas visibles al personal autorizado
+      x-implementation-status: implemented-b02-duplicate-review
+      x-v1-requirements: [RF-B02-014, RF-B02-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/PetDuplicateReviewsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/pet-duplicate-reviews/{reviewId}/clinical-evaluation:
+    post:
+      tags: [owner-pet-care]
+      summary: Registra la evaluación veterinaria requerida para una mascota duplicada con datos clínicos
+      x-implementation-status: implemented-b02-duplicate-review
+      x-v1-requirements: [RF-B02-008, RF-B02-014, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ReviewId' }]
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/pet-duplicate-reviews/{reviewId}/resolution:
+    post:
+      tags: [owner-pet-care]
+      summary: Registra una decisión inmutable sobre un expediente de mascota
+      description: Confirmar la inactivación exige evaluación VETERINARIO si la ficha duplicada contiene datos clínicos.
+      x-implementation-status: implemented-b02-duplicate-review
+      x-v1-requirements: [RF-B02-014, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ReviewId' }]
+      requestBody: { $ref: '#/components/requestBodies/DuplicateResolutionRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/client/owner-link-requests:
     post:
       tags: [owner-pet-care]
@@ -766,6 +891,8 @@ components:
     OwnerRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OwnerRequest' } } } }
     PetRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PetRequest' } } } }
     OwnershipTransferRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OwnershipTransferRequest' } } } }
+    DuplicateReviewRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DuplicateReviewRequest' } } } }
+    DuplicateResolutionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DuplicateResolutionRequest' } } } }
     ClientOwnerLinkResolutionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClientOwnerLinkResolutionRequest' } } } }
     ClinicalEpisodeRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClinicalEpisodeRequest' } } } }
     VaccinationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/VaccinationRequest' } } } }
@@ -1024,7 +1151,7 @@ components:
         birthDate: { type: [string, 'null'], format: date }
         estimatedAgeMonths: { type: [integer, 'null'] }
         distinguishingMarks: { type: [string, 'null'] }
-        status: { type: string, enum: [ACTIVA, FALLECIDA] }
+        status: { type: string, enum: [ACTIVA, FALLECIDA, INACTIVA] }
     OwnerRequest:
       type: object
       required: [givenNames, familyNames]
@@ -1092,6 +1219,51 @@ components:
         newOwnerId: { type: string, format: uuid }
         reason: { type: string, minLength: 3, maxLength: 500 }
         identityVerified: { type: boolean, const: true }
+    DuplicateReviewRequest:
+      type: object
+      required: [duplicateId, referenceId]
+      properties:
+        duplicateId: { type: string, format: uuid }
+        referenceId: { type: string, format: uuid }
+    DuplicateResolutionRequest:
+      type: object
+      required: [outcome, reason]
+      properties:
+        outcome: { type: string, enum: [DESCARTADA, CONFIRMADA_INACTIVA] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    DuplicateCandidate:
+      type: object
+      required: [id, label, matchReason]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        matchReason: { type: string }
+    OwnerDuplicateReview:
+      type: object
+      required: [id, duplicateOwnerId, referenceOwnerId, reportedAt]
+      properties:
+        id: { type: string, format: uuid }
+        duplicateOwnerId: { type: string, format: uuid }
+        referenceOwnerId: { type: string, format: uuid }
+        duplicateLabel: { type: [string, 'null'] }
+        referenceLabel: { type: [string, 'null'] }
+        reportedAt: { type: string, format: date-time }
+        outcome: { type: [string, 'null'], enum: [DESCARTADA, CONFIRMADA_INACTIVA, null] }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+    PetDuplicateReview:
+      type: object
+      required: [id, duplicatePetId, referencePetId, reportedAt, requiresClinicalEvaluation]
+      properties:
+        id: { type: string, format: uuid }
+        duplicatePetId: { type: string, format: uuid }
+        referencePetId: { type: string, format: uuid }
+        duplicateLabel: { type: [string, 'null'] }
+        referenceLabel: { type: [string, 'null'] }
+        reportedAt: { type: string, format: date-time }
+        outcome: { type: [string, 'null'], enum: [DESCARTADA, CONFIRMADA_INACTIVA, null] }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        clinicalEvaluatedAt: { type: [string, 'null'], format: date-time }
+        requiresClinicalEvaluation: { type: boolean }
     OwnerProfile:
       type: object
       required: [id, tenantId, givenNames, familyNames, status, origin, createdAt, updatedAt]
@@ -1121,7 +1293,7 @@ components:
         birthDate: { type: [string, 'null'], format: date }
         estimatedAgeMonths: { type: [integer, 'null'] }
         distinguishingMarks: { type: [string, 'null'] }
-        status: { type: string, enum: [ACTIVA, FALLECIDA] }
+        status: { type: string, enum: [ACTIVA, FALLECIDA, INACTIVA] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     OwnershipPeriod:
@@ -1315,6 +1487,21 @@ components:
     OwnershipPeriodsResponse:
       description: Periodos de responsabilidad visibles para administracion o recepcion autorizada.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/OwnershipPeriod' } } } } } }
+    DuplicateCandidatesResponse:
+      description: Señales de posible duplicado visibles solo a personal autorizado del tenant; no son una fusión.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/DuplicateCandidate' } } } } } }
+    OwnerDuplicateReviewResponse:
+      description: Expediente inmutable de revisión humana de propietarios.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/OwnerDuplicateReview' } } } } }
+    OwnerDuplicateReviewsResponse:
+      description: Expedientes de revisión humana de propietarios del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/OwnerDuplicateReview' } } } } } }
+    PetDuplicateReviewResponse:
+      description: Expediente inmutable de revisión humana de mascotas.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/PetDuplicateReview' } } } } }
+    PetDuplicateReviewsResponse:
+      description: Expedientes de revisión humana de mascotas visibles al personal autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/PetDuplicateReview' } } } } } }
     ClinicalEpisodeResponse:
       description: Episodio clínico visible solo para veterinario autorizado.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ClinicalEpisode' } } } } }

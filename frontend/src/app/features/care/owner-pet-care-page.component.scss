@@ -31,6 +31,51 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.duplicate-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.duplicate-review-list {
+  display: grid;
+  gap: .5rem;
+  max-height: 14rem;
+  margin-top: 1rem;
+  overflow: auto;
+}
+
+.duplicate-review-list button {
+  display: grid;
+  gap: .25rem;
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid transparent;
+  padding: .75rem .85rem;
+  color: var(--ink-strong);
+  background: var(--surface-raised);
+  cursor: pointer;
+  text-align: left;
+}
+
+.duplicate-review-list button:hover,
+.duplicate-review-list button:focus-visible,
+.duplicate-review-list button.is-selected {
+  border-left-color: var(--accent-warm);
+  background: var(--accent-teal-soft);
+}
+
+.duplicate-review-list span {
+  color: var(--ink-muted);
+  font-size: .85rem;
+}
+
+.duplicate-resolution {
+  display: grid;
+  gap: .75rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+}
+
 .two-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -215,6 +260,7 @@ textarea:focus-visible {
   .care-layout,
   .clinical-layout,
   .clinical-record-layout,
+  .duplicate-layout,
   .link-review-layout,
   .two-columns {
     grid-template-columns: 1fr;

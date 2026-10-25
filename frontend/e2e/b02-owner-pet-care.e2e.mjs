@@ -25,6 +25,18 @@ const successorFixture = {
   phone: '900000001',
   address: 'Synthetic transfer record',
 };
+const duplicateOwnerFixture = {
+  givenNames: 'B02 Duplicado',
+  familyNames: 'Aurora',
+  phone: '900000070',
+  address: 'Revisión sintética local',
+};
+const duplicateReferenceFixture = {
+  givenNames: 'B02 Duplicado',
+  familyNames: 'Aurora',
+  phone: '900000071',
+  address: 'Referencia sintética local',
+};
 const petFixture = {
   name: 'Nube E2E',
   species: 'Canino',
@@ -50,12 +62,48 @@ try {
     && new URL(response.url()).pathname === '/api/v1/owners');
 	const pendingLinkRequestsLoad = page.waitForResponse((response) => response.request().method() === 'GET'
 	  && new URL(response.url()).pathname === '/api/v1/owner-link-requests');
+  const ownerDuplicateReviewsLoad = page.waitForResponse((response) => response.request().method() === 'GET'
+    && new URL(response.url()).pathname === '/api/v1/owner-duplicate-reviews');
   await page.getByRole('link', { name: 'Propietarios y clínica' }).click();
   await page.waitForURL(`${baseUrl}/care`);
   await page.getByRole('heading', { name: 'Registrar y atender' }).waitFor();
   assert.equal((await initialOwnersLoad).status(), 200, 'the B02 page must load the tenant owner list');
 
 	assert.equal((await pendingLinkRequestsLoad).status(), 200, 'the B02 page must load the tenant link-review queue');
+  assert.equal((await ownerDuplicateReviewsLoad).status(), 200, 'the B02 page must load tenant-local duplicate reviews');
+
+  const duplicateOwner = await ensureOwner(page, duplicateOwnerFixture);
+  const duplicateReference = await ensureOwner(page, duplicateReferenceFixture);
+  const duplicateOwnerButton = page.locator('.owner-list button').filter({ hasText: `${duplicateOwnerFixture.familyNames}, ${duplicateOwnerFixture.givenNames}` });
+  const duplicateCandidatesLoad = page.waitForResponse((response) => response.request().method() === 'GET'
+    && new URL(response.url()).pathname === `/api/v1/owners/${duplicateOwner.id}/duplicate-candidates`);
+  await duplicateOwnerButton.first().click();
+  assert.equal((await duplicateCandidatesLoad).status(), 200, 'the duplicate candidate signal must stay inside the tenant');
+  const existingDuplicateReview = await existingOwnerDuplicateReview(page, duplicateOwner.id, duplicateReference.id);
+  if (!existingDuplicateReview) {
+    const duplicateRequest = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/v1/owner-duplicate-reviews');
+    const duplicateReviewsRefresh = page.waitForResponse((response) => response.request().method() === 'GET'
+      && new URL(response.url()).pathname === '/api/v1/owner-duplicate-reviews');
+    await page.locator('#owner-duplicate-reference').selectOption(duplicateReference.id);
+    await page.getByRole('button', { name: 'Abrir expediente de revisión' }).click();
+    assert.equal((await duplicateRequest).status(), 201, 'the browser must create only an explicit human review');
+    assert.equal((await duplicateReviewsRefresh).status(), 200, 'the UI must reload the enriched duplicate review after creation');
+  }
+  const duplicateReview = await existingOwnerDuplicateReview(page, duplicateOwner.id, duplicateReference.id);
+  assert.ok(duplicateReview, 'the human duplicate review must persist');
+  if (!duplicateReview.outcome) {
+    const reviewButton = page.locator('.duplicate-review-list button').filter({ hasText: duplicateOwnerFixture.givenNames }).first();
+    await reviewButton.click();
+    const duplicateResolution = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/api/v1/owner-duplicate-reviews/${duplicateReview.id}/resolution`);
+    await page.locator('#owner-duplicate-outcome').selectOption('DESCARTADA');
+    await page.locator('#owner-duplicate-reason').fill('Dos personas distintas verificadas en la revisión sintética.');
+    await page.locator('form:has(#owner-duplicate-outcome) button[type="submit"]').click();
+    assert.equal((await duplicateResolution).status(), 204, 'the review resolution must be recorded without a merge');
+  }
+  const resolvedDuplicateReview = await existingOwnerDuplicateReview(page, duplicateOwner.id, duplicateReference.id);
+  assert.equal(resolvedDuplicateReview?.outcome, 'DESCARTADA', 'the duplicate review must retain its explicit immutable result');
 
   let owner = await existingOwner(page);
   if (!owner) {
@@ -200,6 +248,36 @@ async function ensureSuccessor(page) {
   ]);
   assert.equal(created.status(), 201, 'the successor owner form must persist through the authenticated API');
   return (await created.json()).data;
+}
+
+async function ensureOwner(page, fixture) {
+  const response = await browserFetch(page, `/api/v1/owners?query=${encodeURIComponent(fixture.givenNames)}`);
+  assert.equal(response.status, 200, 'the authenticated administrator must list synthetic duplicate owners');
+  const existing = response.body?.data?.find((owner) => owner.givenNames === fixture.givenNames
+    && owner.familyNames === fixture.familyNames && owner.phone === fixture.phone);
+  if (existing) {
+    return existing;
+  }
+  const [created] = await Promise.all([
+    page.waitForResponse((candidate) => candidate.request().method() === 'POST'
+      && candidate.url().endsWith('/api/v1/owners')),
+    (async () => {
+      await page.locator('#owner-given-names').fill(fixture.givenNames);
+      await page.locator('#owner-family-names').fill(fixture.familyNames);
+      await page.locator('#owner-phone').fill(fixture.phone);
+      await page.locator('#owner-address').fill(fixture.address);
+      await page.locator('.owner-panel form button[type="submit"]').click();
+    })(),
+  ]);
+  assert.equal(created.status(), 201, 'the duplicate fixture must persist through the browser form');
+  return (await created.json()).data;
+}
+
+async function existingOwnerDuplicateReview(page, duplicateId, referenceId) {
+  const response = await browserFetch(page, '/api/v1/owner-duplicate-reviews');
+  assert.equal(response.status, 200, 'the administrator must list duplicate reviews only in its tenant');
+  return response.body?.data?.find((review) => review.duplicateOwnerId === duplicateId
+    && review.referenceOwnerId === referenceId) ?? null;
 }
 
 async function existingPet(page, ownerId) {

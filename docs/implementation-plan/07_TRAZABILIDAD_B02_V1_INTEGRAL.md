@@ -19,7 +19,7 @@
 | RF-B02-011 | Pendiente | No hay prescripción básica. | Instrucciones y trazabilidad de veterinario. |
 | RF-B02-012 | Pendiente | No hay adendas para episodios finalizados. | Rectificación atribuible sin sobrescritura. |
 | RF-B02-013 | Parcial verificado | Historia denegada a ADMIN sin VETERINARIO y cross-tenant; CLIENT no recibe historia. | Datos B02 permitidos para CLIENT y pruebas específicas de portal. |
-| RF-B02-014 | Pendiente | No hay señalización ni revisión de duplicados. | Detección humana sin fusión automática. |
+| RF-B02-014 | Parcial verificado | Señales tenant-locales, expediente append-only, resolución explícita y UI STAFF para detectar, registrar y descartar. La integración comprueba confirmación, inactivación condicionada y evaluación VETERINARIO previa cuando la mascota tiene clínica. | E2E VETERINARIO y ADMINISTRACIÓN de confirmación; no hay fusión automática. |
 | RF-B02-015 | Verificado | Períodos persistidos, cierre del anterior, apertura del nuevo y `GET /pets/{petId}/ownership-periods` con E2E real. | Conservar la trazabilidad al integrar vinculación digital. |
 | RF-B02-016 | Verificado | RLS, contexto JDBC confiable, prueba Aurora/Bosque, rechazo de propietario externo y 404 genérico por ID de otra veterinaria. | Repetir para los subflujos B02 restantes al implementarlos. |
 
@@ -88,6 +88,29 @@ Esta actualizacion prevalece sobre los limites anteriores de RF-B02-003 y RF-B02
 - `npm.cmd test -- --watch=false`: 4 archivos / 9 pruebas correctas. `npm.cmd run build`: correcto. `npm.cmd run validate:contract`: OpenAPI valido.
 - La comprobacion posterior de cuentas transitorias CLIENT/VETERINARIO de pruebas devolvio 0. No se imprimieron contrasenas, tokens ni enlaces.
 - E2E CLIENT queda bloqueado de forma explicita: las dos variables de contrasena CLIENT locales no cumplen la politica. No se rebajo la politica, no se ejecuto la semilla y no se declara evidencia de navegador para este vertical.
+
+## Actualización verificable — revisión humana de posibles duplicados (2026-10-24)
+
+Esta actualización prevalece sobre el estado inicial de RF-B02-014. No modifica la
+especificación funcional V1 ni introduce fusión automática, sustitución de
+identificadores, transferencia automática ni eliminación de historia clínica.
+
+| Requisito | Estado actualizado | Evidencia y límite actual |
+|---|---|---|
+| RF-B02-014 | Parcial verificado | `GET` de candidatos tenant-locales, creación/lista de expediente y resolución explícita se integran en Angular para recepción/administración. Playwright Chrome crea y descarta un expediente real. La integración PostgreSQL prueba que un propietario no se inactiva si mantiene responsabilidad o vínculo CLIENT, que una mascota con episodio exige evaluación VETERINARIO y que Bosque no puede resolver un expediente de Aurora. Falta E2E con cuenta VETERINARIO para registrar evaluación y confirmar la inactivación desde interfaz. |
+| RF-B02-008 | Parcial verificado | La evaluación de posible duplicado de mascota exige rol `VETERINARIO`; administración sin permiso clínico no puede sustituirla. La integración cubre el rechazo y la secuencia aprobada. Falta recorrido de navegador con cuenta VETERINARIO sintética local. |
+| RF-B02-013 | Parcial verificado | No se añaden rutas CLIENT para casos de duplicidad ni se expone información clínica, de otros propietarios o de otra veterinaria. CLIENT sigue limitado a la proyección básica ya documentada. |
+| RF-B02-016 | Verificado | RLS, FKs tenant-locales, sesión resuelta en backend y el rechazo genérico de Bosque ante un `reviewId` de Aurora protegen este subflujo contra acceso cross-tenant. |
+
+### Evidencia del checkpoint V019
+
+- V019 `b02 human duplicate review`: SHA-256 `5F197536F4C0B7043B06E1C1246C50EB5C2CC61513D57DFB1B99378BC9BCF8FF`; Flyway la registró una sola vez con checksum `887362817`.
+- Las cinco tablas de revisión son append-only, tienen RLS y propietario `av_schema_owner` sin superusuario ni `BYPASSRLS`. `PUBLIC` no tiene permisos y `av_app` conserva solamente `SELECT/INSERT`, sin `UPDATE` ni `DELETE`.
+- No hay `SECURITY DEFINER`, funciones, SQL dinámico ni permisos globales nuevos. La pareja normalizada de registros impide dos expedientes para los mismos candidatos invirtiendo el orden. La decisión V1 es conservar un único expediente inmutable por pareja; no existe reapertura automática.
+- Las operaciones de evaluación y resolución se serializan dentro de su transacción mediante bloqueo asesor por expediente. `ON CONFLICT DO NOTHING` transforma un reintento ya resuelto o duplicado en un resultado de dominio controlado, sin depender de una excepción SQL que invalide la transacción.
+- `mvnw.cmd '-Dtest=OwnerPetCareDatabaseIntegrationTest,B02AccessPolicyTest' test`: 13/13 correctas con Java 21, Flyway desactivado y rollback transaccional. Incluye detección, descarte, rechazo de inactivación parcial, evaluación VETERINARIO, inactivación legítima, rechazo clínico sobre mascota inactiva y aislamiento Aurora/Bosque.
+- `npm.cmd test -- --watch=false`: 4 archivos/9 pruebas correctas. `npm.cmd run build`: correcto. `npm.cmd run validate:contract`: OpenAPI válido.
+- `npm.cmd run test:e2e:b02`: `B02_OWNER_PET_BROWSER_E2E=PASS`; el navegador real prueba candidatos, creación de expediente y descarte persistente. No sustituye el E2E VETERINARIO de evaluación/confirmación pendiente.
 
 ## Verificaciones del checkpoint
 

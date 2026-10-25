@@ -142,6 +142,50 @@
 	    </article>
 	  </section>
 
+      <section class="care-layout duplicate-layout" *ngIf="canManageRegistry() && selectedOwner() as owner">
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">Revisión humana</p><h2>Señales de propietario</h2></div><span class="panel-caption">Sin fusión automática</span></div>
+          <p class="panel-note">Las coincidencias son solo señales locales. Selecciona un registro de referencia después de revisarlo manualmente.</p>
+          <form [formGroup]="ownerDuplicateForm" (ngSubmit)="reportOwnerDuplicate()" novalidate>
+            <div class="field-group"><label for="owner-duplicate-reference">Referencia para {{ ownerLabel(owner) }}</label><select id="owner-duplicate-reference" formControlName="referenceId"><option value="">No hay selección</option><option *ngFor="let candidate of ownerDuplicateCandidates(); trackBy: trackById" [value]="candidate.id">{{ candidate.label }} — {{ candidate.matchReason }}</option></select><p class="field-error" *ngIf="ownerDuplicateForm.controls.referenceId.touched && ownerDuplicateForm.controls.referenceId.invalid">Selecciona una ficha local a revisar.</p></div>
+            <p class="empty-state compact" *ngIf="!ownerDuplicateCandidates().length">No se detectaron señales por nombres, teléfono o correo dentro de esta veterinaria.</p>
+            <button class="button button-secondary" type="submit" [disabled]="actionPending() || !ownerDuplicateCandidates().length">Abrir expediente de revisión</button>
+          </form>
+        </article>
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">Expedientes</p><h2>Revisiones de propietarios</h2></div><span class="panel-caption">{{ ownerDuplicateReviews().length }} registradas</span></div>
+          <div class="duplicate-review-list" *ngIf="ownerDuplicateReviews().length; else noOwnerDuplicateReviews"><button type="button" *ngFor="let review of ownerDuplicateReviews(); trackBy: trackById" (click)="selectOwnerDuplicateReview(review)" [class.is-selected]="selectedOwnerDuplicateReview()?.id === review.id"><strong>{{ review.duplicateLabel || review.duplicateOwnerId }} → {{ review.referenceLabel || review.referenceOwnerId }}</strong><span>{{ review.outcome || 'Pendiente de decisión' }}</span></button></div>
+          <ng-template #noOwnerDuplicateReviews><p class="empty-state compact">No hay expedientes de propietarios en esta veterinaria.</p></ng-template>
+          <form class="duplicate-resolution" *ngIf="selectedOwnerDuplicateReview() as review" [formGroup]="ownerDuplicateResolutionForm" (ngSubmit)="resolveOwnerDuplicate()" novalidate>
+            <p class="panel-note" *ngIf="review.outcome">Resultado inmutable: {{ review.outcome }}.</p>
+            <ng-container *ngIf="!review.outcome"><div class="field-group"><label for="owner-duplicate-outcome">Decisión</label><select id="owner-duplicate-outcome" formControlName="outcome"><option value="DESCARTADA">Descartar señal</option><option value="CONFIRMADA_INACTIVA">Confirmar duplicado e inactivar ficha</option></select></div><div class="field-group"><label for="owner-duplicate-reason">Motivo de la revisión</label><textarea id="owner-duplicate-reason" rows="3" formControlName="reason"></textarea></div><button class="button button-primary" type="submit" [disabled]="actionPending()">Registrar decisión</button></ng-container>
+          </form>
+        </article>
+      </section>
+
+      <section class="care-layout duplicate-layout" *ngIf="selectedPet() && (canManageRegistry() || canWriteClinical())">
+        <article class="panel" *ngIf="canManageRegistry()">
+          <div class="panel-heading"><div><p class="eyebrow">Revisión humana</p><h2>Señales de mascota</h2></div><span class="panel-caption">Sin mezclar historias</span></div>
+          <p class="panel-note">Las coincidencias se basan en nombre, especie y edad/fecha. No cambian responsables ni datos clínicos.</p>
+          <form [formGroup]="petDuplicateForm" (ngSubmit)="reportPetDuplicate()" novalidate>
+            <div class="field-group"><label for="pet-duplicate-reference">Mascota de referencia</label><select id="pet-duplicate-reference" formControlName="referenceId"><option value="">No hay selección</option><option *ngFor="let candidate of petDuplicateCandidates(); trackBy: trackById" [value]="candidate.id">{{ candidate.label }} — {{ candidate.matchReason }}</option></select></div>
+            <p class="empty-state compact" *ngIf="!petDuplicateCandidates().length">No se detectaron señales para la ficha seleccionada.</p>
+            <button class="button button-secondary" type="submit" [disabled]="actionPending() || !petDuplicateCandidates().length">Abrir revisión de mascota</button>
+          </form>
+        </article>
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">Expedientes</p><h2>Revisiones de mascotas</h2></div><span class="panel-caption">{{ petDuplicateReviews().length }} registradas</span></div>
+          <div class="duplicate-review-list" *ngIf="petDuplicateReviews().length; else noPetDuplicateReviews"><button type="button" *ngFor="let review of petDuplicateReviews(); trackBy: trackById" (click)="selectPetDuplicateReview(review)" [class.is-selected]="selectedPetDuplicateReview()?.id === review.id"><strong>{{ review.duplicateLabel || review.duplicatePetId }} → {{ review.referenceLabel || review.referencePetId }}</strong><span>{{ review.outcome || (review.requiresClinicalEvaluation ? 'Requiere evaluación clínica' : 'Pendiente de decisión') }}</span></button></div>
+          <ng-template #noPetDuplicateReviews><p class="empty-state compact">No hay expedientes de mascotas en esta veterinaria.</p></ng-template>
+          <div class="duplicate-resolution" *ngIf="selectedPetDuplicateReview() as review">
+            <p class="panel-note" *ngIf="review.outcome">Resultado inmutable: {{ review.outcome }}.</p>
+            <button class="button button-secondary" type="button" *ngIf="canWriteClinical() && review.requiresClinicalEvaluation && !review.clinicalEvaluatedAt && !review.outcome" (click)="evaluatePetDuplicateClinically()" [disabled]="actionPending()">Registrar evaluación veterinaria</button>
+            <p class="panel-note" *ngIf="review.requiresClinicalEvaluation && review.clinicalEvaluatedAt">La evaluación veterinaria está registrada. La decisión administrativa sigue separada.</p>
+            <form *ngIf="canManageRegistry() && !review.outcome" [formGroup]="petDuplicateResolutionForm" (ngSubmit)="resolvePetDuplicate()" novalidate><div class="field-group"><label for="pet-duplicate-outcome">Decisión</label><select id="pet-duplicate-outcome" formControlName="outcome"><option value="DESCARTADA">Descartar señal</option><option value="CONFIRMADA_INACTIVA">Confirmar duplicado e inactivar ficha</option></select></div><div class="field-group"><label for="pet-duplicate-reason">Motivo de la revisión</label><textarea id="pet-duplicate-reason" rows="3" formControlName="reason"></textarea></div><button class="button button-primary" type="submit" [disabled]="actionPending()">Registrar decisión</button></form>
+          </div>
+        </article>
+      </section>
+
 	  <section class="care-layout clinical-layout" *ngIf="selectedPet() as pet">
         <article class="panel" *ngIf="canWriteClinical(); else restrictedClinical">
           <div class="panel-heading"><div><p class="eyebrow">Paso 3</p><h2>Registrar atención de {{ pet.name }}</h2></div><span class="panel-caption">Solo veterinario</span></div>

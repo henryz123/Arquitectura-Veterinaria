@@ -10,8 +10,11 @@ import {
   ClinicalEpisodeRequest,
   ClinicalPrescription,
   ClientOwnerLinkRequest,
+  DuplicateCandidate,
+  OwnerDuplicateReview,
   OwnerProfile,
   OwnershipPeriod,
+  PetDuplicateReview,
   PetProfile,
   VaccinationRecord,
 } from '../../core/api/api.models';
@@ -43,6 +46,12 @@ export class OwnerPetCarePageComponent implements OnInit {
   readonly ownershipPeriods = signal<OwnershipPeriod[]>([]);
   readonly linkRequests = signal<ClientOwnerLinkRequest[]>([]);
   readonly selectedLinkRequest = signal<ClientOwnerLinkRequest | null>(null);
+  readonly ownerDuplicateCandidates = signal<DuplicateCandidate[]>([]);
+  readonly petDuplicateCandidates = signal<DuplicateCandidate[]>([]);
+  readonly ownerDuplicateReviews = signal<OwnerDuplicateReview[]>([]);
+  readonly petDuplicateReviews = signal<PetDuplicateReview[]>([]);
+  readonly selectedOwnerDuplicateReview = signal<OwnerDuplicateReview | null>(null);
+  readonly selectedPetDuplicateReview = signal<PetDuplicateReview | null>(null);
   readonly loading = signal(true);
   readonly actionPending = signal(false);
   readonly error = signal<string | null>(null);
@@ -119,6 +128,20 @@ export class OwnerPetCarePageComponent implements OnInit {
     rejectionReason: ['', Validators.maxLength(500)],
     identityVerified: false,
   });
+  readonly ownerDuplicateForm = this.formBuilder.nonNullable.group({
+    referenceId: ['', Validators.required],
+  });
+  readonly ownerDuplicateResolutionForm = this.formBuilder.nonNullable.group({
+    outcome: this.formBuilder.nonNullable.control<'DESCARTADA' | 'CONFIRMADA_INACTIVA'>('DESCARTADA'),
+    reason: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(500)]],
+  });
+  readonly petDuplicateForm = this.formBuilder.nonNullable.group({
+    referenceId: ['', Validators.required],
+  });
+  readonly petDuplicateResolutionForm = this.formBuilder.nonNullable.group({
+    outcome: this.formBuilder.nonNullable.control<'DESCARTADA' | 'CONFIRMADA_INACTIVA'>('DESCARTADA'),
+    reason: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(500)]],
+  });
 
   ngOnInit(): void {
     if (this.context()?.accountType !== 'STAFF') {
@@ -129,6 +152,7 @@ export class OwnerPetCarePageComponent implements OnInit {
     if (this.canManageRegistry()) {
       this.loadLinkRequests();
     }
+    this.loadDuplicateReviews();
   }
 
   loadOwners(query?: string): void {
@@ -145,6 +169,149 @@ export class OwnerPetCarePageComponent implements OnInit {
       next: (response) => this.linkRequests.set(response.data),
       error: () => this.error.set('No fue posible cargar las solicitudes de vinculación pendientes.'),
     });
+  }
+
+  loadDuplicateReviews(): void {
+    if (this.canManageRegistry()) {
+      this.api.listOwnerDuplicateReviews().subscribe({
+        next: (response) => this.ownerDuplicateReviews.set(response.data),
+        error: () => this.error.set('No fue posible cargar las revisiones de propietarios.'),
+      });
+    }
+    this.api.listPetDuplicateReviews().subscribe({
+      next: (response) => this.petDuplicateReviews.set(response.data),
+      error: () => this.error.set('No fue posible cargar las revisiones de mascotas autorizadas.'),
+    });
+  }
+
+  loadOwnerDuplicateCandidates(ownerId: string): void {
+    this.api.findPotentialOwnerDuplicates(ownerId).subscribe({
+      next: (response) => this.ownerDuplicateCandidates.set(response.data),
+      error: () => this.error.set('No fue posible evaluar las señales de posible duplicado del propietario.'),
+    });
+  }
+
+  loadPetDuplicateCandidates(petId: string): void {
+    this.api.findPotentialPetDuplicates(petId).subscribe({
+      next: (response) => this.petDuplicateCandidates.set(response.data),
+      error: () => this.error.set('No fue posible evaluar las señales de posible duplicado de la mascota.'),
+    });
+  }
+
+  reportOwnerDuplicate(): void {
+    const owner = this.selectedOwner();
+    if (!owner || !this.canManageRegistry() || this.ownerDuplicateForm.invalid || this.actionPending()) {
+      this.ownerDuplicateForm.markAllAsTouched();
+      return;
+    }
+    this.clearFeedback();
+    this.actionPending.set(true);
+    this.api.reportOwnerDuplicate({ duplicateId: owner.id, referenceId: this.ownerDuplicateForm.controls.referenceId.value })
+      .pipe(finalize(() => this.actionPending.set(false))).subscribe({
+        next: (response) => {
+          this.ownerDuplicateForm.reset({ referenceId: '' });
+          this.ownerDuplicateCandidates.set([]);
+          this.loadDuplicateReviews();
+          this.notice.set('La señal quedó registrada como expediente humano; no se fusionó ninguna ficha.');
+        },
+        error: () => this.error.set('No fue posible abrir la revisión. Verifica que las fichas sigan activas y no tengan un expediente previo.'),
+      });
+  }
+
+  selectOwnerDuplicateReview(review: OwnerDuplicateReview): void {
+    this.selectedOwnerDuplicateReview.set(review);
+    this.ownerDuplicateResolutionForm.reset({ outcome: 'DESCARTADA', reason: '' });
+    this.clearFeedback();
+  }
+
+  resolveOwnerDuplicate(): void {
+    const review = this.selectedOwnerDuplicateReview();
+    if (!review || !this.canManageRegistry() || review.outcome || this.ownerDuplicateResolutionForm.invalid || this.actionPending()) {
+      this.ownerDuplicateResolutionForm.markAllAsTouched();
+      return;
+    }
+    const value = this.ownerDuplicateResolutionForm.getRawValue();
+    this.clearFeedback();
+    this.actionPending.set(true);
+    this.api.resolveOwnerDuplicate(review.id, { outcome: value.outcome, reason: value.reason.trim() })
+      .pipe(finalize(() => this.actionPending.set(false))).subscribe({
+        next: () => {
+          this.selectedOwnerDuplicateReview.set(null);
+          this.ownerDuplicateResolutionForm.reset({ outcome: 'DESCARTADA', reason: '' });
+          this.loadDuplicateReviews();
+          this.loadOwners();
+          this.notice.set('La resolución quedó registrada sin fusión ni eliminación de evidencia.');
+        },
+        error: () => this.error.set('No fue posible resolver la revisión. Verifica las relaciones vigentes y el estado actual de las fichas.'),
+      });
+  }
+
+  reportPetDuplicate(): void {
+    const pet = this.selectedPet();
+    if (!pet || !this.canManageRegistry() || this.petDuplicateForm.invalid || this.actionPending()) {
+      this.petDuplicateForm.markAllAsTouched();
+      return;
+    }
+    this.clearFeedback();
+    this.actionPending.set(true);
+    this.api.reportPetDuplicate({ duplicateId: pet.id, referenceId: this.petDuplicateForm.controls.referenceId.value })
+      .pipe(finalize(() => this.actionPending.set(false))).subscribe({
+        next: (response) => {
+          this.petDuplicateForm.reset({ referenceId: '' });
+          this.petDuplicateCandidates.set([]);
+          this.loadDuplicateReviews();
+          this.notice.set('La señal de mascota quedó en revisión humana; no se modificaron historias ni responsables.');
+        },
+        error: () => this.error.set('No fue posible abrir la revisión de mascota. Confirma que ambas fichas estén activas.'),
+      });
+  }
+
+  selectPetDuplicateReview(review: PetDuplicateReview): void {
+    this.selectedPetDuplicateReview.set(review);
+    this.petDuplicateResolutionForm.reset({ outcome: 'DESCARTADA', reason: '' });
+    this.clearFeedback();
+  }
+
+  evaluatePetDuplicateClinically(): void {
+    const review = this.selectedPetDuplicateReview();
+    if (!review || !this.canWriteClinical() || review.outcome || review.clinicalEvaluatedAt || !review.requiresClinicalEvaluation || this.actionPending()) {
+      return;
+    }
+    this.clearFeedback();
+    this.actionPending.set(true);
+    this.api.evaluatePetDuplicateClinically(review.id).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+      next: () => {
+        this.selectedPetDuplicateReview.set(null);
+        this.loadDuplicateReviews();
+        this.notice.set('La evaluación veterinaria fue registrada; la resolución administrativa sigue siendo una acción separada.');
+      },
+      error: () => this.error.set('No fue posible registrar la evaluación clínica. Verifica que la revisión siga abierta y que tengas rol VETERINARIO.'),
+    });
+  }
+
+  resolvePetDuplicate(): void {
+    const review = this.selectedPetDuplicateReview();
+    if (!review || !this.canManageRegistry() || review.outcome || this.petDuplicateResolutionForm.invalid || this.actionPending()) {
+      this.petDuplicateResolutionForm.markAllAsTouched();
+      return;
+    }
+    const value = this.petDuplicateResolutionForm.getRawValue();
+    this.clearFeedback();
+    this.actionPending.set(true);
+    this.api.resolvePetDuplicate(review.id, { outcome: value.outcome, reason: value.reason.trim() })
+      .pipe(finalize(() => this.actionPending.set(false))).subscribe({
+        next: () => {
+          this.selectedPetDuplicateReview.set(null);
+          this.petDuplicateResolutionForm.reset({ outcome: 'DESCARTADA', reason: '' });
+          this.loadDuplicateReviews();
+          const selected = this.selectedPet();
+          if (selected) {
+            this.selectPet(selected);
+          }
+          this.notice.set('La resolución quedó trazada sin fusionar mascotas ni sobrescribir información clínica.');
+        },
+        error: () => this.error.set('No fue posible resolver la revisión. Si existe historia clínica, requiere una evaluación veterinaria previa.'),
+      });
   }
 
   selectLinkRequest(request: ClientOwnerLinkRequest): void {
@@ -247,11 +414,17 @@ export class OwnerPetCarePageComponent implements OnInit {
     this.amendments.set([]);
     this.ownershipPeriods.set([]);
     this.petSubmitted.set(false);
+    this.ownerDuplicateCandidates.set([]);
+    this.selectedOwnerDuplicateReview.set(null);
+    this.ownerDuplicateForm.reset({ referenceId: '' });
     this.clearFeedback();
     this.api.listPetsByOwner(owner.id).subscribe({
       next: (response) => this.ownerPets.set(response.data),
       error: () => this.error.set('No fue posible cargar las mascotas asociadas a este propietario.'),
     });
+    if (this.canManageRegistry()) {
+      this.loadOwnerDuplicateCandidates(owner.id);
+    }
   }
 
   createPet(): void {
@@ -319,6 +492,12 @@ export class OwnerPetCarePageComponent implements OnInit {
       },
       error: () => this.error.set('No fue posible recuperar la ficha autorizada de la mascota.'),
     });
+    this.petDuplicateCandidates.set([]);
+    this.selectedPetDuplicateReview.set(null);
+    this.petDuplicateForm.reset({ referenceId: '' });
+    if (this.canManageRegistry()) {
+      this.loadPetDuplicateCandidates(pet.id);
+    }
   }
 
   saveClinicalEpisode(): void {

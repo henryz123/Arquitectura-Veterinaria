@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdministrativeRecovery, AmendmentRequest, ApiEnvelope, ClientOwnerLinkRequest, ClientOwnerLinkResolutionRequest, ClientOwnerLinkStatus, ClientPetProfile, ClientSpace, ClinicalEpisode, ClinicalEpisodeAmendment, ClinicalEpisodeRequest, ClinicalPrescription, Organization, OwnerProfile, OwnerRequest, OwnershipPeriod, OwnershipTransferRequest, PetProfile, PetRequest, PrescriptionRequest, RucReview, StaffAccount, StaffInvitation, StaffRole, VaccinationRecord, VaccinationRequest, VerificationStatus } from './api.models';
+import { AdministrativeRecovery, AmendmentRequest, ApiEnvelope, ClientOwnerLinkRequest, ClientOwnerLinkResolutionRequest, ClientOwnerLinkStatus, ClientPetProfile, ClientSpace, ClinicalEpisode, ClinicalEpisodeAmendment, ClinicalEpisodeRequest, ClinicalPrescription, DuplicateCandidate, DuplicateResolutionRequest, DuplicateReviewRequest, Organization, OwnerDuplicateReview, OwnerProfile, OwnerRequest, OwnershipPeriod, OwnershipTransferRequest, PetDuplicateReview, PetProfile, PetRequest, PrescriptionRequest, RucReview, StaffAccount, StaffInvitation, StaffRole, VaccinationRecord, VaccinationRequest, VerificationStatus } from './api.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdministrationApiService {
@@ -168,6 +168,52 @@ export class AdministrationApiService {
     return this.http.post<ApiEnvelope<PetProfile>>(
       `${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}/owner-transfers`,
       request,
+    );
+  }
+
+  findPotentialOwnerDuplicates(ownerId: string): Observable<ApiEnvelope<DuplicateCandidate[]>> {
+    return this.http.get<ApiEnvelope<DuplicateCandidate[]>>(
+      `${this.apiBaseUrl}/owners/${encodeURIComponent(ownerId)}/duplicate-candidates`,
+    );
+  }
+
+  reportOwnerDuplicate(request: DuplicateReviewRequest): Observable<ApiEnvelope<OwnerDuplicateReview>> {
+    return this.http.post<ApiEnvelope<OwnerDuplicateReview>>(`${this.apiBaseUrl}/owner-duplicate-reviews`, request);
+  }
+
+  listOwnerDuplicateReviews(): Observable<ApiEnvelope<OwnerDuplicateReview[]>> {
+    return this.http.get<ApiEnvelope<OwnerDuplicateReview[]>>(`${this.apiBaseUrl}/owner-duplicate-reviews`);
+  }
+
+  resolveOwnerDuplicate(reviewId: string, request: DuplicateResolutionRequest): Observable<void> {
+    return this.http.post<void>(
+      `${this.apiBaseUrl}/owner-duplicate-reviews/${encodeURIComponent(reviewId)}/resolution`, request,
+    );
+  }
+
+  findPotentialPetDuplicates(petId: string): Observable<ApiEnvelope<DuplicateCandidate[]>> {
+    return this.http.get<ApiEnvelope<DuplicateCandidate[]>>(
+      `${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}/duplicate-candidates`,
+    );
+  }
+
+  reportPetDuplicate(request: DuplicateReviewRequest): Observable<ApiEnvelope<PetDuplicateReview>> {
+    return this.http.post<ApiEnvelope<PetDuplicateReview>>(`${this.apiBaseUrl}/pet-duplicate-reviews`, request);
+  }
+
+  listPetDuplicateReviews(): Observable<ApiEnvelope<PetDuplicateReview[]>> {
+    return this.http.get<ApiEnvelope<PetDuplicateReview[]>>(`${this.apiBaseUrl}/pet-duplicate-reviews`);
+  }
+
+  evaluatePetDuplicateClinically(reviewId: string): Observable<void> {
+    return this.http.post<void>(
+      `${this.apiBaseUrl}/pet-duplicate-reviews/${encodeURIComponent(reviewId)}/clinical-evaluation`, {},
+    );
+  }
+
+  resolvePetDuplicate(reviewId: string, request: DuplicateResolutionRequest): Observable<void> {
+    return this.http.post<void>(
+      `${this.apiBaseUrl}/pet-duplicate-reviews/${encodeURIComponent(reviewId)}/resolution`, request,
     );
   }
 

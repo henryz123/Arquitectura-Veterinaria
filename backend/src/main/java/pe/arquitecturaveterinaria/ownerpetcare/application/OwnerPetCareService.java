@@ -20,6 +20,9 @@ import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRe
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalPrescription;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientOwnerLinkRequest;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientPetProfile;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.DuplicateCandidate;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerDuplicateReview;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetDuplicateReview;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.AmendmentDraft;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerDraft;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerProfile;
@@ -72,7 +75,7 @@ public class OwnerPetCareService {
 	public PetProfile createPet(SessionPrincipal actor, UUID ownerId, PetCommand command) {
 		accessPolicy.requireRegistryManager(actor);
 		setTrustedContext(actor);
-		OwnerProfile owner = ownerOrNotFound(ownerId);
+		OwnerProfile owner = lockOwnerOrNotFound(ownerId);
 		if (!"ACTIVO".equals(owner.status())) {
 			throw conflict("OWNER_INACTIVE", "No se puede asignar una mascota a un propietario inactivo.");
 		}
@@ -116,7 +119,7 @@ public class OwnerPetCareService {
 		if (!command.identityVerified()) {
 			throw validation("identityVerified", "Confirma la verificaciÃ³n manual antes de transferir la responsabilidad.");
 		}
-		OwnerProfile newOwner = ownerOrNotFound(command.newOwnerId());
+		OwnerProfile newOwner = lockOwnerOrNotFound(command.newOwnerId());
 		if (!"ACTIVO".equals(newOwner.status())) {
 			throw conflict("OWNER_INACTIVE", "No se puede transferir una mascota a un propietario inactivo.");
 		}
@@ -144,7 +147,7 @@ public class OwnerPetCareService {
 	public ClinicalEpisode createClinicalEpisode(SessionPrincipal actor, UUID petId, ClinicalEpisodeCommand command) {
 		accessPolicy.requireVeterinarian(actor);
 		setTrustedContext(actor);
-		petOrNotFound(petId);
+		petForClinicalWrite(petId);
 		ClinicalEpisode episode = repository.createClinicalEpisode(actor.session().tenantId(), actor.session().accountId(), petId,
 				clinicalDraft(command));
 		repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLINICAL_EPISODE_DRAFT_CREATED",
@@ -208,7 +211,7 @@ public class OwnerPetCareService {
 	public ClientPetProfile createClientPet(SessionPrincipal actor, PetCommand command) {
 		accessPolicy.requireClient(actor);
 		setTrustedContext(actor);
-		OwnerProfile owner = clientOwnerOrRequired(actor);
+		OwnerProfile owner = lockOwnerOrNotFound(clientOwnerOrRequired(actor).id());
 		if (!"ACTIVO".equals(owner.status())) {
 			throw conflict("OWNER_INACTIVE", "No se puede registrar una mascota para una ficha inactiva.");
 		}
@@ -242,6 +245,166 @@ public class OwnerPetCareService {
 				.orElseThrow(() -> notFound("No se encontro la ficha propia autorizada."));
 		repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLIENT_PET_UPDATED", "PET", updated.id());
 		return updated;
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<DuplicateCandidate> findPotentialOwnerDuplicates(SessionPrincipal actor, UUID ownerId) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		ownerOrNotFound(ownerId);
+		return repository.findPotentialOwnerDuplicates(ownerId);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<DuplicateCandidate> findPotentialPetDuplicates(SessionPrincipal actor, UUID petId) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		petOrNotFound(petId);
+		return repository.findPotentialPetDuplicates(petId);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public OwnerDuplicateReview reportOwnerDuplicate(SessionPrincipal actor, DuplicateReviewCommand command) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		if (command.duplicateId() == null || command.referenceId() == null || command.duplicateId().equals(command.referenceId())) {
+			throw validation("referenceId", "Selecciona dos fichas distintas para una revisión humana.");
+		}
+		OwnerPair pair = lockOwnerPair(command.duplicateId(), command.referenceId());
+		if (!"ACTIVO".equals(pair.duplicate().status()) || !"ACTIVO".equals(pair.reference().status())) {
+			throw conflict("B02_DUPLICATE_REVIEW_INACTIVE_RECORD", "Las dos fichas deben estar activas antes de abrir la revisión.");
+		}
+		OwnerDuplicateReview review = repository.createOwnerDuplicateReview(actor.session().tenantId(), actor.session().accountId(),
+				pair.duplicate().id(), pair.reference().id())
+				.orElseThrow(() -> conflict("B02_DUPLICATE_REVIEW_ALREADY_EXISTS",
+						"Ya existe un expediente inmutable para este par; revisa su resultado antes de crear otro."));
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "OWNER_DUPLICATE_REVIEW_REPORTED",
+				"OWNER_DUPLICATE_REVIEW", review.id());
+		return review;
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<OwnerDuplicateReview> listOwnerDuplicateReviews(SessionPrincipal actor) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		return repository.listOwnerDuplicateReviews();
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public void resolveOwnerDuplicate(SessionPrincipal actor, UUID reviewId, DuplicateResolutionCommand command) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		repository.lockDuplicateReviewOperation(reviewId);
+		OwnerDuplicateReview review = repository.lockOwnerDuplicateReview(reviewId)
+				.orElseThrow(() -> notFound("No se encontró la revisión de duplicado."));
+		if (review.outcome() != null) {
+			throw conflict("B02_DUPLICATE_REVIEW_ALREADY_RESOLVED", "La revisión ya tiene una resolución inmutable.");
+		}
+		String outcome = duplicateOutcome(command.outcome());
+		String reason = duplicateResolutionReason(command.reason());
+		if ("CONFIRMADA_INACTIVA".equals(outcome)) {
+			OwnerPair pair = lockOwnerPair(review.duplicateOwnerId(), review.referenceOwnerId());
+			if (!"ACTIVO".equals(pair.duplicate().status()) || !"ACTIVO".equals(pair.reference().status())) {
+				throw conflict("B02_DUPLICATE_REVIEW_STALE", "Las fichas cambiaron antes de confirmar la inactivación.");
+			}
+			if (repository.ownerHasActiveResponsibilities(pair.duplicate().id()) || repository.ownerHasApprovedClientLink(pair.duplicate().id())) {
+				throw conflict("B02_DUPLICATE_OWNER_HAS_ACTIVE_RELATIONS",
+						"No se puede inactivar la ficha mientras conserve mascotas activas o un vínculo digital vigente.");
+			}
+			if (repository.deactivateOwnerIfActive(actor.session().tenantId(), pair.duplicate().id()) != 1) {
+				throw conflict("B02_DUPLICATE_REVIEW_STALE", "La ficha cambió antes de confirmar la inactivación.");
+			}
+		}
+		if (!repository.createOwnerDuplicateResolution(actor.session().tenantId(), review.id(), outcome,
+				actor.session().accountId(), reason)) {
+			throw conflict("B02_DUPLICATE_REVIEW_ALREADY_RESOLVED", "La revisión fue resuelta por otra operación.");
+		}
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "OWNER_DUPLICATE_REVIEW_RESOLVED",
+				"OWNER_DUPLICATE_REVIEW", review.id());
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public PetDuplicateReview reportPetDuplicate(SessionPrincipal actor, DuplicateReviewCommand command) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		if (command.duplicateId() == null || command.referenceId() == null || command.duplicateId().equals(command.referenceId())) {
+			throw validation("referenceId", "Selecciona dos fichas distintas para una revisión humana.");
+		}
+		PetPair pair = lockPetPair(command.duplicateId(), command.referenceId());
+		if (!"ACTIVA".equals(pair.duplicate().status()) || !"ACTIVA".equals(pair.reference().status())) {
+			throw conflict("B02_DUPLICATE_REVIEW_INACTIVE_RECORD", "Las dos fichas deben estar activas antes de abrir la revisión.");
+		}
+		PetDuplicateReview review = repository.createPetDuplicateReview(actor.session().tenantId(), actor.session().accountId(),
+				pair.duplicate().id(), pair.reference().id())
+				.orElseThrow(() -> conflict("B02_DUPLICATE_REVIEW_ALREADY_EXISTS",
+						"Ya existe un expediente inmutable para este par; revisa su resultado antes de crear otro."));
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "PET_DUPLICATE_REVIEW_REPORTED",
+				"PET_DUPLICATE_REVIEW", review.id());
+		return review;
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<PetDuplicateReview> listPetDuplicateReviews(SessionPrincipal actor) {
+		accessPolicy.requirePetReader(actor);
+		setTrustedContext(actor);
+		return repository.listPetDuplicateReviews();
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public void evaluatePetDuplicateClinically(SessionPrincipal actor, UUID reviewId) {
+		accessPolicy.requireVeterinarian(actor);
+		setTrustedContext(actor);
+		repository.lockDuplicateReviewOperation(reviewId);
+		PetDuplicateReview review = repository.lockPetDuplicateReview(reviewId)
+				.orElseThrow(() -> notFound("No se encontró la revisión de duplicado."));
+		if (review.outcome() != null) {
+			throw conflict("B02_DUPLICATE_REVIEW_ALREADY_RESOLVED", "No se evalúan expedientes ya resueltos.");
+		}
+		PetProfile duplicate = lockPetOrNotFound(review.duplicatePetId());
+		if (!repository.petHasClinicalData(duplicate.id())) {
+			throw conflict("B02_DUPLICATE_CLINICAL_EVALUATION_NOT_REQUIRED",
+					"Esta ficha no tiene datos clínicos que requieran una evaluación veterinaria.");
+		}
+		if (!repository.createPetDuplicateClinicalEvaluation(actor.session().tenantId(), review.id(), actor.session().accountId())) {
+			throw conflict("B02_DUPLICATE_CLINICAL_EVALUATION_ALREADY_RECORDED",
+					"La evaluación clínica ya fue registrada para esta revisión.");
+		}
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "PET_DUPLICATE_CLINICALLY_EVALUATED",
+				"PET_DUPLICATE_REVIEW", review.id());
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public void resolvePetDuplicate(SessionPrincipal actor, UUID reviewId, DuplicateResolutionCommand command) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		repository.lockDuplicateReviewOperation(reviewId);
+		PetDuplicateReview review = repository.lockPetDuplicateReview(reviewId)
+				.orElseThrow(() -> notFound("No se encontró la revisión de duplicado."));
+		if (review.outcome() != null) {
+			throw conflict("B02_DUPLICATE_REVIEW_ALREADY_RESOLVED", "La revisión ya tiene una resolución inmutable.");
+		}
+		String outcome = duplicateOutcome(command.outcome());
+		String reason = duplicateResolutionReason(command.reason());
+		if ("CONFIRMADA_INACTIVA".equals(outcome)) {
+			PetPair pair = lockPetPair(review.duplicatePetId(), review.referencePetId());
+			if (!"ACTIVA".equals(pair.duplicate().status()) || !"ACTIVA".equals(pair.reference().status())) {
+				throw conflict("B02_DUPLICATE_REVIEW_STALE", "Las fichas cambiaron antes de confirmar la inactivación.");
+			}
+			if (repository.petHasClinicalData(pair.duplicate().id())
+					&& !repository.hasPetDuplicateClinicalEvaluation(review.id())) {
+				throw conflict("B02_DUPLICATE_CLINICAL_EVALUATION_REQUIRED",
+						"La ficha tiene datos clínicos; un veterinario debe evaluar la revisión antes de inactivarla.");
+			}
+			if (repository.deactivatePetIfActive(actor.session().tenantId(), pair.duplicate().id()) != 1) {
+				throw conflict("B02_DUPLICATE_REVIEW_STALE", "La ficha cambió antes de confirmar la inactivación.");
+			}
+		}
+		if (!repository.createPetDuplicateResolution(actor.session().tenantId(), review.id(), outcome,
+				actor.session().accountId(), reason)) {
+			throw conflict("B02_DUPLICATE_REVIEW_ALREADY_RESOLVED", "La revisión fue resuelta por otra operación.");
+		}
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "PET_DUPLICATE_REVIEW_RESOLVED",
+				"PET_DUPLICATE_REVIEW", review.id());
 	}
 
 	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
@@ -307,6 +470,7 @@ public class OwnerPetCareService {
 		accessPolicy.requireVeterinarian(actor);
 		setTrustedContext(actor);
 		ClinicalEpisode existing = episodeOrNotFound(episodeId);
+		petForClinicalWrite(existing.petId());
 		if (!existing.veterinarianPrincipalId().equals(actor.session().accountId())) {
 			throw new ApiException(HttpStatus.FORBIDDEN, "B02_CLINICAL_AUTHOR_REQUIRED",
 					"Solo el veterinario autor puede finalizar este borrador.");
@@ -338,7 +502,7 @@ public class OwnerPetCareService {
 	public VaccinationRecord recordVaccination(SessionPrincipal actor, UUID petId, VaccinationCommand command) {
 		accessPolicy.requireVeterinarian(actor);
 		setTrustedContext(actor);
-		petOrNotFound(petId);
+		petForClinicalWrite(petId);
 		if (command.episodeId() != null) {
 			ClinicalEpisode episode = episodeOrNotFound(command.episodeId());
 			if (!episode.petId().equals(petId)) {
@@ -369,6 +533,7 @@ public class OwnerPetCareService {
 		accessPolicy.requireVeterinarian(actor);
 		setTrustedContext(actor);
 		ClinicalEpisode episode = episodeOrNotFound(episodeId);
+		petForClinicalWrite(episode.petId());
 		ClinicalPrescription prescription = repository.createClinicalPrescription(actor.session().tenantId(),
 				actor.session().accountId(), episode.petId(), episode.id(), prescriptionDraft(command));
 		repository.audit(actor.session().tenantId(), actor.session().accountId(), "CLINICAL_PRESCRIPTION_RECORDED",
@@ -389,6 +554,7 @@ public class OwnerPetCareService {
 		accessPolicy.requireVeterinarian(actor);
 		setTrustedContext(actor);
 		ClinicalEpisode episode = episodeOrNotFound(episodeId);
+		petForClinicalWrite(episode.petId());
 		if (!"FINALIZADO".equals(episode.status())) {
 			throw conflict("B02_CLINICAL_FINALIZED_REQUIRED",
 					"Solo un episodio finalizado puede recibir una rectificacion atribuible.");
@@ -421,9 +587,65 @@ public class OwnerPetCareService {
 				.orElseThrow(() -> notFound("No se encontró el recurso solicitado."));
 	}
 
+	private OwnerProfile lockOwnerOrNotFound(UUID ownerId) {
+		return repository.lockOwner(ownerId)
+				.orElseThrow(() -> notFound("No se encontró el recurso solicitado."));
+	}
+
 	private PetProfile petOrNotFound(UUID petId) {
 		return repository.findPet(petId)
 				.orElseThrow(() -> notFound("No se encontró el recurso solicitado."));
+	}
+
+	private PetProfile lockPetOrNotFound(UUID petId) {
+		return repository.lockPet(petId)
+				.orElseThrow(() -> notFound("No se encontró el recurso solicitado."));
+	}
+
+	private PetProfile petForClinicalWrite(UUID petId) {
+		PetProfile pet = lockPetOrNotFound(petId);
+		if ("INACTIVA".equals(pet.status())) {
+			throw conflict("B02_PET_INACTIVE", "No se puede añadir información clínica a una ficha inactiva por revisión de duplicado.");
+		}
+		return pet;
+	}
+
+	private OwnerPair lockOwnerPair(UUID duplicateOwnerId, UUID referenceOwnerId) {
+		if (duplicateOwnerId.compareTo(referenceOwnerId) < 0) {
+			OwnerProfile first = lockOwnerOrNotFound(duplicateOwnerId);
+			OwnerProfile second = lockOwnerOrNotFound(referenceOwnerId);
+			return new OwnerPair(first, second);
+		}
+		OwnerProfile first = lockOwnerOrNotFound(referenceOwnerId);
+		OwnerProfile second = lockOwnerOrNotFound(duplicateOwnerId);
+		return new OwnerPair(second, first);
+	}
+
+	private PetPair lockPetPair(UUID duplicatePetId, UUID referencePetId) {
+		if (duplicatePetId.compareTo(referencePetId) < 0) {
+			PetProfile first = lockPetOrNotFound(duplicatePetId);
+			PetProfile second = lockPetOrNotFound(referencePetId);
+			return new PetPair(first, second);
+		}
+		PetProfile first = lockPetOrNotFound(referencePetId);
+		PetProfile second = lockPetOrNotFound(duplicatePetId);
+		return new PetPair(second, first);
+	}
+
+	private String duplicateOutcome(String value) {
+		String normalized = required(value, "outcome").toUpperCase(Locale.ROOT);
+		if (!List.of("DESCARTADA", "CONFIRMADA_INACTIVA").contains(normalized)) {
+			throw validation("outcome", "Indica si la señal se descarta o confirma la inactivación.");
+		}
+		return normalized;
+	}
+
+	private String duplicateResolutionReason(String value) {
+		String reason = required(value, "reason");
+		if (reason.length() < 3 || reason.length() > 500) {
+			throw validation("reason", "El motivo debe tener entre 3 y 500 caracteres.");
+		}
+		return reason;
 	}
 
 	private OwnerProfile clientOwnerOrRequired(SessionPrincipal actor) {
@@ -567,6 +789,10 @@ public class OwnerPetCareService {
 	public record AmendmentCommand(String reason, String addendum) { }
 	public record ClientOwnerLinkResolutionCommand(String status, UUID ownerId, String verificationMethod,
 			String rejectionReason, boolean identityVerified) { }
+	public record DuplicateReviewCommand(UUID duplicateId, UUID referenceId) { }
+	public record DuplicateResolutionCommand(String outcome, String reason) { }
 	public record ClientOwnerLinkStatus(String status, String requestReference, java.time.Instant requestedAt,
 			java.time.Instant resolvedAt, String rejectionReason) { }
+	private record OwnerPair(OwnerProfile duplicate, OwnerProfile reference) { }
+	private record PetPair(PetProfile duplicate, PetProfile reference) { }
 }

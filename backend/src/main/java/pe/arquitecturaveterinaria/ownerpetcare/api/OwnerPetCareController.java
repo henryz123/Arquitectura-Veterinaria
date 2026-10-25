@@ -33,6 +33,8 @@ import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.A
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClinicalEpisodeCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClientOwnerLinkResolutionCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.ClientOwnerLinkStatus;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.DuplicateResolutionCommand;
+import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.DuplicateReviewCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnerCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.OwnershipTransferCommand;
 import pe.arquitecturaveterinaria.ownerpetcare.application.OwnerPetCareService.PetCommand;
@@ -43,8 +45,11 @@ import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRe
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClinicalPrescription;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientOwnerLinkRequest;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.ClientPetProfile;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.DuplicateCandidate;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerDuplicateReview;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnerProfile;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetProfile;
+import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.PetDuplicateReview;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.OwnershipPeriod;
 import pe.arquitecturaveterinaria.ownerpetcare.infrastructure.OwnerPetCareJdbcRepository.VaccinationRecord;
 import pe.arquitecturaveterinaria.shared.api.ApiEnvelope;
@@ -111,6 +116,67 @@ public class OwnerPetCareController {
 	ApiEnvelope<List<OwnershipPeriod>> listOwnershipPeriods(@AuthenticationPrincipal SessionPrincipal principal,
 			@PathVariable UUID petId) {
 		return ApiEnvelope.of(service.listOwnershipPeriods(principal, petId));
+	}
+
+	@GetMapping("/owners/{ownerId}/duplicate-candidates")
+	ApiEnvelope<List<DuplicateCandidate>> findPotentialOwnerDuplicates(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID ownerId) {
+		return ApiEnvelope.of(service.findPotentialOwnerDuplicates(principal, ownerId));
+	}
+
+	@PostMapping("/owner-duplicate-reviews")
+	ResponseEntity<ApiEnvelope<OwnerDuplicateReview>> reportOwnerDuplicate(@AuthenticationPrincipal SessionPrincipal principal,
+			@Valid @RequestBody DuplicateReviewRequest request) {
+		OwnerDuplicateReview review = service.reportOwnerDuplicate(principal,
+				new DuplicateReviewCommand(request.duplicateId(), request.referenceId()));
+		return ResponseEntity.status(HttpStatus.CREATED).location(URI.create("/api/v1/owner-duplicate-reviews/" + review.id()))
+				.body(ApiEnvelope.of(review));
+	}
+
+	@GetMapping("/owner-duplicate-reviews")
+	ApiEnvelope<List<OwnerDuplicateReview>> listOwnerDuplicateReviews(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(service.listOwnerDuplicateReviews(principal));
+	}
+
+	@PostMapping("/owner-duplicate-reviews/{reviewId}/resolution")
+	ResponseEntity<Void> resolveOwnerDuplicate(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID reviewId,
+			@Valid @RequestBody DuplicateResolutionRequest request) {
+		service.resolveOwnerDuplicate(principal, reviewId, new DuplicateResolutionCommand(request.outcome(), request.reason()));
+		return ResponseEntity.noContent().build();
+	}
+
+	@GetMapping("/pets/{petId}/duplicate-candidates")
+	ApiEnvelope<List<DuplicateCandidate>> findPotentialPetDuplicates(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID petId) {
+		return ApiEnvelope.of(service.findPotentialPetDuplicates(principal, petId));
+	}
+
+	@PostMapping("/pet-duplicate-reviews")
+	ResponseEntity<ApiEnvelope<PetDuplicateReview>> reportPetDuplicate(@AuthenticationPrincipal SessionPrincipal principal,
+			@Valid @RequestBody DuplicateReviewRequest request) {
+		PetDuplicateReview review = service.reportPetDuplicate(principal,
+				new DuplicateReviewCommand(request.duplicateId(), request.referenceId()));
+		return ResponseEntity.status(HttpStatus.CREATED).location(URI.create("/api/v1/pet-duplicate-reviews/" + review.id()))
+				.body(ApiEnvelope.of(review));
+	}
+
+	@GetMapping("/pet-duplicate-reviews")
+	ApiEnvelope<List<PetDuplicateReview>> listPetDuplicateReviews(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(service.listPetDuplicateReviews(principal));
+	}
+
+	@PostMapping("/pet-duplicate-reviews/{reviewId}/clinical-evaluation")
+	ResponseEntity<Void> evaluatePetDuplicateClinically(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID reviewId) {
+		service.evaluatePetDuplicateClinically(principal, reviewId);
+		return ResponseEntity.noContent().build();
+	}
+
+	@PostMapping("/pet-duplicate-reviews/{reviewId}/resolution")
+	ResponseEntity<Void> resolvePetDuplicate(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID reviewId,
+			@Valid @RequestBody DuplicateResolutionRequest request) {
+		service.resolvePetDuplicate(principal, reviewId, new DuplicateResolutionCommand(request.outcome(), request.reason()));
+		return ResponseEntity.noContent().build();
 	}
 
 	@PostMapping("/client/owner-link-requests")
@@ -272,6 +338,12 @@ public class OwnerPetCareController {
 			@NotNull UUID newOwnerId,
 			@NotBlank @Size(min = 3, max = 500) String reason,
 			boolean identityVerified) { }
+
+	public record DuplicateReviewRequest(@NotNull UUID duplicateId, @NotNull UUID referenceId) { }
+
+	public record DuplicateResolutionRequest(
+			@NotBlank @Pattern(regexp = "DESCARTADA|CONFIRMADA_INACTIVA", flags = Pattern.Flag.CASE_INSENSITIVE) String outcome,
+			@NotBlank @Size(min = 3, max = 500) String reason) { }
 
 	public record ClientOwnerLinkResolutionRequest(
 			@NotBlank @Pattern(regexp = "APROBADA|RECHAZADA", flags = Pattern.Flag.CASE_INSENSITIVE) String status,
