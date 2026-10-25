@@ -75,6 +75,17 @@ public class OwnerPetCareJdbcRepository {
 				""", this::mapOwner, clientPrincipalId).stream().findFirst();
 	}
 
+	/** Updates only the editable owner profile fields in the trusted tenant context. */
+	public Optional<OwnerProfile> updateOwner(UUID tenantId, UUID ownerId, OwnerDraft draft) {
+		return jdbcTemplate.query("""
+				update owner_pet_care.owner_profile
+				set given_names = ?, family_names = ?, phone = ?, email = ?, address = ?, updated_at = statement_timestamp()
+				where tenant_id = ? and id = ?
+				returning id, tenant_id, given_names, family_names, phone, email, address, status, origin, created_at, updated_at
+				""", this::mapOwner, draft.givenNames(), draft.familyNames(), draft.phone(), draft.email(), draft.address(),
+				tenantId, ownerId).stream().findFirst();
+	}
+
 	public Optional<OwnerProfile> updateOwnerForClient(UUID tenantId, UUID clientPrincipalId, UUID ownerId, OwnerDraft draft) {
 		return jdbcTemplate.query("""
 				update owner_pet_care.owner_profile owner

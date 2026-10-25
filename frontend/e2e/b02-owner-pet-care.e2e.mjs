@@ -18,6 +18,7 @@ const ownerFixture = {
   phone: '900000000',
   email: null,
   address: 'Registro sintético local',
+  updatedAddress: 'Registro sintético local actualizado',
 };
 const successorFixture = {
   givenNames: 'B02 Transferencia',
@@ -125,6 +126,22 @@ try {
   const ownerButton = page.locator('.owner-list button').filter({ hasText: `${ownerFixture.familyNames}, ${ownerFixture.givenNames}` });
   await ownerButton.waitFor();
   await ownerButton.click();
+
+  if (owner.address !== ownerFixture.updatedAddress) {
+    await page.getByRole('button', { name: 'Editar propietario seleccionado' }).click();
+    const [response] = await Promise.all([
+      page.waitForResponse((candidate) => candidate.request().method() === 'PUT'
+        && candidate.url().endsWith(`/api/v1/owners/${owner.id}`)),
+      (async () => {
+        await page.locator('#owner-address').fill(ownerFixture.updatedAddress);
+        await page.getByRole('button', { name: 'Guardar cambios del propietario' }).click();
+      })(),
+    ]);
+    assert.equal(response.status(), 200, 'the administrative UI must persist only the selected owner profile');
+    owner = (await response.json()).data;
+  }
+  assert.equal(owner.address, ownerFixture.updatedAddress,
+    'the selected owner update must persist without changing the owner identity or its care records');
 
   const successor = await ensureSuccessor(page);
   const originalOwnerButton = page.locator('.owner-list button').filter({ hasText: `${ownerFixture.familyNames}, ${ownerFixture.givenNames}` });

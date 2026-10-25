@@ -148,6 +148,10 @@ export class AdministrationApiService {
     return this.http.post<ApiEnvelope<OwnerProfile>>(`${this.apiBaseUrl}/owners`, request);
   }
 
+  updateOwner(ownerId: string, request: OwnerRequest): Observable<ApiEnvelope<OwnerProfile>> {
+    return this.http.put<ApiEnvelope<OwnerProfile>>(`${this.apiBaseUrl}/owners/${encodeURIComponent(ownerId)}`, request);
+  }
+
   createPet(ownerId: string, request: PetRequest): Observable<ApiEnvelope<PetProfile>> {
     return this.http.post<ApiEnvelope<PetProfile>>(`${this.apiBaseUrl}/owners/${encodeURIComponent(ownerId)}/pets`, request);
   }

@@ -182,6 +182,14 @@ describe('AdministrationApiService', () => {
     expect(owner.request.body).toEqual({ givenNames: 'Luna', familyNames: 'Rojas', phone: null, email: null, address: null });
     owner.flush({ data: { id: 'owner-1' } });
 
+    service.updateOwner('owner-1', {
+      givenNames: 'Luna', familyNames: 'Actualizada', phone: '999100200', email: 'luna@demo.invalid', address: 'Dirección sintética',
+    }).subscribe();
+    const ownerUpdate = http.expectOne('/api/v1/owners/owner-1');
+    expect(ownerUpdate.request.method).toBe('PUT');
+    expect(ownerUpdate.request.body.familyNames).toBe('Actualizada');
+    ownerUpdate.flush({ data: { id: 'owner-1' } });
+
     service.createPet('owner-1', {
       name: 'Nube', species: 'Canino', breed: null, sex: 'HEMBRA', birthDate: null, estimatedAgeMonths: 24, distinguishingMarks: null,
     }).subscribe();

@@ -392,6 +392,20 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [owner-pet-care]
+      summary: Actualiza la ficha presencial de un propietario visible para el tenant
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-001, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/OwnerId' }]
+      requestBody: { $ref: '#/components/requestBodies/OwnerRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/OwnerResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/owners/{ownerId}/pets:
     post:
       tags: [owner-pet-care]

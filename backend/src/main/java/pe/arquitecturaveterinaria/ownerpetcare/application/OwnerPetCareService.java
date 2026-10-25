@@ -57,6 +57,19 @@ public class OwnerPetCareService {
 		return owner;
 	}
 
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public OwnerProfile updateOwner(SessionPrincipal actor, UUID ownerId, OwnerCommand command) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		OwnerProfile current = lockOwnerOrNotFound(ownerId);
+		OwnerProfile updated = repository.updateOwner(actor.session().tenantId(), ownerId,
+				new OwnerDraft(required(command.givenNames(), "givenNames"), required(command.familyNames(), "familyNames"),
+						optional(command.phone()), normalizedEmail(command.email()), optional(command.address()), current.origin()))
+				.orElseThrow(() -> notFound("No se encontró el recurso solicitado."));
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "OWNER_UPDATED", "OWNER", updated.id());
+		return updated;
+	}
+
 	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
 	public List<OwnerProfile> listOwners(SessionPrincipal actor, String query) {
 		accessPolicy.requirePetReader(actor);

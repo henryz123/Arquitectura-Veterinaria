@@ -29,6 +29,15 @@ fuera de V1.
 - El mismo recorrido confirma que CLIENT no recibe una proyección clínica ni puede consultar el endpoint de historia completa, que logout invalida el espacio privado, que una transferencia verificada revoca el control de la mascota transferida sin afectar otras mascotas vigentes y que CLIENT de Bosque recibe 404 genérico ante un identificador de Aurora.
 - B02 continúa **parcial**: la edición administrativa presencial de propietario y el recorrido de navegador con una cuenta `VETERINARIO` siguen pendientes. No se declara evaluación clínica, vacunación, prescripción, adenda ni confirmación de duplicado como validadas en navegador hasta disponer de ese rol sintético legítimo.
 
+## Checkpoint B02 — edición administrativa presencial de propietario (2026-10-24)
+
+- No se creó migración: V001–V019 permanecen inmutables y Flyway continúa desactivado durante pruebas ordinarias. El vertical usa la tabla tenant-local ya existente y no modifica roles, ACL, RLS ni estados de propietario.
+- `PUT /api/v1/owners/{ownerId}` reutiliza el control de rol de registro para ADMIN_VETERINARIA o RECEPCION, establece el contexto JDBC confiable y actualiza exclusivamente nombres, apellidos, contacto, dirección y `updated_at`. Conserva origen, condición, mascotas, períodos de responsabilidad e historia clínica; registra la acción `OWNER_UPDATED`.
+- La pantalla `/care` permite seleccionar un propietario, cargar sus datos básicos, cancelar o confirmar la edición y presenta el resultado sin simular persistencia. La respuesta actualiza la lista y la ficha seleccionada.
+- La regresión B02 pasó 13/13 con Java 21, PostgreSQL local y Flyway desactivado. Incluye modificación autorizada de Aurora y rechazo `404` para una sesión Bosque que intenta el identificador Aurora.
+- Angular mantuvo 4 archivos/9 pruebas, build correcto y Redocly validó el contrato OpenAPI. Chrome pasó `B02_OWNER_PET_BROWSER_E2E=PASS`: edita la ficha desde el navegador y después verifica mascota, transferencia, períodos históricos y la denegación de historia clínica para ADMIN sin VETERINARIO.
+- B02 continúa **parcial**: falta una cuenta sintética `VETERINARIO` legítima para validar desde navegador atención, vacunación, prescripción, adenda y confirmación clínica de duplicados. Ninguna de esas funciones se marca completada solo por la cobertura de integración.
+
 ## Checkpoint B02 — vinculación digital CLIENT–propietario (2026-10-24)
 
 - V017 `b02 client owner linking` está aplicada una sola vez mediante el lanzador Flyway acotado. Su SHA-256 es `4C21E0DA91A39499F6EF13097FE1185BAE42D99D526F2C0C7465E85D358DCE80` y su checksum Flyway es `337349119`.
@@ -62,7 +71,7 @@ fuera de V1.
 
 ## Próxima operación actualizada (2026-10-24)
 
-Implementar y verificar la edición administrativa presencial de propietario. En paralelo, preparar una cuenta `VETERINARIO` sintética mediante invitación y asignación de rol ya autorizadas, con variables locales excluidas de Git; después ejecutar el recorrido clínico y la confirmación de posible duplicado de mascota desde navegador.
+Preparar una cuenta `VETERINARIO` sintética mediante invitación y asignación de rol ya autorizadas, con variables locales excluidas de Git; después ejecutar el recorrido clínico, vacunación, prescripción, adenda y confirmación de posible duplicado de mascota desde navegador.
 
 ## Estado recuperado
 
@@ -85,7 +94,7 @@ Implementar y verificar la edición administrativa presencial de propietario. En
 |---|---|---|
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
 | B01 — Administración, identidad y acceso | Parcial | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. El E2E CLIENT autenticado ya verifica sesión, recarga, CSRF implícito y cierre de sesión con cuentas sintéticas; permanecen pendientes los recorridos públicos completos de registro y recuperación. |
-| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial, transferencia, vínculo CLIENT, autoservicio CLIENT, registros clínicos inmutables y revisión humana de duplicados implementado con PostgreSQL, RLS y Angular. Los recorridos STAFF y CLIENT verifican persistencia, transferencia, revocación y aislamiento Aurora/Bosque. La atención y confirmación clínica desde navegador exigen una cuenta sintética VETERINARIO aún no disponible. Persisten criterios B02 no cubiertos por recorrido completo, incluida la edición administrativa de propietario. |
+| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial, edición administrativa, transferencia, vínculo CLIENT, autoservicio CLIENT, registros clínicos inmutables y revisión humana de duplicados implementado con PostgreSQL, RLS y Angular. Los recorridos STAFF y CLIENT verifican persistencia, edición, transferencia, revocación y aislamiento Aurora/Bosque. La atención y confirmación clínica desde navegador exigen una cuenta sintética VETERINARIO aún no disponible. |
 | B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
 | B05 — Tienda y pedidos | Pendiente | Catálogo, carrito, pedido y descuento de stock exactamente una vez al confirmar. |

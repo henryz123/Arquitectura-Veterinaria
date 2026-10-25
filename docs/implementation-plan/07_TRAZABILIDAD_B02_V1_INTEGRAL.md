@@ -133,6 +133,22 @@ RF-B02-006 y RF-B02-013. No modifica la especificación funcional V1.
 - `npm.cmd run test:e2e:client-b02`: `CLIENT_B02_BROWSER_E2E=PASS` con Chrome real. Comprueba vínculo manual, sesión tras recarga, actualización de perfil, creación/edición de mascota, denegación clínica, logout, revocación tras transferencia y aislamiento Aurora/Bosque.
 - Angular mantiene 4 archivos/9 pruebas, build correcto y OpenAPI válido. El recorrido usa Angular → Spring Boot → PostgreSQL; no sustituye la validación clínica VETERINARIO pendiente.
 
+## Actualización verificable — edición administrativa presencial (2026-10-24)
+
+Esta actualización completa la edición básica pendiente de RF-B02-001; no modifica la especificación funcional ni crea una migración.
+
+| Requisito | Estado actualizado | Evidencia y límite actual |
+|---|---|---|
+| RF-B02-001 | Verificado | `PUT /owners/{ownerId}` usa la sesión STAFF y el contexto tenant confiable, permite a ADMIN_VETERINARIA o RECEPCION corregir nombre, contacto y dirección de una ficha visible. Conserva estado, origen, mascotas, responsabilidad e historia clínica; genera `OWNER_UPDATED` en auditoría. La integración prueba la actualización y devuelve `404` genérico a Bosque para el identificador Aurora. |
+| RF-B02-016 | Verificado | La actualización pasa por RLS y por la política de rol de registro existente. La regresión B02 confirma que una sesión de otra veterinaria no puede modificar ni recuperar la ficha. |
+
+### Evidencia del checkpoint de edición
+
+- No se alteraron V001–V019, el esquema, roles ni privilegios. La actualización SQL parametrizada modifica solo los cinco datos básicos editables y `updated_at`; conserva `origin` y no admite cambios de estado, responsable o contenido clínico.
+- `mvnw.cmd -Dtest=OwnerPetCareDatabaseIntegrationTest,B02AccessPolicyTest test`: 13/13 correctas con Java 21, PostgreSQL local y Flyway desactivado. La regresión fue primero roja por ausencia de la operación y verde tras implementar el servicio.
+- Angular: 4 archivos/9 pruebas correctas, build correcto y Redocly validó el contrato con la operación `PUT`.
+- `npm.cmd run test:e2e:b02`: `B02_OWNER_PET_BROWSER_E2E=PASS` con Chrome real. Selecciona una ficha STAFF, entra en modo edición, persiste `PUT`, comprueba la dirección resultante y continúa las regresiones de mascota, transferencia, períodos e historia clínica denegada al administrador sin rol VETERINARIO.
+
 ## Verificaciones del checkpoint
 
 - `mvnw.cmd -Dtest=B02AccessPolicyTest,OwnerPetCareDatabaseIntegrationTest test`: 6/6 correctas con Java 21; las pruebas de integración son transaccionales y se revierten.
@@ -144,4 +160,4 @@ RF-B02-006 y RF-B02-013. No modifica la especificación funcional V1.
 
 ## Riesgos y límite vigente
 
-No hay cuenta sintética VETERINARIO activa en Aurora ni Bosque; por tanto, la pantalla clínica, vacunas, indicaciones, adendas y confirmación clínica de duplicados no se declaran validadas por navegador. La evidencia de integración sí confirma el flujo de veterinario contra PostgreSQL. La edición administrativa presencial de propietario sigue pendiente de vertical completo.
+No hay cuenta sintética VETERINARIO activa en Aurora ni Bosque; por tanto, la pantalla clínica, vacunas, indicaciones, adendas y confirmación clínica de duplicados no se declaran validadas por navegador. La evidencia de integración sí confirma el flujo de veterinario contra PostgreSQL. La edición administrativa presencial de propietario ya cuenta con vertical completo y evidencia de navegador.

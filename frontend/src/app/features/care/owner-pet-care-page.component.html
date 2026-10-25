@@ -45,7 +45,8 @@
             <div><p class="eyebrow">Paso 1</p><h2>Propietarios</h2></div>
             <span class="panel-caption">{{ owners().length }} visibles</span>
           </div>
-          <form [formGroup]="ownerForm" (ngSubmit)="createOwner()" novalidate *ngIf="canManageRegistry()">
+          <form [formGroup]="ownerForm" (ngSubmit)="saveOwner()" novalidate *ngIf="canManageRegistry()">
+            <p class="panel-note" *ngIf="ownerEditMode()">Editando la ficha seleccionada. Esta operación no cambia mascotas, períodos de responsabilidad ni historia clínica.</p>
             <div class="two-columns">
               <div class="field-group"><label for="owner-given-names">Nombres</label><input id="owner-given-names" formControlName="givenNames" autocomplete="given-name" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.givenNames.invalid">Ingresa los nombres.</p></div>
               <div class="field-group"><label for="owner-family-names">Apellidos</label><input id="owner-family-names" formControlName="familyNames" autocomplete="family-name" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.familyNames.invalid">Ingresa los apellidos.</p></div>
@@ -55,7 +56,8 @@
               <div class="field-group"><label for="owner-email">Correo</label><input id="owner-email" type="email" formControlName="email" autocomplete="email" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.email.invalid">Ingresa un correo válido o déjalo vacío.</p></div>
             </div>
             <div class="field-group"><label for="owner-address">Dirección</label><input id="owner-address" formControlName="address" autocomplete="street-address" /></div>
-            <button class="button button-primary" type="submit" [disabled]="actionPending()">Registrar propietario</button>
+            <button class="button button-primary" type="submit" [disabled]="actionPending()">{{ ownerEditMode() ? 'Guardar cambios del propietario' : 'Registrar propietario' }}</button>
+            <button class="button button-secondary" type="button" (click)="cancelOwnerEdit()" [disabled]="actionPending()" *ngIf="ownerEditMode()">Cancelar edición</button>
           </form>
           <div class="owner-list" aria-label="Propietarios del tenant">
             <button type="button" *ngFor="let owner of owners(); trackBy: trackById" (click)="selectOwner(owner)" [class.is-selected]="selectedOwner()?.id === owner.id">
@@ -63,6 +65,7 @@
             </button>
             <p class="empty-state compact" *ngIf="!loading() && owners().length === 0">Aún no hay propietarios registrados en este tenant.</p>
           </div>
+          <button class="button button-secondary" type="button" (click)="startOwnerEdit()" [disabled]="actionPending()" *ngIf="canManageRegistry() && selectedOwner() && !ownerEditMode()">Editar propietario seleccionado</button>
         </section>
 
         <section class="panel" *ngIf="selectedOwner() as owner">

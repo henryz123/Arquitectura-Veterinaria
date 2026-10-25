@@ -57,6 +57,7 @@ export class OwnerPetCarePageComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
   readonly ownerSubmitted = signal(false);
+  readonly ownerEditMode = signal(false);
   readonly petSubmitted = signal(false);
   readonly clinicalSubmitted = signal(false);
   readonly vaccinationSubmitted = signal(false);
@@ -403,7 +404,67 @@ export class OwnerPetCarePageComponent implements OnInit {
     });
   }
 
+  saveOwner(): void {
+    if (this.ownerEditMode()) {
+      this.updateSelectedOwner();
+      return;
+    }
+    this.createOwner();
+  }
+
+  startOwnerEdit(): void {
+    const owner = this.selectedOwner();
+    if (!owner || !this.canManageRegistry() || this.actionPending()) {
+      return;
+    }
+    this.clearFeedback();
+    this.ownerEditMode.set(true);
+    this.ownerSubmitted.set(false);
+    this.ownerForm.reset({
+      givenNames: owner.givenNames,
+      familyNames: owner.familyNames,
+      phone: owner.phone ?? '',
+      email: owner.email ?? '',
+      address: owner.address ?? '',
+    });
+  }
+
+  cancelOwnerEdit(): void {
+    this.ownerEditMode.set(false);
+    this.ownerSubmitted.set(false);
+    this.ownerForm.reset({ givenNames: '', familyNames: '', phone: '', email: '', address: '' });
+  }
+
+  private updateSelectedOwner(): void {
+    const owner = this.selectedOwner();
+    this.ownerSubmitted.set(true);
+    if (!owner || !this.canManageRegistry() || this.ownerForm.invalid || this.actionPending()) {
+      this.ownerForm.markAllAsTouched();
+      return;
+    }
+    this.clearFeedback();
+    this.actionPending.set(true);
+    const value = this.ownerForm.getRawValue();
+    this.api.updateOwner(owner.id, {
+      givenNames: value.givenNames,
+      familyNames: value.familyNames,
+      phone: this.optional(value.phone),
+      email: this.optional(value.email),
+      address: this.optional(value.address),
+    }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+      next: (response) => {
+        this.owners.update((owners) => owners.map((item) => item.id === response.data.id ? response.data : item)
+          .sort((left, right) => this.ownerLabel(left).localeCompare(this.ownerLabel(right))));
+        this.selectedOwner.set(response.data);
+        this.cancelOwnerEdit();
+        this.notice.set('La ficha del propietario se actualizó sin alterar sus mascotas ni su historial clínico.');
+      },
+      error: () => this.error.set('No fue posible actualizar la ficha. Confirma los datos, el tenant y tus permisos.'),
+    });
+  }
+
   selectOwner(owner: OwnerProfile): void {
+    this.cancelOwnerEdit();
     this.selectedOwner.set(owner);
     this.selectedPet.set(null);
     this.ownerPets.set([]);
