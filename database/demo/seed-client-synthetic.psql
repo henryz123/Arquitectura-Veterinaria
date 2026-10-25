@@ -101,7 +101,7 @@ select coalesce((
       lower(:'av_demo_client_aurora_email'),
       crypt(:'av_demo_client_aurora_password', gen_salt('bf', 12)),
       encode(digest(:'av_client_aurora_token', 'sha256'), 'hex'),
-      statement_timestamp() + interval '24 hours'
+      current_timestamp + interval '24 hours'
   ) as av_client_aurora_principal \gset
   select verification_status, verified_account_type, resource_id
     from identity_auth.verify_email_link(
@@ -130,7 +130,7 @@ select coalesce((
       lower(:'av_demo_client_bosque_email'),
       crypt(:'av_demo_client_bosque_password', gen_salt('bf', 12)),
       encode(digest(:'av_client_bosque_token', 'sha256'), 'hex'),
-      statement_timestamp() + interval '24 hours'
+      current_timestamp + interval '24 hours'
   ) as av_client_bosque_principal \gset
   select verification_status, verified_account_type, resource_id
     from identity_auth.verify_email_link(

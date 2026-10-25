@@ -112,6 +112,27 @@ identificadores, transferencia automática ni eliminación de historia clínica.
 - `npm.cmd test -- --watch=false`: 4 archivos/9 pruebas correctas. `npm.cmd run build`: correcto. `npm.cmd run validate:contract`: OpenAPI válido.
 - `npm.cmd run test:e2e:b02`: `B02_OWNER_PET_BROWSER_E2E=PASS`; el navegador real prueba candidatos, creación de expediente y descarte persistente. No sustituye el E2E VETERINARIO de evaluación/confirmación pendiente.
 
+## Actualización verificable — CLIENT autenticado y ficha básica (2026-10-24)
+
+Esta actualización prevalece sobre los límites anteriores de RF-B02-003 a
+RF-B02-006 y RF-B02-013. No modifica la especificación funcional V1.
+
+| Requisito | Estado actualizado | Evidencia y límite actual |
+|---|---|---|
+| RF-B02-003 | Verificado | CLIENT autenticado de Aurora actualiza solamente su perfil básico, crea una mascota propia y edita su ficha desde Angular. El servidor resuelve el propietario desde sesión y vínculo aprobado, y la prueba Chrome verifica la persistencia. |
+| RF-B02-004 | Verificado | CLIENT solicita revisión manual desde la pantalla privada sin recibir coincidencias ni datos de terceros. El E2E espera el `201` real y conserva solo la referencia opaca de la solicitud. |
+| RF-B02-005 | Verificado | ADMINISTRACIÓN resuelve desde `/care` la solicitud real, selecciona el propietario local, declara el método general y confirma la verificación manual. CLIENT recibe acceso recién después de la decisión. |
+| RF-B02-006 | Verificado | La integración mantiene las restricciones de unicidad y el E2E verifica que la cuenta obtiene un único vínculo aprobado antes de acceder a perfil y mascotas. La semilla repetida conserva ambas cuentas sintéticas sin duplicación. |
+| RF-B02-013 | Verificado | La proyección CLIENT no incluye historia clínica y `GET /pets/{id}/clinical-episodes` devuelve `403`. Tras una transferencia, `GET /client/pets/{id}` devuelve `404` al responsable anterior; un CLIENT de Bosque recibe `404` para el identificador Aurora. |
+| RF-B02-016 | Verificado | El recorrido navegador comprueba aislamiento en dos contextos de Chrome Aurora/Bosque, además de las RLS, FKs y pruebas de integración ya existentes. |
+
+### Evidencia del checkpoint CLIENT
+
+- Se corrigieron dos expresiones de vigencia en `database/demo/seed-client-synthetic.psql`: en una transacción única, el registro CLIENT usa `current_timestamp + interval '24 hours'`, que coincide con el límite de la función existente. No se modificó V001–V019 ni se amplió ningún privilegio.
+- La semilla transaccional activó las cuentas sintéticas con los flujos de registro y verificación existentes. Una segunda ejecución confirmó idempotencia: ambas cuentas se conservaron sin cambios.
+- `npm.cmd run test:e2e:client-b02`: `CLIENT_B02_BROWSER_E2E=PASS` con Chrome real. Comprueba vínculo manual, sesión tras recarga, actualización de perfil, creación/edición de mascota, denegación clínica, logout, revocación tras transferencia y aislamiento Aurora/Bosque.
+- Angular mantiene 4 archivos/9 pruebas, build correcto y OpenAPI válido. El recorrido usa Angular → Spring Boot → PostgreSQL; no sustituye la validación clínica VETERINARIO pendiente.
+
 ## Verificaciones del checkpoint
 
 - `mvnw.cmd -Dtest=B02AccessPolicyTest,OwnerPetCareDatabaseIntegrationTest test`: 6/6 correctas con Java 21; las pruebas de integración son transaccionales y se revierten.
@@ -123,4 +144,4 @@ identificadores, transferencia automática ni eliminación de historia clínica.
 
 ## Riesgos y límite vigente
 
-No hay cuenta sintética VETERINARIO activa en Aurora ni Bosque; por tanto, la pantalla clínica no se declara validada por navegador. La evidencia de integración sí confirma el flujo de veterinario contra PostgreSQL. Siguen pendientes vínculo digital, vacunas, recetas, adendas y exposición CLIENT de datos B02.
+No hay cuenta sintética VETERINARIO activa en Aurora ni Bosque; por tanto, la pantalla clínica, vacunas, indicaciones, adendas y confirmación clínica de duplicados no se declaran validadas por navegador. La evidencia de integración sí confirma el flujo de veterinario contra PostgreSQL. La edición administrativa presencial de propietario sigue pendiente de vertical completo.

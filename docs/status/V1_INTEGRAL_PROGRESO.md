@@ -21,6 +21,14 @@ fuera de V1.
 - Backend B02 pasó 13/13 con Java 21, Flyway desactivado y rollback transaccional. Angular pasó 4 archivos/9 pruebas y el build; Redocly validó OpenAPI. Playwright Chrome pasó el recorrido STAFF de detección, expediente y descarte persistente. El E2E de evaluación y confirmación con VETERINARIO sigue pendiente de una cuenta sintética local legítima.
 - B02 continúa **parcial**: se verificó la interfaz STAFF para señalización, expediente y descarte, y la confirmación condicionada a evaluación clínica por integración. Siguen pendientes E2E CLIENT autenticado, E2E clínico VETERINARIO y los criterios funcionales B02 aún no cubiertos por recorrido de navegador.
 
+## Checkpoint B02 — CLIENT autenticado, vínculo y ficha básica (2026-10-24)
+
+- No se creó ni repitió una migración. La semilla CLIENT existente fallaba dentro de su única transacción porque enviaba `statement_timestamp() + 24 h` a un contrato cuyo techo usa `current_timestamp() + 24 h`; el intervalo entre ambas marcas excedía el límite por milisegundos. Se corrigieron únicamente las dos vigencias de `register_client` para usar el reloj transaccional del contrato. La verificación de enlace conserva su reloj por sentencia ya aprobado.
+- Las dos contraseñas locales CLIENT cumplen la política. La semilla se ejecutó contra `arquitectura_veterinaria` con `av_schema_owner`, activó las dos cuentas sintéticas mediante registro y verificación reales, y se repitió: Aurora y Bosque ya existían y se conservaron sin cambios. No se imprimieron credenciales, enlaces, hashes ni tokens.
+- El nuevo recorrido Playwright `test:e2e:client-b02` pasó con Chrome real. CLIENT de Aurora solicita la vinculación desde Angular; personal autorizado la aprueba desde la interfaz con verificación manual; el portal recupera la sesión tras recarga, actualiza perfil propio, crea y edita una ficha básica propia y persiste cada acción por Spring Boot y PostgreSQL.
+- El mismo recorrido confirma que CLIENT no recibe una proyección clínica ni puede consultar el endpoint de historia completa, que logout invalida el espacio privado, que una transferencia verificada revoca el control de la mascota transferida sin afectar otras mascotas vigentes y que CLIENT de Bosque recibe 404 genérico ante un identificador de Aurora.
+- B02 continúa **parcial**: la edición administrativa presencial de propietario y el recorrido de navegador con una cuenta `VETERINARIO` siguen pendientes. No se declara evaluación clínica, vacunación, prescripción, adenda ni confirmación de duplicado como validadas en navegador hasta disponer de ese rol sintético legítimo.
+
 ## Checkpoint B02 — vinculación digital CLIENT–propietario (2026-10-24)
 
 - V017 `b02 client owner linking` está aplicada una sola vez mediante el lanzador Flyway acotado. Su SHA-256 es `4C21E0DA91A39499F6EF13097FE1185BAE42D99D526F2C0C7465E85D358DCE80` y su checksum Flyway es `337349119`.
@@ -54,7 +62,7 @@ fuera de V1.
 
 ## Próxima operación actualizada (2026-10-24)
 
-Cuando el responsable actualice las dos contraseñas CLIENT locales para cumplir la política, ejecutar la semilla idempotente y completar el E2E CLIENT de vinculación, ficha y mascotas propias. Preparar además una cuenta VETERINARIO sintética mediante invitación y asignación de rol ya autorizadas, con variables locales excluidas de Git; después ejecutar el recorrido clínico y la confirmación de posible duplicado de mascota desde navegador. Continuar con los requisitos B02 que aún no tienen vertical completo, incluida la edición administrativa de propietario.
+Implementar y verificar la edición administrativa presencial de propietario. En paralelo, preparar una cuenta `VETERINARIO` sintética mediante invitación y asignación de rol ya autorizadas, con variables locales excluidas de Git; después ejecutar el recorrido clínico y la confirmación de posible duplicado de mascota desde navegador.
 
 ## Estado recuperado
 
@@ -76,8 +84,8 @@ Cuando el responsable actualice las dos contraseñas CLIENT locales para cumplir
 | Fase | Estado | Resultado verificable siguiente |
 |---|---|---|
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
-| B01 — Administración, identidad y acceso | Parcial | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. La semilla CLIENT se detiene antes de PostgreSQL: las dos contraseñas locales no cumplen todavía la regla de mayúscula ASCII; por ello falta el E2E autenticado CLIENT. |
-| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial, transferencia, vínculo CLIENT, registros clínicos inmutables y revisión humana de duplicados implementado con PostgreSQL, RLS y Angular. El recorrido STAFF verifica propietario, mascota, transferencia y descarte de duplicado; la atención y confirmación clínica desde navegador exigen una cuenta sintética VETERINARIO aún no disponible. CLIENT autenticado aún exige contraseñas locales válidas. Persisten criterios B02 no cubiertos por recorrido completo, incluida la edición administrativa de propietario. |
+| B01 — Administración, identidad y acceso | Parcial | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. El E2E CLIENT autenticado ya verifica sesión, recarga, CSRF implícito y cierre de sesión con cuentas sintéticas; permanecen pendientes los recorridos públicos completos de registro y recuperación. |
+| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial, transferencia, vínculo CLIENT, autoservicio CLIENT, registros clínicos inmutables y revisión humana de duplicados implementado con PostgreSQL, RLS y Angular. Los recorridos STAFF y CLIENT verifican persistencia, transferencia, revocación y aislamiento Aurora/Bosque. La atención y confirmación clínica desde navegador exigen una cuenta sintética VETERINARIO aún no disponible. Persisten criterios B02 no cubiertos por recorrido completo, incluida la edición administrativa de propietario. |
 | B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
 | B05 — Tienda y pedidos | Pendiente | Catálogo, carrito, pedido y descuento de stock exactamente una vez al confirmar. |
