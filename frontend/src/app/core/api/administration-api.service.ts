@@ -164,6 +164,10 @@ export class AdministrationApiService {
     return this.http.get<ApiEnvelope<PetProfile>>(`${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}`);
   }
 
+  updatePet(petId: string, request: PetRequest): Observable<ApiEnvelope<PetProfile>> {
+    return this.http.put<ApiEnvelope<PetProfile>>(`${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}`, request);
+  }
+
   listOwnershipPeriods(petId: string): Observable<ApiEnvelope<OwnershipPeriod[]>> {
     return this.http.get<ApiEnvelope<OwnershipPeriod[]>>(`${this.apiBaseUrl}/pets/${encodeURIComponent(petId)}/ownership-periods`);
   }

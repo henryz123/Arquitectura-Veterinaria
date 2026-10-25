@@ -66,6 +66,12 @@ class OwnerPetCareDatabaseIntegrationTest {
 		assertEquals("PRESENCIAL", updatedOwner.origin());
 		var pet = ownerPetCareService.createPet(auroraAdministrator, owner.id(),
 				new PetCommand("Nube", "Canino", null, "HEMBRA", LocalDate.of(2021, 6, 15), null, "Collar rojo"));
+		var updatedPet = ownerPetCareService.updatePet(auroraAdministrator, pet.id(),
+				new PetCommand("Nube", "Canino", "Mestizo", "HEMBRA", LocalDate.of(2021, 6, 15), null,
+						"Collar azul"));
+		assertEquals("Mestizo", updatedPet.breed());
+		assertEquals("Collar azul", updatedPet.distinguishingMarks());
+		assertEquals(owner.id(), updatedPet.currentOwnerId());
 		assertEquals(List.of(pet.id()), ownerPetCareService.listPetsByOwner(auroraAdministrator, owner.id())
 				.stream().map(item -> item.id()).toList());
 		var successor = ownerPetCareService.createOwner(auroraAdministrator,
@@ -91,6 +97,11 @@ class OwnerPetCareDatabaseIntegrationTest {
 						new OwnerCommand("Marta", "No visible", null, null, null)));
 		assertEquals(HttpStatus.NOT_FOUND, crossTenantOwnerUpdate.status());
 		assertEquals("B02_RESOURCE_NOT_FOUND", crossTenantOwnerUpdate.code());
+		ApiException crossTenantPetUpdate = assertThrows(ApiException.class,
+				() -> ownerPetCareService.updatePet(bosqueAdministrator, pet.id(),
+						new PetCommand("Nube", "Canino", null, "HEMBRA", null, 24, null)));
+		assertEquals(HttpStatus.NOT_FOUND, crossTenantPetUpdate.status());
+		assertEquals("B02_RESOURCE_NOT_FOUND", crossTenantPetUpdate.code());
 		ApiException crossTenantTransfer = assertThrows(ApiException.class,
 				() -> ownerPetCareService.transferPetOwnership(auroraAdministrator, pet.id(),
 						new OwnershipTransferCommand(successor.id(), bosqueOwner.id(), "cross tenant", true)));

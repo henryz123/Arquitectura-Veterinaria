@@ -102,6 +102,24 @@ public class OwnerPetCareService {
 		return pet;
 	}
 
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public PetProfile updatePet(SessionPrincipal actor, UUID petId, PetCommand command) {
+		accessPolicy.requireRegistryManager(actor);
+		setTrustedContext(actor);
+		PetProfile current = lockPetOrNotFound(petId);
+		validatePetAge(command.birthDate(), command.estimatedAgeMonths());
+		PetProfile updated = repository.updatePet(actor.session().tenantId(), petId,
+				new PetDraft(required(command.name(), "name"), required(command.species(), "species"), optional(command.breed()),
+						normalizedSex(command.sex()), command.birthDate(), command.estimatedAgeMonths(),
+						optional(command.distinguishingMarks())))
+				.orElseThrow(() -> notFound("No se encontró el recurso solicitado."));
+		if (!current.currentOwnerId().equals(updated.currentOwnerId()) || !current.status().equals(updated.status())) {
+			throw conflict("B02_PET_UPDATE_INVARIANT", "La edición básica no puede cambiar responsable ni condición de la mascota.");
+		}
+		repository.audit(actor.session().tenantId(), actor.session().accountId(), "PET_UPDATED", "PET", updated.id());
+		return updated;
+	}
+
 	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
 	public PetProfile getPet(SessionPrincipal actor, UUID petId) {
 		accessPolicy.requirePetReader(actor);

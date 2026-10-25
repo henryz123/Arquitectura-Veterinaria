@@ -38,6 +38,15 @@ fuera de V1.
 - Angular mantuvo 4 archivos/9 pruebas, build correcto y Redocly validó el contrato OpenAPI. Chrome pasó `B02_OWNER_PET_BROWSER_E2E=PASS`: edita la ficha desde el navegador y después verifica mascota, transferencia, períodos históricos y la denegación de historia clínica para ADMIN sin VETERINARIO.
 - B02 continúa **parcial**: falta una cuenta sintética `VETERINARIO` legítima para validar desde navegador atención, vacunación, prescripción, adenda y confirmación clínica de duplicados. Ninguna de esas funciones se marca completada solo por la cobertura de integración.
 
+## Checkpoint B02 — edición básica STAFF de mascota (2026-10-24)
+
+- No se creó migración: V001–V019, RLS, privilegios y roles permanecen inmutables. La nueva operación usa la ficha tenant-local existente y no modifica `current_owner_id`, condición ni información clínica.
+- `PUT /api/v1/pets/{petId}` exige ADMIN_VETERINARIA o RECEPCION, valida fecha de nacimiento o edad estimada y actualiza solamente los datos básicos editables. El servicio bloquea la ficha, conserva responsable y estado, y registra `PET_UPDATED`.
+- La UI `/care` carga la ficha seleccionada en modo edición, permite cancelar o persistir el cambio y actualiza la lista con la respuesta real. No muestra controles de transferencia ni clínica como si fueran parte de la edición básica.
+- La suite B02 pasó 13/13 con Java 21 y PostgreSQL local, Flyway desactivado. Prueba modificación, conservación del responsable y rechazo `404` de Bosque para una mascota Aurora.
+- Angular mantuvo 4 archivos/9 pruebas, build correcto y OpenAPI válido. Chrome pasó `B02_OWNER_PET_BROWSER_E2E=PASS`: edita desde navegador propietario y mascota, persiste ambas fichas y conserva las regresiones de transferencia, períodos e historia clínica denegada al rol sin VETERINARIO.
+- B02 continúa **parcial**: falta una cuenta sintética `VETERINARIO` legítima para validar desde navegador atención, vacunación, prescripción, adenda y confirmación clínica de duplicados.
+
 ## Checkpoint B02 — vinculación digital CLIENT–propietario (2026-10-24)
 
 - V017 `b02 client owner linking` está aplicada una sola vez mediante el lanzador Flyway acotado. Su SHA-256 es `4C21E0DA91A39499F6EF13097FE1185BAE42D99D526F2C0C7465E85D358DCE80` y su checksum Flyway es `337349119`.
@@ -94,7 +103,7 @@ Preparar una cuenta `VETERINARIO` sintética mediante invitación y asignación 
 |---|---|---|
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
 | B01 — Administración, identidad y acceso | Parcial | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. El E2E CLIENT autenticado ya verifica sesión, recarga, CSRF implícito y cierre de sesión con cuentas sintéticas; permanecen pendientes los recorridos públicos completos de registro y recuperación. |
-| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial, edición administrativa, transferencia, vínculo CLIENT, autoservicio CLIENT, registros clínicos inmutables y revisión humana de duplicados implementado con PostgreSQL, RLS y Angular. Los recorridos STAFF y CLIENT verifican persistencia, edición, transferencia, revocación y aislamiento Aurora/Bosque. La atención y confirmación clínica desde navegador exigen una cuenta sintética VETERINARIO aún no disponible. |
+| B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial, edición STAFF de propietario y mascota, transferencia, vínculo CLIENT, autoservicio CLIENT, registros clínicos inmutables y revisión humana de duplicados implementado con PostgreSQL, RLS y Angular. Los recorridos STAFF y CLIENT verifican persistencia, edición, transferencia, revocación y aislamiento Aurora/Bosque. La atención y confirmación clínica desde navegador exigen una cuenta sintética VETERINARIO aún no disponible. |
 | B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
 | B05 — Tienda y pedidos | Pendiente | Catálogo, carrito, pedido y descuento de stock exactamente una vez al confirmar. |

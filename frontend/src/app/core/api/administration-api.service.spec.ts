@@ -198,6 +198,15 @@ describe('AdministrationApiService', () => {
     expect(pet.request.body.name).toBe('Nube');
     pet.flush({ data: { id: 'pet-1' } });
 
+    service.updatePet('pet-1', {
+      name: 'Nube', species: 'Canino', breed: 'Mestizo', sex: 'HEMBRA', birthDate: null, estimatedAgeMonths: 24,
+      distinguishingMarks: 'Collar azul',
+    }).subscribe();
+    const petUpdate = http.expectOne('/api/v1/pets/pet-1');
+    expect(petUpdate.request.method).toBe('PUT');
+    expect(petUpdate.request.body.distinguishingMarks).toBe('Collar azul');
+    petUpdate.flush({ data: { id: 'pet-1' } });
+
     service.listPetsByOwner('owner-1').subscribe();
     const ownerPets = http.expectOne('/api/v1/owners/owner-1/pets');
     expect(ownerPets.request.method).toBe('GET');

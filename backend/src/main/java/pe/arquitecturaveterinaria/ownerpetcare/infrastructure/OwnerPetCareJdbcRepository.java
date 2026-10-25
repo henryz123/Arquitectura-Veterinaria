@@ -113,6 +113,19 @@ public class OwnerPetCareJdbcRepository {
 				draft.birthDate(), draft.estimatedAgeMonths(), draft.distinguishingMarks(), actorPrincipalId);
 	}
 
+	/** Updates only basic pet fields. Ownership and status remain outside this operation. */
+	public Optional<PetProfile> updatePet(UUID tenantId, UUID petId, PetDraft draft) {
+		return jdbcTemplate.query("""
+				update owner_pet_care.pet
+				set name = ?, species = ?, breed = ?, sex = ?, birth_date = ?, estimated_age_months = ?,
+				    distinguishing_marks = ?, updated_at = statement_timestamp()
+				where tenant_id = ? and id = ?
+				returning id, tenant_id, current_owner_id, name, species, breed, sex, birth_date, estimated_age_months,
+				          distinguishing_marks, status, created_at, updated_at
+				""", this::mapPet, draft.name(), draft.species(), draft.breed(), draft.sex(), draft.birthDate(),
+				draft.estimatedAgeMonths(), draft.distinguishingMarks(), tenantId, petId).stream().findFirst();
+	}
+
 	public ClientOwnerLinkRequest createClientOwnerLinkRequest(UUID tenantId, UUID clientPrincipalId) {
 		return jdbcTemplate.queryForObject("""
 				insert into owner_pet_care.client_owner_link_request (tenant_id, client_principal_id)

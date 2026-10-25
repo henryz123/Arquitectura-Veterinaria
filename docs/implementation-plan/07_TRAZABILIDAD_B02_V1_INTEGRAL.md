@@ -149,6 +149,22 @@ Esta actualización completa la edición básica pendiente de RF-B02-001; no mod
 - Angular: 4 archivos/9 pruebas correctas, build correcto y Redocly validó el contrato con la operación `PUT`.
 - `npm.cmd run test:e2e:b02`: `B02_OWNER_PET_BROWSER_E2E=PASS` con Chrome real. Selecciona una ficha STAFF, entra en modo edición, persiste `PUT`, comprueba la dirección resultante y continúa las regresiones de mascota, transferencia, períodos e historia clínica denegada al administrador sin rol VETERINARIO.
 
+## Actualización verificable — edición básica STAFF de mascota (2026-10-24)
+
+Esta actualización completa la edición básica pendiente de RF-B02-002; no crea una migración ni altera la relación de responsabilidad.
+
+| Requisito | Estado actualizado | Evidencia y límite actual |
+|---|---|---|
+| RF-B02-002 | Verificado | `PUT /pets/{petId}` está limitado a ADMIN_VETERINARIA o RECEPCION del tenant. Solo actualiza nombre, especie, raza, sexo, edad/fecha y señas; conserva responsable principal, condición y contenido clínico. La integración comprueba persistencia y `404` cross-tenant; Chrome edita la ficha desde `/care` y verifica la respuesta persistida. |
+| RF-B02-016 | Verificado | El servicio establece contexto JDBC confiable antes de bloquear y actualizar la fila tenant-local. Las pruebas cubren el rechazo de Bosque para el identificador Aurora y el E2E conserva el responsable esperado después del `PUT`. |
+
+### Evidencia del checkpoint de mascota
+
+- No se modificaron V001–V019, RLS, roles ni permisos. La consulta SQL es parametrizada y excluye `current_owner_id`, `status` e historia clínica; el servicio detecta cualquier cambio inesperado de responsable o condición antes de cerrar la transacción.
+- `mvnw.cmd -Dtest=OwnerPetCareDatabaseIntegrationTest,B02AccessPolicyTest test`: 13/13 correctas con Java 21, PostgreSQL local y Flyway desactivado. La regresión se introdujo primero en rojo y confirmó edición, conservación de responsable y aislamiento.
+- Angular: 4 archivos/9 pruebas correctas, build correcto y Redocly validó `PUT /pets/{petId}`.
+- `npm.cmd run test:e2e:b02`: `B02_OWNER_PET_BROWSER_E2E=PASS` con Chrome real. La interfaz edita una mascota STAFF, valida la marca persistida y continúa con transferencia, períodos históricos e historia clínica restringida.
+
 ## Verificaciones del checkpoint
 
 - `mvnw.cmd -Dtest=B02AccessPolicyTest,OwnerPetCareDatabaseIntegrationTest test`: 6/6 correctas con Java 21; las pruebas de integración son transaccionales y se revierten.

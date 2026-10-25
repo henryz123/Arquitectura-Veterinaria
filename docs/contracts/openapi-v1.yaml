@@ -447,6 +447,20 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [owner-pet-care]
+      summary: Actualiza los datos básicos de una mascota visible para el tenant
+      x-implementation-status: implemented-b02-core
+      x-v1-requirements: [RF-B02-002, RF-B02-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/PetId' }]
+      requestBody: { $ref: '#/components/requestBodies/PetRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/PetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/pets/{petId}/owner-transfers:
     post:
       tags: [owner-pet-care]

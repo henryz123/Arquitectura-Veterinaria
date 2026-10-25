@@ -112,6 +112,13 @@ public class OwnerPetCareController {
 		return ApiEnvelope.of(service.getPet(principal, petId));
 	}
 
+	@PutMapping("/pets/{petId}")
+	ApiEnvelope<PetProfile> updatePet(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID petId,
+			@Valid @RequestBody PetRequest request) {
+		return ApiEnvelope.of(service.updatePet(principal, petId, new PetCommand(request.name(), request.species(), request.breed(),
+				request.sex(), request.birthDate(), request.estimatedAgeMonths(), request.distinguishingMarks())));
+	}
+
 	@PostMapping("/pets/{petId}/owner-transfers")
 	ApiEnvelope<PetProfile> transferPetOwnership(@AuthenticationPrincipal SessionPrincipal principal,
 			@PathVariable UUID petId, @Valid @RequestBody OwnershipTransferRequest request) {

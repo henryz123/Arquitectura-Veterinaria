@@ -70,7 +70,8 @@
 
         <section class="panel" *ngIf="selectedOwner() as owner">
           <div class="panel-heading"><div><p class="eyebrow">Paso 2</p><h2>Mascota de {{ owner.givenNames }}</h2></div></div>
-          <form [formGroup]="petForm" (ngSubmit)="createPet()" novalidate *ngIf="canManageRegistry()">
+          <form [formGroup]="petForm" (ngSubmit)="savePet()" novalidate *ngIf="canManageRegistry()">
+            <p class="panel-note" *ngIf="petEditMode()">Editando únicamente datos básicos. Responsable, condición e historia clínica se conservan.</p>
             <div class="two-columns">
               <div class="field-group"><label for="pet-name">Nombre</label><input id="pet-name" formControlName="name" /><p class="field-error" *ngIf="petSubmitted() && petForm.controls.name.invalid">Ingresa el nombre de la mascota.</p></div>
               <div class="field-group"><label for="pet-species">Especie</label><input id="pet-species" formControlName="species" placeholder="Ej. Canino" /><p class="field-error" *ngIf="petSubmitted() && petForm.controls.species.invalid">Ingresa la especie.</p></div>
@@ -84,7 +85,8 @@
               <div class="field-group"><label for="pet-age">o edad estimada (meses)</label><input id="pet-age" type="number" min="0" max="480" formControlName="estimatedAgeMonths" /><p class="helper">Registra solo uno de estos dos datos.</p></div>
             </div>
             <div class="field-group"><label for="pet-marks">Señas particulares</label><input id="pet-marks" formControlName="distinguishingMarks" /></div>
-            <button class="button button-primary" type="submit" [disabled]="actionPending()">Crear ficha de mascota</button>
+            <button class="button button-primary" type="submit" [disabled]="actionPending()">{{ petEditMode() ? 'Guardar cambios de mascota' : 'Crear ficha de mascota' }}</button>
+            <button class="button button-secondary" type="button" (click)="cancelPetEdit()" [disabled]="actionPending()" *ngIf="petEditMode()">Cancelar edición</button>
           </form>
           <p class="panel-note" *ngIf="!canManageRegistry()">Selecciona una ficha que ya esté autorizada para tu rol.</p>
           <div class="pet-list" *ngIf="ownerPets().length">
@@ -99,6 +101,7 @@
       <section class="panel pet-summary" *ngIf="selectedPet() as pet">
         <div class="panel-heading"><div><p class="eyebrow">Ficha activa</p><h2>{{ pet.name }}</h2></div><span class="status-pill status-ok">{{ pet.status }}</span></div>
         <dl class="details-list"><div><dt>Especie</dt><dd>{{ pet.species }}</dd></div><div><dt>Raza</dt><dd>{{ pet.breed || 'No registrada' }}</dd></div><div><dt>Sexo</dt><dd>{{ pet.sex }}</dd></div><div><dt>Edad</dt><dd>{{ petAge(pet) }}</dd></div></dl>
+        <button class="button button-primary" type="button" (click)="startPetEdit()" [disabled]="actionPending()" *ngIf="canManageRegistry() && !petEditMode()">Editar ficha básica</button>
         <button class="button button-secondary" type="button" (click)="selectPet(pet)" [disabled]="actionPending()">Actualizar ficha e historial</button>
       </section>
 

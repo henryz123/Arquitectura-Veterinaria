@@ -59,6 +59,7 @@ export class OwnerPetCarePageComponent implements OnInit {
   readonly ownerSubmitted = signal(false);
   readonly ownerEditMode = signal(false);
   readonly petSubmitted = signal(false);
+  readonly petEditMode = signal(false);
   readonly clinicalSubmitted = signal(false);
   readonly vaccinationSubmitted = signal(false);
   readonly prescriptionSubmitted = signal(false);
@@ -465,6 +466,7 @@ export class OwnerPetCarePageComponent implements OnInit {
 
   selectOwner(owner: OwnerProfile): void {
     this.cancelOwnerEdit();
+    this.cancelPetEdit();
     this.selectedOwner.set(owner);
     this.selectedPet.set(null);
     this.ownerPets.set([]);
@@ -535,7 +537,82 @@ export class OwnerPetCarePageComponent implements OnInit {
     });
   }
 
+  savePet(): void {
+    if (this.petEditMode()) {
+      this.updateSelectedPet();
+      return;
+    }
+    this.createPet();
+  }
+
+  startPetEdit(): void {
+    const pet = this.selectedPet();
+    if (!pet || !this.canManageRegistry() || this.actionPending()) {
+      return;
+    }
+    this.clearFeedback();
+    this.petEditMode.set(true);
+    this.petSubmitted.set(false);
+    this.petForm.reset({
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed ?? '',
+      sex: pet.sex,
+      birthDate: pet.birthDate ?? '',
+      estimatedAgeMonths: pet.estimatedAgeMonths === null ? '' : String(pet.estimatedAgeMonths),
+      distinguishingMarks: pet.distinguishingMarks ?? '',
+    });
+  }
+
+  cancelPetEdit(): void {
+    this.petEditMode.set(false);
+    this.petSubmitted.set(false);
+    this.petForm.reset({ name: '', species: '', breed: '', sex: 'DESCONOCIDO', birthDate: '', estimatedAgeMonths: '', distinguishingMarks: '' });
+  }
+
+  private updateSelectedPet(): void {
+    const pet = this.selectedPet();
+    this.petSubmitted.set(true);
+    if (!pet || !this.canManageRegistry() || this.petForm.invalid || this.actionPending()) {
+      this.petForm.markAllAsTouched();
+      return;
+    }
+    const value = this.petForm.getRawValue();
+    const birthDate = this.optional(value.birthDate);
+    const estimatedAgeMonths = this.ageInMonths(value.estimatedAgeMonths);
+    const hasEstimatedAge = String(value.estimatedAgeMonths ?? '').trim().length > 0;
+    if ((birthDate === null && estimatedAgeMonths === null) || (birthDate !== null && estimatedAgeMonths !== null)) {
+      this.error.set('Indica una fecha de nacimiento o una edad estimada, pero no ambas.');
+      return;
+    }
+    if (hasEstimatedAge && estimatedAgeMonths === null) {
+      this.error.set('La edad estimada debe ser un número entero entre 0 y 480 meses.');
+      return;
+    }
+    this.clearFeedback();
+    this.actionPending.set(true);
+    this.api.updatePet(pet.id, {
+      name: value.name,
+      species: value.species,
+      breed: this.optional(value.breed),
+      sex: value.sex,
+      birthDate,
+      estimatedAgeMonths,
+      distinguishingMarks: this.optional(value.distinguishingMarks),
+    }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+      next: (response) => {
+        this.ownerPets.update((pets) => pets.map((item) => item.id === response.data.id ? response.data : item)
+          .sort((left, right) => left.name.localeCompare(right.name)));
+        this.selectedPet.set(response.data);
+        this.cancelPetEdit();
+        this.notice.set('La ficha básica de la mascota se actualizó sin alterar responsable, estado ni historia clínica.');
+      },
+      error: () => this.error.set('No fue posible actualizar la ficha de mascota. Confirma los datos, el tenant y tus permisos.'),
+    });
+  }
+
   selectPet(pet: PetProfile): void {
+    this.cancelPetEdit();
     this.clearFeedback();
     this.actionPending.set(true);
     const history = this.canWriteClinical() ? this.api.listClinicalEpisodes(pet.id) : of(null);

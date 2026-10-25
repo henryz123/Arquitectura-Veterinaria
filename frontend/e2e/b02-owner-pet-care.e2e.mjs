@@ -44,6 +44,7 @@ const petFixture = {
   breed: 'Mestizo',
   sex: 'HEMBRA',
   estimatedAgeMonths: 24,
+  updatedMarks: 'Ficha básica STAFF actualizada mediante navegador',
 };
 const evidenceDirectory = process.env.AV_E2E_EVIDENCE_DIR
   ? resolve(process.env.AV_E2E_EVIDENCE_DIR)
@@ -180,9 +181,24 @@ try {
 
   await page.getByRole('heading', { name: petFixture.name }).waitFor();
   await page.getByRole('heading', { name: 'Historia clínica protegida' }).waitFor();
-  const storedPet = await browserFetch(page, `/api/v1/pets/${pet.id}`);
+  let storedPet = await browserFetch(page, `/api/v1/pets/${pet.id}`);
+  if (storedPet.body?.data?.distinguishingMarks !== petFixture.updatedMarks) {
+    await page.getByRole('button', { name: 'Editar ficha básica' }).click();
+    const [response] = await Promise.all([
+      page.waitForResponse((candidate) => candidate.request().method() === 'PUT'
+        && candidate.url().endsWith(`/api/v1/pets/${pet.id}`)),
+      (async () => {
+        await page.locator('#pet-marks').fill(petFixture.updatedMarks);
+        await page.getByRole('button', { name: 'Guardar cambios de mascota' }).click();
+      })(),
+    ]);
+    assert.equal(response.status(), 200, 'the staff UI must persist only the selected basic pet profile');
+    storedPet = await browserFetch(page, `/api/v1/pets/${pet.id}`);
+  }
   assert.equal(storedPet.status, 200, 'the persisted pet must be readable after the browser form completes');
   assert.equal(storedPet.body?.data?.currentOwnerId, owner.id, 'the pet must retain its owner association');
+  assert.equal(storedPet.body?.data?.distinguishingMarks, petFixture.updatedMarks,
+    'the basic pet update must preserve its current owner and persist through the API');
   const deniedHistory = await browserFetch(page, `/api/v1/pets/${pet.id}/clinical-episodes`);
   assert.equal(deniedHistory.status, 403, 'an administrator without VETERINARIO must not read the clinical history');
 
