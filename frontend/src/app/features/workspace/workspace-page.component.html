@@ -11,6 +11,7 @@
     <nav>
       <a href="#summary" aria-current="page">Resumen</a>
       <a routerLink="/care">Propietarios y clínica</a>
+      <a routerLink="/schedule" *ngIf="canManageSchedule()">Agenda</a>
       <a href="#team" *ngIf="canManageStaff()">Equipo y roles</a>
       <a href="#invitation" *ngIf="canManageStaff()">Nueva invitación</a>
       <a href="#organization">Organización</a>

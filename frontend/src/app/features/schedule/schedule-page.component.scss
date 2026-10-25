@@ -1,0 +1,15 @@
+:host { display: block; }
+
+.schedule-shell { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); min-height: 100vh; }
+.schedule-body { min-width: 0; background: var(--surface-base); }
+.schedule-content { max-width: 76rem; margin: 0 auto; padding: 2rem; }
+.topbar-link { display: inline-flex; align-items: center; text-decoration: none; }
+.schedule-grid { display: grid; grid-template-columns: minmax(18rem, .9fr) minmax(0, 1.1fr); gap: 1rem; margin-top: 1rem; }
+.compact { margin-bottom: 0; }
+
+@media (max-width: 52rem) {
+  .schedule-shell { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .schedule-content { padding: 1.25rem; }
+  .schedule-grid { grid-template-columns: 1fr; }
+}

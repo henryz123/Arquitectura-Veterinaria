@@ -94,6 +94,12 @@ export interface StaffInvitation {
   roles: StaffRole[];
 }
 
+/** Minimal B03 projection returned only to ADMIN_VETERINARIA or RECEPCION. */
+export interface AssignableProfessional {
+  principalId: string;
+  roles: Array<'VETERINARIO' | 'GROOMING'>;
+}
+
 export interface Organization {
   id: string;
   commercialName: string;

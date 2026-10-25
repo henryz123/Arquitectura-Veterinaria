@@ -1,0 +1,69 @@
+<div class="schedule-shell">
+  <a class="skip-link" href="#schedule-main">Saltar al contenido</a>
+  <aside class="sidebar" aria-label="Navegación administrativa">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">AV</span>
+      <div><strong>Arquitectura</strong><span>Veterinaria</span></div>
+    </div>
+    <nav>
+      <a routerLink="/workspace">Administración</a>
+      <a routerLink="/care">Propietarios y clínica</a>
+      <a routerLink="/schedule" aria-current="page">Agenda</a>
+    </nav>
+    <p class="sidebar-note">La selección se limita al tenant de la sesión.</p>
+  </aside>
+
+  <div class="schedule-body">
+    <header class="topbar">
+      <div><p class="eyebrow">Agenda</p><p class="topbar-title">Preparar una asignación</p></div>
+      <a class="button button-quiet topbar-link" routerLink="/workspace">Volver al espacio</a>
+    </header>
+
+    <main id="schedule-main" class="schedule-content" aria-labelledby="schedule-title">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">B03 · primer vertical</p>
+          <h1 id="schedule-title">Profesionales asignables</h1>
+          <p>Consulta los roles activos que pueden atender una cita en esta veterinaria. La creación y confirmación de citas se habilitarán solo cuando su validación de disponibilidad esté implementada.</p>
+        </div>
+        <button class="button button-secondary" type="button" (click)="loadProfessionals()" [disabled]="loading() || !canManageSchedule()">
+          {{ loading() ? 'Actualizando…' : 'Revalidar opciones' }}
+        </button>
+      </div>
+
+      <p class="loading" *ngIf="loading()">Consultando profesionales autorizados…</p>
+      <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
+
+      <section class="schedule-grid" *ngIf="!loading() && canManageSchedule()">
+        <article class="panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Asignación</p><h2>Seleccionar profesional</h2></div>
+            <span class="panel-caption">{{ professionals().length }} elegibles</span>
+          </div>
+          <div class="field-group">
+            <label for="assignable-professional">Profesional con rol vigente</label>
+            <select id="assignable-professional" [value]="selectedProfessionalId()" (change)="selectProfessional($any($event.target).value)" [disabled]="professionals().length === 0">
+              <option value="" *ngIf="professionals().length === 0">No hay profesionales elegibles</option>
+              <option *ngFor="let professional of professionals(); trackBy: trackProfessional" [value]="professional.principalId">
+                {{ professionalLabel(professional) }}
+              </option>
+            </select>
+            <p class="helper">La etiqueta se deriva solo de los roles y del identificador ya autorizado por V020; no expone correos ni nombres personales.</p>
+          </div>
+          <p class="empty-state compact" *ngIf="professionals().length === 0">No hay profesionales activos con rol VETERINARIO o GROOMING en esta veterinaria.</p>
+        </article>
+
+        <article class="panel" *ngIf="selectedProfessional() as professional; else selectionHelp">
+          <div class="panel-heading"><div><p class="eyebrow">Selección vigente</p><h2>{{ professionalLabel(professional) }}</h2></div><span class="status-pill status-ok">Elegible</span></div>
+          <dl class="details-list">
+            <div><dt>Roles para asignación</dt><dd>{{ roleSummary(professional) }}</dd></div>
+            <div><dt>Identificador operativo</dt><dd>{{ professional.principalId }}</dd></div>
+            <div><dt>Alcance</dt><dd>Solo tenant de la sesión</dd></div>
+          </dl>
+          <p class="panel-note">Esta consulta se revalida en PostgreSQL usando la sesión vigente. Aún no representa una cita ni reserva una franja.</p>
+        </article>
+        <ng-template #selectionHelp><article class="access-notice"><h2>Sin selección disponible</h2><p>Registra o reactiva profesionales autorizados antes de preparar una asignación.</p></article></ng-template>
+      </section>
+    </main>
+  </div>
+</div>

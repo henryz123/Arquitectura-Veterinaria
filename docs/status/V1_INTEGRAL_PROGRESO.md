@@ -98,6 +98,14 @@ Preparar una cuenta `VETERINARIO` sintética mediante invitación y asignación 
 - La semilla local idempotente VETERINARIO se ejecutó mediante invitación y aceptación autorizadas, sin exponer credenciales. La verificación SQL transaccional `database/tests/verify-v020-assignable-professionals.psql` pasó con `ROLLBACK`: ADMIN y RECEPCION ven solo profesionales activos propios; CLIENT y STAFF sin rol autorizado no obtienen resultados; Bosque no ve Aurora; un rol destino revocado, una cuenta suspendida y sesiones revocadas o vencidas no quedan asignables. No persiste mutaciones de prueba.
 - B03 sigue **parcial**: V020 está disponible y verificada como frontera de lectura, pero aún faltan endpoint HTTP, selector Angular, confirmación de cita con revalidación de profesional, agenda, persistencia y recorridos E2E. El E2E clínico B02 con VETERINARIO continúa pendiente de implementar y ejecutar.
 
+## Checkpoint B03 - endpoint and selector for assignable professionals (2026-10-25)
+
+- The B03 application layer now exposes `GET /api/v1/schedule/assignable-professionals`. It takes no tenant, role, professional id, token or hash from the HTTP request. Spring derives the opaque session hash from the authenticated server principal, requires `ADMIN_VETERINARIA` or `RECEPCION`, and V020 revalidates the session, tenant, requester role and target status in PostgreSQL.
+- The response is limited to `principalId` and active `VETERINARIO`/`GROOMING` roles. The JDBC adapter is fail-closed for every other role projection and has no direct identity-table access. The endpoint is documented in OpenAPI and the Angular `/schedule` route renders a real selector from that response. It deliberately derives its display label from the returned role and identifier; it does not expose email or a personal name.
+- Backend authorization tests, `npm.cmd test -- --watch=false` (5 files / 10 tests), Angular build and local Redocly validation passed. The complete backend suite passed with JDK 21, Flyway disabled and local synthetic variables loaded: 54 tests, 0 failures/errors and 6 pre-existing skipped tests.
+- Playwright Chrome passed `B03_ASSIGNABLE_PROFESSIONALS_BROWSER_E2E=PASS` against local Spring Boot and Angular. Aurora administration receives the minimal tenant-local list, Bosque receives no Aurora principal id, and a VETERINARIO without scheduling authority receives HTTP 403. The E2E performs authentication and reads only; it creates no data.
+- B03 remains **partial**. This checkpoint does not create or confirm an appointment, reserve a slot, persist availability, or implement conflict handling. The next vertical needs an audited additive migration and server-side appointment validation before a selector can be used to persist an assignment.
+
 ## Estado recuperado
 
 - Git parte del commit consolidado `b333a1602ac1fd6541efcc11b8034a7a7ca06212`
@@ -120,7 +128,7 @@ Preparar una cuenta `VETERINARIO` sintética mediante invitación y asignación 
 | Recuperación y control de línea base | Completada | Línea de trabajo creada, respaldo recuperable validado y V013 aplicada con control Flyway. |
 | B01 — Administración, identidad y acceso | Parcial | Las interfaces CLIENT de registro, verificación, reenvío y recuperación están conectadas a las rutas B01 existentes. El E2E CLIENT autenticado ya verifica sesión, recarga, CSRF implícito y cierre de sesión con cuentas sintéticas; permanecen pendientes los recorridos públicos completos de registro y recuperación. |
 | B02 — Propietarios, mascotas y clínica | Parcial | Vertical propietario → mascota → episodio clínico → historial, edición STAFF de propietario y mascota, transferencia, vínculo CLIENT, autoservicio CLIENT, registros clínicos inmutables y revisión humana de duplicados implementado con PostgreSQL, RLS y Angular. Los recorridos STAFF y CLIENT verifican persistencia, edición, transferencia, revocación y aislamiento Aurora/Bosque. La atención y confirmación clínica desde navegador exigen una cuenta sintética VETERINARIO aún no disponible. |
-| B03 — Citas y grooming | Pendiente | Agenda real, transiciones y prevención de solapes. |
+| B03 — Citas y grooming | Parcial | Selector real de profesionales tenant-locales; faltan agenda, citas, transiciones y prevencion de solapes. |
 | B04 — Inventario y POS | Pendiente | Productos, movimientos y venta con stock auditable y no negativo. |
 | B05 — Tienda y pedidos | Pendiente | Catálogo, carrito, pedido y descuento de stock exactamente una vez al confirmar. |
 | B06 — Transversal | Pendiente | Notificaciones, auditoría básica y controles que conectan los verticales anteriores. |
