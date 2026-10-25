@@ -278,3 +278,11 @@ vacunas, recetas y rectificaciones.
 - RF-B02-007 y RF-B02-015 quedan verificados. B02 continúa parcial: faltan
   vinculación digital, vacunación, prescripción, rectificaciones y consultas
   permitidas desde CLIENT.
+
+## Checkpoint B03 — servicios y disponibilidad persistentes (2026-10-25)
+
+- V022 `b03 schedule foundation` fue preejecutada en `BEGIN`/`ROLLBACK` y luego aplicada una sola vez por Flyway sobre la base local autorizada. SHA-256 fuente `1CCDE1A6BDD3512371CC59D21BCE7D61182C22BCA3EC3FC5651285EB6391929D`; checksum Flyway `2011436639`.
+- La migración crea un esquema tenant-local de agenda con RLS: servicios, horas operativas, disponibilidad profesional, bloqueos, solicitudes, propuestas, reservas, eventos de cambio y atención grooming. No incorpora `SECURITY DEFINER`, funciones, extensiones, SQL dinámico, permisos `PUBLIC`, `DELETE` para `av_app` ni cambios destructivos. La verificación del catálogo confirmó propietarios `av_schema_owner`, nueve políticas RLS y privilegios mínimos de `av_app`.
+- La página Angular `/schedule` ahora permite a ADMIN_VETERINARIA o RECEPCION crear y consultar servicios clínicos/grooming, horarios America/Lima y disponibilidades de profesionales revalidados por V020. Las operaciones atraviesan Angular → Spring Boot → PostgreSQL; no usan listas fijas como fuente de datos.
+- Evidencia: backend B03 6/6, Angular 11/11, build correcto con advertencia de presupuesto inicial no bloqueante, OpenAPI válido y Playwright `B03_SERVICES_AVAILABILITY_BROWSER_E2E=PASS`. El E2E crea/reutiliza fixtures sintéticos idempotentes y verifica que Bosque no vea el catálogo creado en Aurora.
+- B03 sigue **parcial**. No se declara aún confirmación, protección concurrente de cupos, solicitud CLIENT, calendario de reservas, contrapropuesta, aceptación, cancelación, ejecución grooming ni notificaciones. El siguiente vertical implementará solicitud y confirmación atómica con la regresión de solapes correspondiente.

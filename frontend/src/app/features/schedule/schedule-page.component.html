@@ -10,59 +10,152 @@
       <a routerLink="/care">Propietarios y clínica</a>
       <a routerLink="/schedule" aria-current="page">Agenda</a>
     </nav>
-    <p class="sidebar-note">La selección se limita al tenant de la sesión.</p>
+    <p class="sidebar-note">Los servicios y franjas pertenecen solo al tenant de la sesión.</p>
   </aside>
 
   <div class="schedule-body">
     <header class="topbar">
-      <div><p class="eyebrow">Agenda</p><p class="topbar-title">Preparar una asignación</p></div>
+      <div><p class="eyebrow">Agenda</p><p class="topbar-title">Servicios y disponibilidad</p></div>
       <a class="button button-quiet topbar-link" routerLink="/workspace">Volver al espacio</a>
     </header>
 
     <main id="schedule-main" class="schedule-content" aria-labelledby="schedule-title">
       <div class="page-heading">
         <div>
-          <p class="eyebrow">B03 · primer vertical</p>
-          <h1 id="schedule-title">Profesionales asignables</h1>
-          <p>Consulta los roles activos que pueden atender una cita en esta veterinaria. La creación y confirmación de citas se habilitarán solo cuando su validación de disponibilidad esté implementada.</p>
+          <p class="eyebrow">B03 · agenda operativa</p>
+          <h1 id="schedule-title">Preparar horarios reales</h1>
+          <p>Publica servicios y configura horas locales de la veterinaria y de sus profesionales. La confirmación de citas volverá a validar estas franjas dentro de su transacción.</p>
         </div>
-        <button class="button button-secondary" type="button" (click)="loadProfessionals()" [disabled]="loading() || !canManageSchedule()">
-          {{ loading() ? 'Actualizando…' : 'Revalidar opciones' }}
+        <button class="button button-secondary" type="button" (click)="loadScheduleData()" [disabled]="loading() || saving() || !canManageSchedule()">
+          {{ loading() ? 'Actualizando…' : 'Revalidar agenda' }}
         </button>
       </div>
 
-      <p class="loading" *ngIf="loading()">Consultando profesionales autorizados…</p>
+      <p class="loading" *ngIf="loading()">Consultando agenda y permisos autorizados…</p>
       <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
+      <p class="feedback feedback-success" role="status" *ngIf="notice()">{{ notice() }}</p>
+
+      <section class="overview-grid" *ngIf="!loading() && canManageSchedule()">
+        <article class="panel summary-card">
+          <p class="eyebrow">Servicios</p>
+          <strong>{{ services().length }}</strong>
+          <span>registrados para esta veterinaria</span>
+        </article>
+        <article class="panel summary-card">
+          <p class="eyebrow">Profesionales</p>
+          <strong>{{ professionals().length }}</strong>
+          <span>con rol asignable vigente</span>
+        </article>
+        <article class="panel summary-card">
+          <p class="eyebrow">Franjas personales</p>
+          <strong>{{ professionalAvailability().length }}</strong>
+          <span>disponibilidades guardadas</span>
+        </article>
+      </section>
 
       <section class="schedule-grid" *ngIf="!loading() && canManageSchedule()">
-        <article class="panel">
-          <div class="panel-heading">
-            <div><p class="eyebrow">Asignación</p><h2>Seleccionar profesional</h2></div>
-            <span class="panel-caption">{{ professionals().length }} elegibles</span>
-          </div>
-          <div class="field-group">
-            <label for="assignable-professional">Profesional con rol vigente</label>
-            <select id="assignable-professional" [value]="selectedProfessionalId()" (change)="selectProfessional($any($event.target).value)" [disabled]="professionals().length === 0">
-              <option value="" *ngIf="professionals().length === 0">No hay profesionales elegibles</option>
-              <option *ngFor="let professional of professionals(); trackBy: trackProfessional" [value]="professional.principalId">
-                {{ professionalLabel(professional) }}
-              </option>
-            </select>
-            <p class="helper">La etiqueta se deriva solo de los roles y del identificador ya autorizado por V020; no expone correos ni nombres personales.</p>
-          </div>
-          <p class="empty-state compact" *ngIf="professionals().length === 0">No hay profesionales activos con rol VETERINARIO o GROOMING en esta veterinaria.</p>
+        <article class="panel form-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Catálogo</p><h2>Nuevo servicio</h2></div></div>
+          <form [formGroup]="serviceForm" (ngSubmit)="submitService()" novalidate>
+            <div class="form-grid">
+              <label class="field-group" for="service-type">Tipo
+                <select id="service-type" formControlName="serviceType">
+                  <option value="CLINICA">Atención clínica</option>
+                  <option value="GROOMING">Grooming</option>
+                </select>
+              </label>
+              <label class="field-group" for="service-name">Nombre
+                <input id="service-name" type="text" formControlName="name" maxlength="160" autocomplete="off" />
+              </label>
+              <label class="field-group full" for="service-description">Descripción pública <span class="optional">Opcional</span>
+                <textarea id="service-description" formControlName="publicDescription" maxlength="1000" rows="3"></textarea>
+              </label>
+              <label class="field-group" for="service-duration">Duración (minutos)
+                <input id="service-duration" type="number" min="15" max="480" step="15" formControlName="durationMinutes" />
+              </label>
+              <label class="field-group" for="service-price">Precio referencial (S/)
+                <input id="service-price" type="number" min="0" step="0.01" formControlName="referencePrice" />
+              </label>
+              <label class="checkbox-field full" for="service-published">
+                <input id="service-published" type="checkbox" formControlName="published" />
+                <span>Publicar para las solicitudes autorizadas de CLIENT</span>
+              </label>
+            </div>
+            <p class="helper">La duración se registra en bloques de 15 minutos y el precio es solo referencial.</p>
+            <button class="button button-primary" type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Guardar servicio' }}</button>
+          </form>
         </article>
 
-        <article class="panel" *ngIf="selectedProfessional() as professional; else selectionHelp">
-          <div class="panel-heading"><div><p class="eyebrow">Selección vigente</p><h2>{{ professionalLabel(professional) }}</h2></div><span class="status-pill status-ok">Elegible</span></div>
-          <dl class="details-list">
-            <div><dt>Roles para asignación</dt><dd>{{ roleSummary(professional) }}</dd></div>
-            <div><dt>Identificador operativo</dt><dd>{{ professional.principalId }}</dd></div>
-            <div><dt>Alcance</dt><dd>Solo tenant de la sesión</dd></div>
-          </dl>
-          <p class="panel-note">Esta consulta se revalida en PostgreSQL usando la sesión vigente. Aún no representa una cita ni reserva una franja.</p>
+        <article class="panel list-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Catálogo actual</p><h2>Servicios de la veterinaria</h2></div><span class="panel-caption">{{ services().length }} registros</span></div>
+          <p class="empty-state compact" *ngIf="services().length === 0">Aún no hay servicios. Registra el primero para habilitar solicitudes de cita reales.</p>
+          <ul class="record-list" *ngIf="services().length > 0">
+            <li *ngFor="let service of services(); trackBy: trackById">
+              <div><strong>{{ service.name }}</strong><span>{{ service.serviceType === 'CLINICA' ? 'Atención clínica' : 'Grooming' }} · {{ service.durationMinutes }} min · S/ {{ service.referencePrice | number:'1.2-2' }}</span></div>
+              <span class="status-pill" [class.status-ok]="service.status === 'ACTIVO' && service.published">{{ serviceState(service) }}</span>
+            </li>
+          </ul>
         </article>
-        <ng-template #selectionHelp><article class="access-notice"><h2>Sin selección disponible</h2><p>Registra o reactiva profesionales autorizados antes de preparar una asignación.</p></article></ng-template>
+      </section>
+
+      <section class="schedule-grid availability-grid" *ngIf="!loading() && canManageSchedule()">
+        <article class="panel form-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Veterinaria</p><h2>Horario operativo</h2></div></div>
+          <form [formGroup]="operatingHoursForm" (ngSubmit)="submitOperatingHours()" novalidate>
+            <div class="form-grid compact-form">
+              <label class="field-group" for="operating-weekday">Día
+                <select id="operating-weekday" formControlName="weekday"><option *ngFor="let weekday of weekdays" [value]="weekday.value">{{ weekday.label }}</option></select>
+              </label>
+              <label class="field-group" for="operating-start">Inicio
+                <input id="operating-start" type="time" formControlName="startsAtLocal" />
+              </label>
+              <label class="field-group" for="operating-end">Fin
+                <input id="operating-end" type="time" formControlName="endsAtLocal" />
+              </label>
+            </div>
+            <p class="helper">Las horas se interpretan en America/Lima.</p>
+            <button class="button button-secondary" type="submit" [disabled]="saving()">Guardar horario</button>
+          </form>
+          <ul class="compact-record-list" *ngIf="operatingHours().length > 0">
+            <li *ngFor="let item of operatingHours(); trackBy: trackById">{{ weekdayLabel(item.weekday) }}: {{ item.startsAtLocal }}–{{ item.endsAtLocal }}</li>
+          </ul>
+        </article>
+
+        <article class="panel form-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Profesional</p><h2>Disponibilidad semanal</h2></div></div>
+          <form [formGroup]="professionalAvailabilityForm" (ngSubmit)="submitProfessionalAvailability()" novalidate>
+            <div class="form-grid compact-form">
+              <label class="field-group full" for="assignable-professional">Profesional con rol vigente
+                <select id="assignable-professional" formControlName="professionalPrincipalId" (change)="selectProfessional($any($event.target).value)" [disabled]="professionals().length === 0">
+                  <option value="" *ngIf="professionals().length === 0">No hay profesionales elegibles</option>
+                  <option *ngFor="let professional of professionals(); trackBy: trackProfessional" [value]="professional.principalId">{{ professionalLabel(professional) }}</option>
+                </select>
+              </label>
+              <label class="field-group" for="professional-weekday">Día
+                <select id="professional-weekday" formControlName="weekday"><option *ngFor="let weekday of weekdays" [value]="weekday.value">{{ weekday.label }}</option></select>
+              </label>
+              <label class="field-group" for="professional-start">Inicio
+                <input id="professional-start" type="time" formControlName="startsAtLocal" />
+              </label>
+              <label class="field-group" for="professional-end">Fin
+                <input id="professional-end" type="time" formControlName="endsAtLocal" />
+              </label>
+            </div>
+            <p class="helper" *ngIf="selectedProfessional() as professional">Roles vigentes: {{ roleSummary(professional) }}. La validación se repite en el servidor.</p>
+            <button class="button button-secondary" type="submit" [disabled]="saving() || professionals().length === 0">Guardar disponibilidad</button>
+          </form>
+        </article>
+
+        <article class="panel list-panel availability-list">
+          <div class="panel-heading"><div><p class="eyebrow">Agenda preparada</p><h2>Disponibilidades registradas</h2></div><span class="panel-caption">{{ professionalAvailability().length }} franjas</span></div>
+          <p class="empty-state compact" *ngIf="professionalAvailability().length === 0">Aún no hay franjas personales. Las solicitudes podrán guardarse, pero una confirmación futura exigirá disponibilidad real.</p>
+          <ul class="record-list" *ngIf="professionalAvailability().length > 0">
+            <li *ngFor="let item of professionalAvailability(); trackBy: trackById">
+              <div><strong>{{ weekdayLabel(item.weekday) }} · {{ item.startsAtLocal }}–{{ item.endsAtLocal }}</strong><span>Profesional {{ item.professionalPrincipalId.slice(0, 8) }} · tenant actual</span></div>
+              <span class="status-pill status-ok">Vigente</span>
+            </li>
+          </ul>
+        </article>
       </section>
     </main>
   </div>

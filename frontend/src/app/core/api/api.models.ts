@@ -100,6 +100,61 @@ export interface AssignableProfessional {
   roles: Array<'VETERINARIO' | 'GROOMING'>;
 }
 
+export interface OfferedService {
+  id: string;
+  tenantId: string;
+  serviceType: 'CLINICA' | 'GROOMING';
+  name: string;
+  publicDescription: string | null;
+  durationMinutes: number;
+  referencePrice: number;
+  published: boolean;
+  status: 'ACTIVO' | 'INACTIVO';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OfferedServiceRequest {
+  serviceType: 'CLINICA' | 'GROOMING';
+  name: string;
+  publicDescription: string | null;
+  durationMinutes: number;
+  referencePrice: number;
+  published: boolean;
+}
+
+export interface OperatingHours {
+  id: string;
+  weekday: number;
+  startsAtLocal: string;
+  endsAtLocal: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OperatingHoursRequest {
+  weekday: number;
+  startsAtLocal: string;
+  endsAtLocal: string;
+}
+
+export interface ProfessionalAvailability {
+  id: string;
+  professionalPrincipalId: string;
+  weekday: number;
+  startsAtLocal: string;
+  endsAtLocal: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalAvailabilityRequest {
+  professionalPrincipalId: string;
+  weekday: number;
+  startsAtLocal: string;
+  endsAtLocal: string;
+}
+
 export interface Organization {
   id: string;
   commercialName: string;

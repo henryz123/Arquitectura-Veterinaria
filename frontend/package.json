@@ -11,6 +11,7 @@
     "test:e2e:b02": "node e2e/b02-owner-pet-care.e2e.mjs",
     "test:e2e:client-b02": "node e2e/client-owner-pet.e2e.mjs",
     "test:e2e:b03-assignable-professionals": "node e2e/b03-assignable-professionals.e2e.mjs",
+    "test:e2e:b03-services-availability": "node e2e/b03-services-availability.e2e.mjs",
     "validate:contract": "redocly lint ../docs/contracts/openapi-v1.yaml --extends=spec"
   },
   "private": true,
