@@ -89,6 +89,15 @@ fuera de V1.
 
 Preparar una cuenta `VETERINARIO` sintética mediante invitación y asignación de rol ya autorizadas, con variables locales excluidas de Git; después ejecutar el recorrido clínico, vacunación, prescripción, adenda y confirmación de posible duplicado de mascota desde navegador.
 
+## Checkpoint B03 — profesionales asignables y corrección de roles (2026-10-25)
+
+- V020 `b03 list assignable professionals` se aplicó una sola vez mediante `scripts/invoke-authorized-flyway-v020.cmd`. Su SHA-256 fuente es `FFAE2D2A6AEC2C73C16B4F02B461587A10BCEFE6722AA7278AE1CA6BF67793A7` y el checksum Flyway es `464200593`.
+- La única función nueva, `identity_auth.list_assignable_professionals_for_session(text)`, es `SECURITY DEFINER` de solo lectura. Verifica directamente la sesión STAFF, su vigencia por sentencia, revocación, principal, perfil, tenant activo y rol efectivo `ADMIN_VETERINARIA` o `RECEPCION`; no confía en GUCs ni acepta tenant arbitrario. Devuelve exclusivamente `principal_id` y roles activos `VETERINARIO`/`GROOMING` del mismo tenant.
+- El catálogo posterior confirma owner `av_schema_owner` sin superusuario ni `BYPASSRLS`, `search_path` seguro terminado en `pg_temp`, `PUBLIC` sin `EXECUTE`, `av_app` con solo `EXECUTE` y cero privilegios directos de lectura o escritura sobre `user_session`, `principal`, `account_profile` y `role_assignment`.
+- La primera prueba negativa detectó un defecto heredado de `replace_staff_roles`: al sustituir un rol se revocaba y se intentaba insertar la misma clave única. V021 `fix staff role replacement conflict` lo corrige con un `ON CONFLICT` que reactiva exclusivamente la fila solicitada; no cambia firma, propietarios, ACL, validación administrativa, tenant ni revocación de sesiones. SHA-256 fuente: `6901745997C5FCF55DF5DDDFE76A30C52B14849A4975F1530EBEA8C6A17A0FAA`; checksum Flyway: `-186024837`.
+- La semilla local idempotente VETERINARIO se ejecutó mediante invitación y aceptación autorizadas, sin exponer credenciales. La verificación SQL transaccional `database/tests/verify-v020-assignable-professionals.psql` pasó con `ROLLBACK`: ADMIN y RECEPCION ven solo profesionales activos propios; CLIENT y STAFF sin rol autorizado no obtienen resultados; Bosque no ve Aurora; un rol destino revocado, una cuenta suspendida y sesiones revocadas o vencidas no quedan asignables. No persiste mutaciones de prueba.
+- B03 sigue **parcial**: V020 está disponible y verificada como frontera de lectura, pero aún faltan endpoint HTTP, selector Angular, confirmación de cita con revalidación de profesional, agenda, persistencia y recorridos E2E. El E2E clínico B02 con VETERINARIO continúa pendiente de implementar y ejecutar.
+
 ## Estado recuperado
 
 - Git parte del commit consolidado `b333a1602ac1fd6541efcc11b8034a7a7ca06212`

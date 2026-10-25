@@ -1,0 +1,382 @@
+\set ON_ERROR_STOP on
+\getenv av_demo_aurora_password AV_DEMO_AURORA_PASSWORD
+\getenv av_demo_bosque_password AV_DEMO_BOSQUE_PASSWORD
+\getenv av_demo_client_aurora_email AV_DEMO_CLIENT_AURORA_EMAIL
+\getenv av_demo_client_aurora_password AV_DEMO_CLIENT_AURORA_PASSWORD
+\getenv av_demo_veterinarian_email AV_DEMO_VETERINARIO_AURORA_EMAIL
+\getenv av_demo_veterinarian_password AV_DEMO_VETERINARIO_AURORA_PASSWORD
+
+\if :{?av_demo_aurora_password}
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+\if :{?av_demo_bosque_password}
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+\if :{?av_demo_client_aurora_email}
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+\if :{?av_demo_client_aurora_password}
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+\if :{?av_demo_veterinarian_email}
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+\if :{?av_demo_veterinarian_password}
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+begin;
+
+select encode(gen_random_bytes(32), 'hex') as av_v020_aurora_admin_token,
+       encode(gen_random_bytes(32), 'hex') as av_v020_aurora_admin_csrf
+\gset
+select case when exists (
+    select 1
+      from identity_auth.authenticate_and_create_session(
+          'STAFF',
+          'veterinaria-aurora',
+          'administracion@demo.invalid',
+          :'av_demo_aurora_password',
+          encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex'),
+          encode(digest(:'av_v020_aurora_admin_csrf', 'sha256'), 'hex'),
+          statement_timestamp() + interval '8 hours'
+      )
+) then 'true' else 'false' end as av_v020_aurora_admin_authenticated
+\gset
+\if :av_v020_aurora_admin_authenticated
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select staff.principal_id as av_v020_veterinarian_id
+  from identity_auth.list_staff_for_session(
+      encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex')
+  ) staff
+ where staff.normalized_email = lower(:'av_demo_veterinarian_email')
+   and staff.account_status = 'ACTIVA'
+\gset
+\if :{?av_v020_veterinarian_id}
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select count(*) = 1 as av_v020_veterinarian_role_restored
+  from identity_auth.replace_staff_roles(
+      encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex'),
+      :'av_v020_veterinarian_id'::uuid,
+      jsonb_build_array('VETERINARIO')
+  )
+\gset
+\if :av_v020_veterinarian_role_restored
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select case when exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex')
+      ) professional
+     where professional.principal_id = :'av_v020_veterinarian_id'::uuid
+       and professional.roles = jsonb_build_array('VETERINARIO')
+) then 'true' else 'false' end as av_v020_admin_sees_active_veterinarian
+\gset
+\if :av_v020_admin_sees_active_veterinarian
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select encode(gen_random_bytes(32), 'hex') as av_v020_bosque_admin_token,
+       encode(gen_random_bytes(32), 'hex') as av_v020_bosque_admin_csrf
+\gset
+select case when exists (
+    select 1
+      from identity_auth.authenticate_and_create_session(
+          'STAFF',
+          'veterinaria-bosque',
+          'administracion@demo.invalid',
+          :'av_demo_bosque_password',
+          encode(digest(:'av_v020_bosque_admin_token', 'sha256'), 'hex'),
+          encode(digest(:'av_v020_bosque_admin_csrf', 'sha256'), 'hex'),
+          statement_timestamp() + interval '8 hours'
+      )
+) then 'true' else 'false' end as av_v020_bosque_admin_authenticated
+\gset
+\if :av_v020_bosque_admin_authenticated
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select case when not exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_bosque_admin_token', 'sha256'), 'hex')
+      ) professional
+     where professional.principal_id = :'av_v020_veterinarian_id'::uuid
+) then 'true' else 'false' end as av_v020_bosque_cannot_see_aurora_veterinarian
+\gset
+\if :av_v020_bosque_cannot_see_aurora_veterinarian
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select encode(gen_random_bytes(32), 'hex') as av_v020_client_token,
+       encode(gen_random_bytes(32), 'hex') as av_v020_client_csrf
+\gset
+select case when exists (
+    select 1
+      from identity_auth.authenticate_and_create_session(
+          'CLIENT',
+          'veterinaria-aurora',
+          lower(:'av_demo_client_aurora_email'),
+          :'av_demo_client_aurora_password',
+          encode(digest(:'av_v020_client_token', 'sha256'), 'hex'),
+          encode(digest(:'av_v020_client_csrf', 'sha256'), 'hex'),
+          statement_timestamp() + interval '8 hours'
+      )
+) then 'true' else 'false' end as av_v020_client_authenticated
+\gset
+\if :av_v020_client_authenticated
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select case when not exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_client_token', 'sha256'), 'hex')
+      )
+) then 'true' else 'false' end as av_v020_client_is_denied
+\gset
+\if :av_v020_client_is_denied
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select encode(gen_random_bytes(32), 'hex') as av_v020_plain_veterinarian_token,
+       encode(gen_random_bytes(32), 'hex') as av_v020_plain_veterinarian_csrf
+\gset
+select case when exists (
+    select 1
+      from identity_auth.authenticate_and_create_session(
+          'STAFF',
+          'veterinaria-aurora',
+          lower(:'av_demo_veterinarian_email'),
+          :'av_demo_veterinarian_password',
+          encode(digest(:'av_v020_plain_veterinarian_token', 'sha256'), 'hex'),
+          encode(digest(:'av_v020_plain_veterinarian_csrf', 'sha256'), 'hex'),
+          statement_timestamp() + interval '8 hours'
+      )
+) then 'true' else 'false' end as av_v020_plain_veterinarian_authenticated
+\gset
+\if :av_v020_plain_veterinarian_authenticated
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select case when not exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_plain_veterinarian_token', 'sha256'), 'hex')
+      )
+) then 'true' else 'false' end as av_v020_plain_veterinarian_is_denied
+\gset
+\if :av_v020_plain_veterinarian_is_denied
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select count(*) = 1 as av_v020_veterinarian_reception_role_assigned
+  from identity_auth.replace_staff_roles(
+      encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex'),
+      :'av_v020_veterinarian_id'::uuid,
+      jsonb_build_array('VETERINARIO', 'RECEPCION')
+  )
+\gset
+\if :av_v020_veterinarian_reception_role_assigned
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select encode(gen_random_bytes(32), 'hex') as av_v020_reception_token,
+       encode(gen_random_bytes(32), 'hex') as av_v020_reception_csrf
+\gset
+select case when exists (
+    select 1
+      from identity_auth.authenticate_and_create_session(
+          'STAFF',
+          'veterinaria-aurora',
+          lower(:'av_demo_veterinarian_email'),
+          :'av_demo_veterinarian_password',
+          encode(digest(:'av_v020_reception_token', 'sha256'), 'hex'),
+          encode(digest(:'av_v020_reception_csrf', 'sha256'), 'hex'),
+          statement_timestamp() + interval '8 hours'
+      )
+) then 'true' else 'false' end as av_v020_reception_authenticated
+\gset
+\if :av_v020_reception_authenticated
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select case when exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_reception_token', 'sha256'), 'hex')
+      ) professional
+     where professional.principal_id = :'av_v020_veterinarian_id'::uuid
+) then 'true' else 'false' end as av_v020_reception_sees_active_professional
+\gset
+\if :av_v020_reception_sees_active_professional
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select encode(gen_random_bytes(32), 'hex') as av_v020_revocable_admin_token,
+       encode(gen_random_bytes(32), 'hex') as av_v020_revocable_admin_csrf
+\gset
+select case when exists (
+    select 1
+      from identity_auth.authenticate_and_create_session(
+          'STAFF',
+          'veterinaria-aurora',
+          'administracion@demo.invalid',
+          :'av_demo_aurora_password',
+          encode(digest(:'av_v020_revocable_admin_token', 'sha256'), 'hex'),
+          encode(digest(:'av_v020_revocable_admin_csrf', 'sha256'), 'hex'),
+          statement_timestamp() + interval '8 hours'
+      )
+) then 'true' else 'false' end as av_v020_revocable_admin_authenticated
+\gset
+\if :av_v020_revocable_admin_authenticated
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select case when exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_revocable_admin_token', 'sha256'), 'hex')
+      ) professional
+     where professional.principal_id = :'av_v020_veterinarian_id'::uuid
+) then 'true' else 'false' end as av_v020_revocable_admin_initially_authorized
+\gset
+\if :av_v020_revocable_admin_initially_authorized
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select identity_auth.revoke_session_by_token(
+    encode(digest(:'av_v020_revocable_admin_token', 'sha256'), 'hex')
+) as av_v020_revocable_admin_revoked
+\gset
+\if :av_v020_revocable_admin_revoked
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select case when not exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_revocable_admin_token', 'sha256'), 'hex')
+      )
+) then 'true' else 'false' end as av_v020_revoked_session_is_denied
+\gset
+\if :av_v020_revoked_session_is_denied
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select encode(gen_random_bytes(32), 'hex') as av_v020_expiring_admin_token,
+       encode(gen_random_bytes(32), 'hex') as av_v020_expiring_admin_csrf
+\gset
+select case when exists (
+    select 1
+      from identity_auth.authenticate_and_create_session(
+          'STAFF',
+          'veterinaria-aurora',
+          'administracion@demo.invalid',
+          :'av_demo_aurora_password',
+          encode(digest(:'av_v020_expiring_admin_token', 'sha256'), 'hex'),
+          encode(digest(:'av_v020_expiring_admin_csrf', 'sha256'), 'hex'),
+          statement_timestamp() + interval '1 second'
+      )
+) then 'true' else 'false' end as av_v020_expiring_admin_authenticated
+\gset
+\if :av_v020_expiring_admin_authenticated
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select pg_sleep(2) as av_v020_expiry_wait
+\gset
+select case when not exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_expiring_admin_token', 'sha256'), 'hex')
+      )
+) then 'true' else 'false' end as av_v020_expired_session_is_denied
+\gset
+\if :av_v020_expired_session_is_denied
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select count(*) = 1 as av_v020_target_assignable_role_revoked
+  from identity_auth.replace_staff_roles(
+      encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex'),
+      :'av_v020_veterinarian_id'::uuid,
+      jsonb_build_array('RECEPCION')
+  )
+\gset
+\if :av_v020_target_assignable_role_revoked
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select case when not exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex')
+      ) professional
+     where professional.principal_id = :'av_v020_veterinarian_id'::uuid
+) then 'true' else 'false' end as av_v020_revoked_role_is_not_assignable
+\gset
+\if :av_v020_revoked_role_is_not_assignable
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select count(*) = 1 as av_v020_veterinarian_role_reassigned
+  from identity_auth.replace_staff_roles(
+      encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex'),
+      :'av_v020_veterinarian_id'::uuid,
+      jsonb_build_array('VETERINARIO')
+  )
+\gset
+\if :av_v020_veterinarian_role_reassigned
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+select case when identity_auth.deactivate_staff(
+    encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex'),
+    :'av_v020_veterinarian_id'::uuid
+) then 'true' else 'false' end as av_v020_target_suspended
+\gset
+\if :av_v020_target_suspended
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+select case when not exists (
+    select 1
+      from identity_auth.list_assignable_professionals_for_session(
+          encode(digest(:'av_v020_aurora_admin_token', 'sha256'), 'hex')
+      ) professional
+     where professional.principal_id = :'av_v020_veterinarian_id'::uuid
+) then 'true' else 'false' end as av_v020_suspended_target_is_not_assignable
+\gset
+\if :av_v020_suspended_target_is_not_assignable
+\else
+  DO $abort$ BEGIN RAISE EXCEPTION 'V020_TEST_ABORTED'; END $abort$;
+\endif
+
+rollback;
+select 'V020_ASSIGNABLE_PROFESSIONALS_SQL=PASS' as verification;
