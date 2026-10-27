@@ -17,7 +17,7 @@
 | RF-B03-009 | Pendiente | Existe tabla de eventos de agenda sin escritor funcional. | Reasignación, aviso y traza para cambios autorizados. |
 | RF-B03-010 | Parcial verificado | Servicios y reservas usan el mismo modelo para `GROOMING`, y la confirmación exige rol GROOMING vigente. | Recorrido de navegador de grooming, contrapropuesta y confirmación por personal asignado. |
 | RF-B03-011 | Pendiente | Existe tabla `grooming_attention`, sin API/UI. | Inicio, finalización y notas operativas por encargado. |
-| RF-B03-012 | Pendiente | El modelo contempla estados, sin transiciones funcionales. | Cancelación directa pendiente y solicitud de cancelación confirmada. |
+| RF-B03-012 | Parcial verificado | CLIENT cancela directamente solicitudes pendientes/propuestas o solicita cancelar una confirmada; recepción/admin mantiene o aprueba con justificación. La aprobación libera el intervalo y conserva el evento. La regresión PostgreSQL comprueba que el rechazo mantiene la reserva, la aprobación la libera una vez, los reintentos no duplican eventos y CLIENT Bosque recibe `404` para una solicitud Aurora; E2E lo verifica. | Cancelación desde contrapropuesta, manejo de casos en atención y notificaciones. |
 | RF-B03-013 | Pendiente | B02 mantiene la restricción clínica por veterinario. | Asociar atención clínica a una cita sin ampliar acceso de recepción/grooming. |
 | RF-B03-014 | Pendiente | V022 persiste bloqueos, sin gestión ni inasistencia. | Gestión autorizada y efecto sobre reservas. |
 | RF-B03-015 | Pendiente | El evento reserva `notification_emitted_at`, sin mecanismo de emisión. | Notificaciones conforme a cambios válidos. |

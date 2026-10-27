@@ -61,4 +61,24 @@ describe('ScheduleApiService', () => {
     confirm.flush({ data: { id: 'reservation-1', requestId: 'request-1', status: 'CONFIRMADA' } });
     http.verify();
   });
+
+  it('keeps CLIENT cancellation separate from an authorized staff resolution', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const service = TestBed.inject(ScheduleApiService);
+    const http = TestBed.inject(HttpTestingController);
+
+    service.cancelClientScheduleRequest('request-1', { reason: null }).subscribe();
+    const clientCancellation = http.expectOne('/api/v1/client/schedule/requests/request-1/cancellation');
+    expect(clientCancellation.request.method).toBe('POST');
+    expect(clientCancellation.request.body).toEqual({ reason: null });
+    clientCancellation.flush({ data: { id: 'request-1', status: 'CANCELACION_SOLICITADA' } });
+
+    const resolution = { decision: 'CANCELADA' as const, reason: 'Cancelacion aprobada.' };
+    service.resolveCancellation('request-1', resolution).subscribe();
+    const staffResolution = http.expectOne('/api/v1/schedule/requests/request-1/cancellation-resolution');
+    expect(staffResolution.request.method).toBe('POST');
+    expect(staffResolution.request.body).toEqual(resolution);
+    staffResolution.flush({ data: { id: 'request-1', status: 'CANCELADA' } });
+    http.verify();
+  });
 });

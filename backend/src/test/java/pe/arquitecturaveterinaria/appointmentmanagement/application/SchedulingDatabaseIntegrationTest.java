@@ -1,6 +1,7 @@
 package pe.arquitecturaveterinaria.appointmentmanagement.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import pe.arquitecturaveterinaria.identityaccess.application.B01AdministrationService;
@@ -57,6 +59,9 @@ class SchedulingDatabaseIntegrationTest {
 
 	@Autowired
 	private LocalNotificationMailbox localMailbox;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	@Test
 	void persistsAClientRequestThenConfirmsOnlyOneCompatibleProfessionalInterval() {
@@ -103,6 +108,43 @@ class SchedulingDatabaseIntegrationTest {
 		assertEquals("CONFIRMADA", schedulingService.confirmScheduleRequest(administrator, consecutive.id(),
 				new SchedulingService.ConfirmationCommand(veterinarian.session().accountId())).status());
 
+		assertEquals("CANCELACION_SOLICITADA", schedulingService.cancelClientScheduleRequest(client, request.id(),
+				new SchedulingService.CancellationCommand("Cambio de plan")).status());
+		assertFalse(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), startsAt)).available());
+		assertEquals(1, scheduleEventCount(request.id(), "CANCELACION_SOLICITADA"));
+		ApiException repeatedCancellation = assertThrows(ApiException.class, () -> schedulingService.cancelClientScheduleRequest(client,
+				request.id(), new SchedulingService.CancellationCommand("Reintento sin efecto")));
+		assertEquals(HttpStatus.CONFLICT, repeatedCancellation.status());
+		assertEquals("B03_CANCELLATION_STATE", repeatedCancellation.code());
+		assertEquals(1, scheduleEventCount(request.id(), "CANCELACION_SOLICITADA"));
+		assertEquals("CONFIRMADA", schedulingService.resolveCancellation(administrator, request.id(),
+				new SchedulingService.CancellationResolutionCommand("CONFIRMADA", "La agenda continua vigente.")).status());
+		assertFalse(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), startsAt)).available());
+		assertEquals("CANCELACION_SOLICITADA", schedulingService.cancelClientScheduleRequest(client, request.id(),
+				new SchedulingService.CancellationCommand("No podra asistir")).status());
+		assertEquals("CANCELADA", schedulingService.resolveCancellation(administrator, request.id(),
+				new SchedulingService.CancellationResolutionCommand("CANCELADA", "Solicitud confirmada por recepcion.")).status());
+		assertEquals(1, scheduleEventCount(request.id(), "CANCELACION_APROBADA"));
+		ApiException repeatedResolution = assertThrows(ApiException.class, () -> schedulingService.resolveCancellation(administrator,
+				request.id(), new SchedulingService.CancellationResolutionCommand("CANCELADA", "Reintento sin efecto.")));
+		assertEquals(HttpStatus.CONFLICT, repeatedResolution.status());
+		assertEquals("B03_CANCELLATION_STATE", repeatedResolution.code());
+		assertEquals(1, scheduleEventCount(request.id(), "CANCELACION_APROBADA"));
+		assertTrue(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), startsAt)).available());
+		SessionPrincipal bosqueClient = demoClient("veterinaria-bosque", "AV_DEMO_CLIENT_BOSQUE_EMAIL", "AV_DEMO_CLIENT_BOSQUE_PASSWORD");
+		ApiException crossTenantCancellation = assertThrows(ApiException.class, () -> schedulingService.cancelClientScheduleRequest(bosqueClient,
+				request.id(), new SchedulingService.CancellationCommand("Intento aislado")));
+		assertEquals(HttpStatus.NOT_FOUND, crossTenantCancellation.status());
+
+		var pendingForCancellation = schedulingService.createClientScheduleRequest(client,
+				new SchedulingService.ClientScheduleRequestCommand(request.petId(), service.id(), startsAt.plusSeconds(3600),
+						"Solicitud pendiente a cancelar", UUID.randomUUID()));
+		assertEquals("CANCELADA", schedulingService.cancelClientScheduleRequest(client, pendingForCancellation.id(),
+				new SchedulingService.CancellationCommand("Ya no es necesaria")).status());
+
 		SessionPrincipal bosqueAdministrator = administrator("veterinaria-bosque", "AV_DEMO_BOSQUE_PASSWORD");
 		assertTrue(schedulingService.listScheduleRequests(bosqueAdministrator).stream().noneMatch(item -> item.id().equals(request.id())));
 	}
@@ -138,6 +180,23 @@ class SchedulingDatabaseIntegrationTest {
 		String password = System.getenv(passwordVariable);
 		assertNotNull(password, "La prueba requiere credenciales sintÃ©ticas locales.");
 		return new SessionPrincipal(identityAccessService.authenticateStaff(tenantSlug, "administracion@demo.invalid", password).context());
+	}
+
+	private SessionPrincipal demoClient(String tenantSlug, String emailVariable, String passwordVariable) {
+		String email = System.getenv(emailVariable);
+		String password = System.getenv(passwordVariable);
+		assertNotNull(email, "La prueba requiere un correo CLIENT sintÃ©tico local.");
+		assertNotNull(password, "La prueba requiere una contraseÃ±a CLIENT sintÃ©tica local.");
+		return new SessionPrincipal(identityAccessService.authenticateClient(tenantSlug, email, password).context());
+	}
+
+	private int scheduleEventCount(UUID requestId, String actionCode) {
+		Integer count = jdbcTemplate.queryForObject("""
+				select count(*)
+				from appointment_management.schedule_change_event
+				where request_id = ? and action_code = ?
+				""", Integer.class, requestId, actionCode);
+		return count == null ? 0 : count;
 	}
 
 	private Instant nextMondayAt(LocalTime time) {

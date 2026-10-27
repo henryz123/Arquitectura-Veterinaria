@@ -155,6 +155,67 @@ public class SchedulingService {
 		return repository.listScheduleRequests();
 	}
 
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ScheduleRequest cancelClientScheduleRequest(SessionPrincipal actor, UUID requestId, CancellationCommand command) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		ScheduleRequest request = repository.lockScheduleRequest(requestId)
+				.orElseThrow(() -> notFound("No se encontro la solicitud de agenda."));
+		if (!request.requesterPrincipalId().equals(actor.session().accountId())) {
+			throw notFound("No se encontro la solicitud de agenda.");
+		}
+		String reason = optional(command == null ? null : command.reason(), 500);
+		if ("PENDIENTE".equals(request.status()) || "PROPUESTA".equals(request.status())) {
+			if (repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), request.status(), "CANCELADA") != 1) {
+				throw conflict("B03_CANCELLATION_STATE", "La solicitud cambio antes de cancelar.");
+			}
+			repository.closeOpenProposals(actor.session().tenantId(), request.id());
+			repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(), "SOLICITUD_CANCELADA",
+					request.requestedStartsAt(), null, null, null, reason);
+			return repository.findScheduleRequest(request.id()).orElseThrow();
+		}
+		if ("CONFIRMADA".equals(request.status())) {
+			ScheduleReservation reservation = repository.findCurrentReservation(request.id())
+					.orElseThrow(() -> conflict("B03_CANCELLATION_STATE", "La cita confirmada no conserva una reserva vigente."));
+			if (repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), "CONFIRMADA", "CANCELACION_SOLICITADA") != 1) {
+				throw conflict("B03_CANCELLATION_STATE", "La cita cambio antes de solicitar la cancelacion.");
+			}
+			repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(), "CANCELACION_SOLICITADA",
+					reservation.startsAt(), reservation.startsAt(), reservation.professionalPrincipalId(), reservation.professionalPrincipalId(), reason);
+			return repository.findScheduleRequest(request.id()).orElseThrow();
+		}
+		throw conflict("B03_CANCELLATION_STATE", "El cliente no puede cancelar esta solicitud en su estado actual.");
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ScheduleRequest resolveCancellation(SessionPrincipal actor, UUID requestId, CancellationResolutionCommand command) {
+		accessPolicy.requireSchedulingManager(actor);
+		setTrustedContext(actor);
+		if (command == null || (!"CANCELADA".equals(command.decision()) && !"CONFIRMADA".equals(command.decision()))) {
+			throw validation("cancellation", "La resolucion debe cancelar o mantener confirmada la cita.");
+		}
+		String reason = required(command.reason(), "reason", 500);
+		ScheduleRequest request = repository.lockScheduleRequest(requestId)
+				.orElseThrow(() -> notFound("No se encontro la solicitud de agenda."));
+		if (!"CANCELACION_SOLICITADA".equals(request.status())) {
+			throw conflict("B03_CANCELLATION_STATE", "La solicitud no tiene una cancelacion pendiente de resolucion.");
+		}
+		ScheduleReservation reservation = repository.findCurrentReservation(request.id())
+				.orElseThrow(() -> conflict("B03_CANCELLATION_STATE", "La cita no conserva la reserva requerida para resolver la cancelacion."));
+		if ("CANCELADA".equals(command.decision())) {
+			reservation = repository.changeCurrentReservationStatus(actor.session().tenantId(), request.id(), "CONFIRMADA", "CANCELADA")
+					.orElseThrow(() -> conflict("B03_CANCELLATION_STATE", "La reserva cambio antes de cancelar."));
+		}
+		if (repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), "CANCELACION_SOLICITADA", command.decision()) != 1) {
+			throw conflict("B03_CANCELLATION_STATE", "La solicitud cambio antes de resolver la cancelacion.");
+		}
+		repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(),
+				"CANCELADA".equals(command.decision()) ? "CANCELACION_APROBADA" : "CANCELACION_RECHAZADA",
+				reservation.startsAt(), "CANCELADA".equals(command.decision()) ? null : reservation.startsAt(),
+				reservation.professionalPrincipalId(), "CANCELADA".equals(command.decision()) ? null : reservation.professionalPrincipalId(), reason);
+		return repository.findScheduleRequest(request.id()).orElseThrow();
+	}
+
 	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
 	public ScheduleAvailability checkAvailability(SessionPrincipal actor, AvailabilityCommand command) {
 		accessPolicy.requireSchedulingManager(actor);
@@ -371,6 +432,12 @@ public class SchedulingService {
 	}
 
 	public record ConfirmationCommand(UUID professionalPrincipalId) {
+	}
+
+	public record CancellationCommand(String reason) {
+	}
+
+	public record CancellationResolutionCommand(String decision, String reason) {
 	}
 
 	private record Interval(Instant startsAt, Instant endsAt, int weekday, LocalTime startsAtLocal, LocalTime endsAtLocal) {

@@ -11,6 +11,10 @@ import {
   ProfessionalAvailability,
   ProfessionalAvailabilityRequest,
   ClientScheduleRequest,
+
+  ClientScheduleCancellationRequest,
+
+  ScheduleCancellationResolutionRequest,
   ScheduleAvailability,
   ScheduleRequest,
   ScheduleReservation,
@@ -63,6 +67,12 @@ export class ScheduleApiService {
     );
   }
 
+  resolveCancellation(requestId: string, request: ScheduleCancellationResolutionRequest): Observable<ApiEnvelope<ScheduleRequest>> {
+    return this.http.post<ApiEnvelope<ScheduleRequest>>(
+      `/api/v1/schedule/requests/${encodeURIComponent(requestId)}/cancellation-resolution`, request,
+    );
+  }
+
   listClientScheduleServices(): Observable<ApiEnvelope<OfferedService[]>> {
     return this.http.get<ApiEnvelope<OfferedService[]>>('/api/v1/client/schedule/services');
   }
@@ -73,5 +83,11 @@ export class ScheduleApiService {
 
   createClientScheduleRequest(request: ClientScheduleRequest): Observable<ApiEnvelope<ScheduleRequest>> {
     return this.http.post<ApiEnvelope<ScheduleRequest>>('/api/v1/client/schedule/requests', request);
+  }
+
+  cancelClientScheduleRequest(requestId: string, request: ClientScheduleCancellationRequest): Observable<ApiEnvelope<ScheduleRequest>> {
+    return this.http.post<ApiEnvelope<ScheduleRequest>>(
+      `/api/v1/client/schedule/requests/${encodeURIComponent(requestId)}/cancellation`, request,
+    );
   }
 }

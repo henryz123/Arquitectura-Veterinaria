@@ -31,7 +31,8 @@ export class SchedulePageComponent implements OnInit {
   readonly operatingHours = signal<OperatingHours[]>([]);
   readonly professionalAvailability = signal<ProfessionalAvailability[]>([]);
 	readonly scheduleRequests = signal<ScheduleRequest[]>([]);
-  readonly selectedProfessionalId = signal<string>('');
+	readonly selectedProfessionalId = signal<string>('');
+	readonly cancellationReason = signal<string>('');
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -186,6 +187,26 @@ export class SchedulePageComponent implements OnInit {
 				});
 			},
 			error: () => this.failSave('No fue posible consultar la disponibilidad actual del profesional.'),
+		});
+	}
+
+	resolveCancellation(request: ScheduleRequest, decision: 'CANCELADA' | 'CONFIRMADA'): void {
+		const reason = this.cancellationReason().trim();
+		if (request.status !== 'CANCELACION_SOLICITADA' || this.saving() || reason.length < 3) {
+			this.error.set('Indica una justificacion de al menos tres caracteres antes de resolver la cancelacion.');
+			return;
+		}
+		this.saving.set(true);
+		this.error.set(null);
+		this.notice.set(null);
+		this.scheduleApi.resolveCancellation(request.id, { decision, reason }).subscribe({
+			next: () => {
+				this.cancellationReason.set('');
+				this.finishSave(decision === 'CANCELADA'
+					? 'La cancelacion fue aprobada y el intervalo quedo liberado.'
+					: 'La cancelacion fue rechazada y la cita confirmada se conserva.');
+			},
+			error: () => this.failSave('No fue posible resolver la cancelacion. Actualiza la agenda para comprobar su estado vigente.'),
 		});
 	}
 

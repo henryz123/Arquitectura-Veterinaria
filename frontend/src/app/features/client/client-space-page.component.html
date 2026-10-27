@@ -67,10 +67,12 @@
       </form>
       <p class="notice" *ngIf="!pets().length || !scheduleServices().length">Necesitas una mascota vigente y un servicio publicado para enviar una solicitud.</p>
       <div class="schedule-list" *ngIf="scheduleRequests().length; else noScheduleRequests">
-        <article *ngFor="let request of scheduleRequests()">
+        <article *ngFor="let request of scheduleRequests()" [attr.data-request-id]="request.id">
           <strong>{{ serviceName(request.serviceId) }}</strong>
           <span>{{ petName(request.petId) }} · {{ request.requestedStartsAt }}</span>
           <span>Estado: {{ request.status }}</span>
+          <button type="button" *ngIf="request.status === 'PENDIENTE' || request.status === 'PROPUESTA'" [disabled]="actionPending()" (click)="cancelScheduleRequest(request)">Cancelar solicitud</button>
+          <button type="button" *ngIf="request.status === 'CONFIRMADA'" [disabled]="actionPending()" (click)="cancelScheduleRequest(request)">Solicitar cancelacion</button>
         </article>
       </div>
       <ng-template #noScheduleRequests><p class="notice">Aun no has enviado solicitudes de cita o grooming.</p></ng-template>

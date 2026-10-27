@@ -191,6 +191,24 @@ export class ClientSpacePageComponent implements OnInit {
 		return this.scheduleServices().find((service) => service.id === serviceId)?.name ?? 'Servicio no disponible';
 	}
 
+	cancelScheduleRequest(request: ScheduleRequest): void {
+		if (this.actionPending() || !['PENDIENTE', 'PROPUESTA', 'CONFIRMADA'].includes(request.status)) {
+			return;
+		}
+		this.error.set(null);
+		this.notice.set(null);
+		this.actionPending.set(true);
+		this.scheduleApi.cancelClientScheduleRequest(request.id, { reason: null }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+			next: (response) => {
+				this.scheduleRequests.update((requests) => requests.map((item) => item.id === response.data.id ? response.data : item));
+				this.notice.set(response.data.status === 'CANCELADA'
+					? 'La solicitud pendiente fue cancelada y no ocupaba un cupo.'
+					: 'La cancelacion fue enviada para revision. La cita confirmada sigue vigente hasta la decision de la veterinaria.');
+			},
+			error: () => this.error.set('No fue posible procesar la cancelacion con el estado actual de la solicitud.'),
+		});
+	}
+
 	petName(petId: string): string {
 		return this.pets().find((pet) => pet.id === petId)?.name ?? 'Mascota no disponible';
 	}

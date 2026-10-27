@@ -513,6 +513,24 @@ paths:
         '200': { $ref: '#/components/responses/ScheduleRequestsResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/client/schedule/requests/{requestId}/cancellation:
+    post:
+      tags: [appointment-management]
+      summary: CLIENT cancela una solicitud pendiente o solicita cancelar una cita confirmada
+      x-implementation-status: implemented-b03-cancellation
+      x-v1-requirements: [RF-B03-012, RF-B03-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ClientScheduleCancellationRequest' } } }
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/schedule/availability:
     get:
       tags: [appointment-management]
@@ -545,6 +563,25 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleConfirmationRequest' } } }
       responses:
         '200': { $ref: '#/components/responses/ScheduleReservationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/schedule/requests/{requestId}/cancellation-resolution:
+    post:
+      tags: [appointment-management]
+      summary: Recepción o administración resuelve una solicitud de cancelación confirmada
+      x-implementation-status: implemented-b03-cancellation
+      x-v1-requirements: [RF-B03-012, RF-B03-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleCancellationResolutionRequest' } } }
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleRequestResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/CsrfOrForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1594,11 +1631,21 @@ components:
         requestedStartsAt: { type: string, format: date-time }
         observation: { type: [string, 'null'], maxLength: 1000 }
         idempotencyKey: { type: string, format: uuid }
+    ClientScheduleCancellationRequest:
+      type: object
+      properties:
+        reason: { type: [string, 'null'], maxLength: 500 }
     ScheduleConfirmationRequest:
       type: object
       required: [professionalPrincipalId]
       properties:
         professionalPrincipalId: { type: string, format: uuid }
+    ScheduleCancellationResolutionRequest:
+      type: object
+      required: [decision, reason]
+      properties:
+        decision: { type: string, enum: [CANCELADA, CONFIRMADA] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
     ScheduleRequest:
       type: object
       required: [id, tenantId, requesterPrincipalId, ownerId, petId, serviceId, requestedStartsAt, requestedDurationMinutes, status, idempotencyKey, createdAt, updatedAt]

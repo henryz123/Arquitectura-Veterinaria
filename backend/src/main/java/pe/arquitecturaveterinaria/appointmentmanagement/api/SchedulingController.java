@@ -44,6 +44,8 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingSe
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.AvailabilityCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ClientScheduleRequestCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ConfirmationCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.CancellationCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.CancellationResolutionCommand;
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.shared.api.ApiEnvelope;
 
@@ -137,6 +139,13 @@ public class SchedulingController {
 				new ConfirmationCommand(request.professionalPrincipalId())));
 	}
 
+	@PostMapping("/schedule/requests/{requestId}/cancellation-resolution")
+	ApiEnvelope<ScheduleRequest> resolveCancellation(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID requestId, @Valid @RequestBody CancellationResolutionRequest request) {
+		return ApiEnvelope.of(schedulingService.resolveCancellation(principal, requestId,
+				new CancellationResolutionCommand(request.decision(), request.reason())));
+	}
+
 	@GetMapping("/client/schedule/services")
 	ApiEnvelope<List<OfferedService>> listClientScheduleServices(@AuthenticationPrincipal SessionPrincipal principal) {
 		return ApiEnvelope.of(schedulingService.listPublishedServicesForClient(principal));
@@ -155,6 +164,13 @@ public class SchedulingController {
 						request.idempotencyKey()));
 		return ResponseEntity.status(HttpStatus.CREATED).location(URI.create("/api/v1/client/schedule/requests/" + created.id()))
 				.body(ApiEnvelope.of(created));
+	}
+
+	@PostMapping("/client/schedule/requests/{requestId}/cancellation")
+	ApiEnvelope<ScheduleRequest> cancelClientScheduleRequest(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID requestId, @Valid @RequestBody ClientCancellationRequest request) {
+		return ApiEnvelope.of(schedulingService.cancelClientScheduleRequest(principal, requestId,
+				new CancellationCommand(request.reason())));
 	}
 
 	record ServiceRequest(
@@ -191,11 +207,19 @@ public class SchedulingController {
 	record ConfirmationRequest(@NotNull UUID professionalPrincipalId) {
 	}
 
+	record CancellationResolutionRequest(
+			@NotBlank @Pattern(regexp = "CANCELADA|CONFIRMADA") String decision,
+			@NotBlank @Size(min = 3, max = 500) String reason) {
+	}
+
 	record ClientScheduleRequest(
 			@NotNull UUID petId,
 			@NotNull UUID serviceId,
 			@NotNull @Future Instant requestedStartsAt,
 			@Size(max = 1000) String observation,
 			@NotNull UUID idempotencyKey) {
+	}
+
+	record ClientCancellationRequest(@Size(max = 500) String reason) {
 	}
 }

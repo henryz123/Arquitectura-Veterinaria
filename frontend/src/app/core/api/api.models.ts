@@ -179,6 +179,15 @@ export interface ClientScheduleRequest {
   idempotencyKey: string;
 }
 
+export interface ClientScheduleCancellationRequest {
+  reason: string | null;
+}
+
+export interface ScheduleCancellationResolutionRequest {
+  decision: 'CANCELADA' | 'CONFIRMADA';
+  reason: string;
+}
+
 export interface ScheduleReservation {
   id: string;
   tenantId: string;

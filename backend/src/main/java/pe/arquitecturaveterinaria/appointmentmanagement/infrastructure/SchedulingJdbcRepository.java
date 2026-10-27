@@ -161,6 +161,15 @@ public class SchedulingJdbcRepository {
 				""", this::mapScheduleRequest, requestId).stream().findFirst();
 	}
 
+	public Optional<ScheduleRequest> findScheduleRequest(UUID requestId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, requester_principal_id, owner_id, pet_id, service_id, requested_starts_at,
+				       requested_duration_minutes, status, observation, idempotency_key, created_at, updated_at
+				from appointment_management.schedule_request
+				where id = ?
+				""", this::mapScheduleRequest, requestId).stream().findFirst();
+	}
+
 	public List<ScheduleRequest> listScheduleRequests() {
 		return jdbcTemplate.query("""
 				select id, tenant_id, requester_principal_id, owner_id, pet_id, service_id, requested_starts_at,
@@ -253,6 +262,33 @@ public class SchedulingJdbcRepository {
 				set status = 'CONFIRMADA', updated_at = statement_timestamp()
 				where tenant_id = ? and id = ? and status = 'PENDIENTE'
 				""", tenantId, requestId);
+	}
+
+	public int transitionScheduleRequest(UUID tenantId, UUID requestId, String expectedStatus, String nextStatus) {
+		return jdbcTemplate.update("""
+				update appointment_management.schedule_request
+				set status = ?, updated_at = statement_timestamp()
+				where tenant_id = ? and id = ? and status = ?
+				""", nextStatus, tenantId, requestId, expectedStatus);
+	}
+
+	public void closeOpenProposals(UUID tenantId, UUID requestId) {
+		jdbcTemplate.update("""
+				update appointment_management.schedule_proposal
+				set status = 'CERRADA', decided_at = statement_timestamp()
+				where tenant_id = ? and request_id = ? and status = 'ENVIADA'
+				""", tenantId, requestId);
+	}
+
+	public Optional<ScheduleReservation> changeCurrentReservationStatus(UUID tenantId, UUID requestId,
+			String expectedStatus, String nextStatus) {
+		return jdbcTemplate.query("""
+				update appointment_management.schedule_reservation
+				set status = ?, updated_at = statement_timestamp(), version = version + 1
+				where tenant_id = ? and request_id = ? and is_current and status = ?
+				returning id, tenant_id, request_id, professional_principal_id, starts_at, ends_at, status, is_current,
+				          version, confirmed_by_principal_id, created_at, updated_at
+				""", this::mapScheduleReservation, nextStatus, tenantId, requestId, expectedStatus).stream().findFirst();
 	}
 
 	public void recordScheduleChange(UUID tenantId, UUID requestId, UUID actorPrincipalId, String actionCode,
