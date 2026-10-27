@@ -303,4 +303,11 @@ vacunas, recetas y rectificaciones.
 - ADMIN_VETERINARIA/RECEPCION resuelve con una justificación obligatoria: puede conservar `CONFIRMADA` o convertir la reserva y solicitud en `CANCELADA`. La segunda alternativa elimina el intervalo de la consulta de conflictos y deja el evento auditado.
 - Regresión de consolidación (2026-10-27): backend B03 11/11 contra PostgreSQL local confirma que el rechazo conserva el cupo, la aprobación lo libera una vez, los reintentos no duplican eventos y CLIENT Bosque recibe `404` al intentar cancelar una solicitud Aurora. Los fixtures de integración se revierten por transacción.
 - OpenAPI válido; Angular 5 archivos/13 pruebas y build correcto (advertencia no bloqueante: 23.33 kB sobre el presupuesto inicial). Playwright Chrome pasó `B03_CANCELLATION_BROWSER_E2E=PASS` con fixture sintético idempotente.
-- B03 continúa **parcial**: falta contrapropuesta/reprogramación con aceptación CLIENT, agenda/calendario de reservas, grooming operativo, bloques/ausencias, notificaciones, historial de propuestas y prueba concurrente real.
+- B03 continúa **parcial**: falta contrapropuesta/reprogramación con aceptación CLIENT, agenda/calendario de reservas, grooming operativo, bloques/ausencias, notificaciones e historial de propuestas.
+
+## Checkpoint B03 — confirmación concurrente con COMMIT real (2026-10-27)
+
+- Sin migración nueva: V022 continúa como la última versión aplicada y Flyway permaneció desactivado. `SchedulingConcurrencyCommitIntegrationTest` crea dos solicitudes clínicas sintéticas sobre la misma franja, abre dos transacciones Spring independientes y las retiene temporalmente con el mismo bloqueo asesor PostgreSQL que usa la aplicación.
+- Al liberar el bloqueo, una sola transacción confirma y hace `COMMIT`; la otra recibe `B03_SLOT_UNAVAILABLE`. La aserción posterior al `COMMIT` encuentra exactamente una solicitud `CONFIRMADA`, una `PENDIENTE` y el intervalo ocupado. El arnés borra solo las dos solicitudes identificadas y sus dependencias con el rol de migración; la comprobación posterior reportó cero fixtures residuales.
+- Evidencia: `mvnw.cmd '-Dtest=SchedulingConcurrencyCommitIntegrationTest' test` con Java 21, PostgreSQL local y Flyway desactivado: 1/1 correcta. Esta cobertura no cierra por sí sola grooming, reprogramación, cancelación/confirmación concurrente ni revocación concurrente de roles.
+- B03 continúa **parcial**: siguiente vertical, contrapropuesta/reprogramación con aceptación CLIENT y conservación de la reserva original.

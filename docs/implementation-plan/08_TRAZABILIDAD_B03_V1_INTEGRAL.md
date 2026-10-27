@@ -12,7 +12,7 @@
 | RF-B03-004 | Pendiente | Solo existe el modelo persistente de propuesta. | API/UI de contrapropuesta e historial visible. |
 | RF-B03-005 | Pendiente | No existe aceptación CLIENT. | Revalidación al aceptar y rechazo sin reserva. |
 | RF-B03-006 | Parcial verificado | ADMIN_VETERINARIA/RECEPCION confirma una solicitud `PENDIENTE`; la transacción crea una sola reserva, cambia el estado y registra el evento. El reintento de la misma solicitud devuelve la misma reserva. | Reprogramación, contrapropuesta, cancelación y sus transiciones autorizadas. |
-| RF-B03-007 | Parcial verificado | La confirmación bloquea la solicitud y serializa por profesional con bloqueo asesor transaccional; dentro de la misma transacción revalida rol, horario, disponibilidad, bloqueos y reservas. La integración verifica rechazo de solape y rollback funcional. | Ejecutar una regresión de dos transacciones realmente simultáneas antes del cierre B03. |
+| RF-B03-007 | Parcial verificado | La confirmación bloquea la solicitud y serializa por profesional con bloqueo asesor transaccional; dentro de la misma transacción revalida rol, horario, disponibilidad, bloqueos y reservas. La regresión con COMMIT real libera dos transacciones simultáneas sobre el mismo candado: una confirma y la otra recibe `B03_SLOT_UNAVAILABLE`; no queda traslape persistido ni fixture residual. | Probar la misma invariante para grooming, reprogramación y cambios concurrentes de estado. |
 | RF-B03-008 | Parcial verificado | V020 y el servicio revalidan profesionales activos con rol `VETERINARIO`/`GROOMING`; UI no expone identidad sensible. | Obligación de veterinario al confirmar una cita clínica. |
 | RF-B03-009 | Pendiente | Existe tabla de eventos de agenda sin escritor funcional. | Reasignación, aviso y traza para cambios autorizados. |
 | RF-B03-010 | Parcial verificado | Servicios y reservas usan el mismo modelo para `GROOMING`, y la confirmación exige rol GROOMING vigente. | Recorrido de navegador de grooming, contrapropuesta y confirmación por personal asignado. |
@@ -35,4 +35,4 @@
 
 ## Próxima operación concreta
 
-Implementar contrapropuesta/reprogramación con aceptación CLIENT, después cancelaciones y estados. Antes del cierre B03, añadir la prueba de dos confirmaciones realmente simultáneas para complementar el rechazo de solape ya verificado.
+Implementar contrapropuesta/reprogramación con aceptación CLIENT y, después, grooming, bloqueos/ausencias, ejecución, notificaciones e historial visible. La prueba de dos confirmaciones realmente simultáneas ya complementa el rechazo secuencial de solape; faltan las variantes de reprogramación y grooming.
