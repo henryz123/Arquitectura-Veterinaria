@@ -174,7 +174,29 @@
           <li *ngFor="let request of scheduleRequests(); trackBy: trackById" [attr.data-request-id]="request.id">
             <div class="agenda-time"><strong>{{ requestDateTime(request.requestedStartsAt) }}</strong><span>{{ request.requestedDurationMinutes }} min</span></div>
             <div class="agenda-details"><strong>{{ serviceName(request.serviceId) }}</strong><span>Mascota registrada: {{ request.petId.slice(0, 8) }}</span><span *ngIf="request.observation">ObservaciÃ³n: {{ request.observation }}</span></div>
-            <div class="agenda-action"><span class="status-pill" [class.status-ok]="request.status === 'CONFIRMADA'">{{ request.status }}</span><button class="button button-primary" type="button" *ngIf="request.status === 'PENDIENTE'" [disabled]="saving() || !selectedProfessionalId()" (click)="confirmRequest(request)">Comprobar y confirmar</button><ng-container *ngIf="request.status === 'CANCELACION_SOLICITADA'"><label class="field-group" [attr.for]="'cancellation-reason-' + request.id">Justificacion<input [attr.id]="'cancellation-reason-' + request.id" type="text" [value]="cancellationReason()" (input)="cancellationReason.set($any($event.target).value)" maxlength="500" /></label><button class="button button-primary" type="button" [disabled]="saving()" (click)="resolveCancellation(request, 'CANCELADA')">Aprobar cancelacion</button><button class="button button-secondary" type="button" [disabled]="saving()" (click)="resolveCancellation(request, 'CONFIRMADA')">Mantener confirmada</button></ng-container></div>
+            <div class="agenda-action">
+              <span class="status-pill" [class.status-ok]="request.status === 'CONFIRMADA'">{{ request.status }}</span>
+              <button class="button button-primary" type="button" *ngIf="request.status === 'PENDIENTE' || request.status === 'PENDIENTE_REPROGRAMACION'" [disabled]="saving() || !selectedProfessionalId()" (click)="confirmRequest(request)">
+                {{ request.status === 'PENDIENTE_REPROGRAMACION' ? 'Revalidar y confirmar cambio' : 'Comprobar y confirmar' }}
+              </button>
+              <ng-container *ngIf="request.status === 'PENDIENTE' || request.status === 'PROPUESTA' || request.status === 'CONFIRMADA' || request.status === 'REPROGRAMACION_PROPUESTA'">
+                <label class="field-group" [attr.for]="'proposal-starts-at-' + request.id">Nuevo horario
+                  <input [attr.id]="'proposal-starts-at-' + request.id" type="datetime-local" [value]="proposalStartsAt()" (input)="proposalStartsAt.set($any($event.target).value)" />
+                </label>
+                <label class="field-group" [attr.for]="'proposal-reason-' + request.id">Justificacion
+                  <input [attr.id]="'proposal-reason-' + request.id" type="text" [value]="proposalReason()" (input)="proposalReason.set($any($event.target).value)" maxlength="500" />
+                </label>
+                <button class="button button-secondary" type="button" [disabled]="saving() || !selectedProfessionalId()" (click)="proposeAlternative(request)">Enviar propuesta</button>
+                <button class="button button-secondary" type="button" *ngIf="request.status === 'CONFIRMADA'" [disabled]="saving() || !selectedProfessionalId()" (click)="reassignCurrentProfessional(request)">Reasignar sin cambiar hora</button>
+              </ng-container>
+              <ng-container *ngIf="request.status === 'CANCELACION_SOLICITADA'">
+                <label class="field-group" [attr.for]="'cancellation-reason-' + request.id">Justificacion
+                  <input [attr.id]="'cancellation-reason-' + request.id" type="text" [value]="cancellationReason()" (input)="cancellationReason.set($any($event.target).value)" maxlength="500" />
+                </label>
+                <button class="button button-primary" type="button" [disabled]="saving()" (click)="resolveCancellation(request, 'CANCELADA')">Aprobar cancelacion</button>
+                <button class="button button-secondary" type="button" [disabled]="saving()" (click)="resolveCancellation(request, 'CONFIRMADA')">Mantener confirmada</button>
+              </ng-container>
+            </div>
           </li>
         </ol>
       </section>

@@ -171,6 +171,46 @@ export interface ScheduleRequest {
   updatedAt: string;
 }
 
+export interface ScheduleProposal {
+  id: string;
+  tenantId: string;
+  requestId: string;
+  version: number;
+  proposedStartsAt: string;
+  proposedDurationMinutes: number;
+  proposedProfessionalPrincipalId: string | null;
+  status: 'ENVIADA' | 'ACEPTADA' | 'RECHAZADA' | 'CERRADA';
+  createdByPrincipalId: string;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+/** CLIENT never receives a staff identifier with a proposed alternative. */
+export interface ClientScheduleProposal {
+  id: string;
+  requestId: string;
+  version: number;
+  proposedStartsAt: string;
+  proposedDurationMinutes: number;
+  status: 'ENVIADA';
+  createdAt: string;
+}
+
+export interface ScheduleProposalRequest {
+  proposedStartsAt: string;
+  professionalPrincipalId: string;
+  reason: string;
+}
+
+export interface ScheduleReassignmentRequest {
+  professionalPrincipalId: string;
+  reason: string;
+}
+
+export interface ClientProposalDecisionRequest {
+  decision: 'ACEPTADA' | 'RECHAZADA';
+}
+
 export interface ClientScheduleRequest {
   petId: string;
   serviceId: string;

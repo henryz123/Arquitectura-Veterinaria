@@ -71,8 +71,13 @@
           <strong>{{ serviceName(request.serviceId) }}</strong>
           <span>{{ petName(request.petId) }} · {{ request.requestedStartsAt }}</span>
           <span>Estado: {{ request.status }}</span>
+          <ng-container *ngIf="proposalFor(request) as proposal">
+            <span>Alternativa propuesta: {{ proposal.proposedStartsAt }} · {{ proposal.proposedDurationMinutes }} min</span>
+            <button type="button" [disabled]="actionPending()" (click)="decideScheduleProposal(proposal, 'ACEPTADA')">Aceptar alternativa</button>
+            <button type="button" [disabled]="actionPending()" (click)="decideScheduleProposal(proposal, 'RECHAZADA')">Rechazar alternativa</button>
+          </ng-container>
           <button type="button" *ngIf="request.status === 'PENDIENTE' || request.status === 'PROPUESTA'" [disabled]="actionPending()" (click)="cancelScheduleRequest(request)">Cancelar solicitud</button>
-          <button type="button" *ngIf="request.status === 'CONFIRMADA'" [disabled]="actionPending()" (click)="cancelScheduleRequest(request)">Solicitar cancelacion</button>
+          <button type="button" *ngIf="request.status === 'CONFIRMADA' || request.status === 'REPROGRAMACION_PROPUESTA' || request.status === 'PENDIENTE_REPROGRAMACION'" [disabled]="actionPending()" (click)="cancelScheduleRequest(request)">Solicitar cancelacion</button>
         </article>
       </div>
       <ng-template #noScheduleRequests><p class="notice">Aun no has enviado solicitudes de cita o grooming.</p></ng-template>

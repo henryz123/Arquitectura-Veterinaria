@@ -149,6 +149,96 @@ class SchedulingDatabaseIntegrationTest {
 		assertTrue(schedulingService.listScheduleRequests(bosqueAdministrator).stream().noneMatch(item -> item.id().equals(request.id())));
 	}
 
+	@Test
+	void preservesTheConfirmedIntervalUntilClientAcceptsAndStaffRevalidatesAReprogramming() {
+		SessionPrincipal administrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		SessionPrincipal client = linkedClient(administrator);
+		SessionPrincipal veterinarian = veterinarian(administrator);
+		SessionPrincipal replacementVeterinarian = veterinarian(administrator);
+		Instant startsAt = nextMondayAt(LocalTime.of(9, 0));
+		var service = schedulingService.createOfferedService(administrator,
+				new SchedulingService.OfferedServiceCommand("CLINICA", "B03 Reprogramacion " + UUID.randomUUID(),
+						"Servicio sintetico de reprogramacion", 30, java.math.BigDecimal.valueOf(45), true));
+		schedulingService.createOperatingHours(administrator,
+				new SchedulingService.OperatingHoursCommand(DayOfWeek.MONDAY.getValue(), LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		schedulingService.createProfessionalAvailability(administrator,
+				new SchedulingService.ProfessionalAvailabilityCommand(veterinarian.session().accountId(), DayOfWeek.MONDAY.getValue(),
+						LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		schedulingService.createProfessionalAvailability(administrator,
+				new SchedulingService.ProfessionalAvailabilityCommand(replacementVeterinarian.session().accountId(), DayOfWeek.MONDAY.getValue(),
+						LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		UUID petId = ownerPetCareService.listCurrentPetsForClient(client).getFirst().id();
+		var request = schedulingService.createClientScheduleRequest(client,
+				new SchedulingService.ClientScheduleRequestCommand(petId, service.id(), startsAt, "Cita a reprogramar", UUID.randomUUID()));
+		assertEquals("CONFIRMADA", schedulingService.confirmScheduleRequest(administrator, request.id(),
+				new SchedulingService.ConfirmationCommand(veterinarian.session().accountId())).status());
+
+		Instant firstAlternative = startsAt.plusSeconds(3600);
+		var rejectedProposal = schedulingService.proposeScheduleAlternative(administrator, request.id(),
+				new SchedulingService.ScheduleProposalCommand(firstAlternative, veterinarian.session().accountId(), "Cambio solicitado por agenda."));
+		assertEquals("ENVIADA", rejectedProposal.status());
+		assertEquals("REPROGRAMACION_PROPUESTA", schedulingService.listScheduleRequests(administrator).stream()
+				.filter(item -> item.id().equals(request.id())).findFirst().orElseThrow().status());
+		assertTrue(schedulingService.listClientScheduleProposals(client).stream().anyMatch(item -> item.id().equals(rejectedProposal.id())));
+		assertEquals("CONFIRMADA", schedulingService.decideClientScheduleProposal(client, rejectedProposal.id(),
+				new SchedulingService.ClientProposalDecisionCommand("RECHAZADA")).status());
+		assertFalse(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), startsAt)).available());
+		assertTrue(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), firstAlternative)).available());
+
+		Instant occupiedAlternative = startsAt.plusSeconds(7200);
+		var occupiedProposal = schedulingService.proposeScheduleAlternative(administrator, request.id(),
+				new SchedulingService.ScheduleProposalCommand(occupiedAlternative, veterinarian.session().accountId(), "Nueva hora propuesta por agenda."));
+		var competingRequest = schedulingService.createClientScheduleRequest(client,
+				new SchedulingService.ClientScheduleRequestCommand(petId, service.id(), occupiedAlternative, "Cita que ocupa la alternativa", UUID.randomUUID()));
+		assertEquals("CONFIRMADA", schedulingService.confirmScheduleRequest(administrator, competingRequest.id(),
+				new SchedulingService.ConfirmationCommand(veterinarian.session().accountId())).status());
+		ApiException occupiedDecision = assertThrows(ApiException.class, () -> schedulingService.decideClientScheduleProposal(client,
+				occupiedProposal.id(), new SchedulingService.ClientProposalDecisionCommand("ACEPTADA")));
+		assertEquals(HttpStatus.CONFLICT, occupiedDecision.status());
+		assertEquals("B03_SLOT_UNAVAILABLE", occupiedDecision.code());
+		assertEquals("REPROGRAMACION_PROPUESTA", schedulingService.listScheduleRequests(administrator).stream()
+				.filter(item -> item.id().equals(request.id())).findFirst().orElseThrow().status());
+		assertFalse(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), startsAt)).available());
+
+		Instant acceptedAlternative = startsAt.plusSeconds(10800);
+		var acceptedProposal = schedulingService.proposeScheduleAlternative(administrator, request.id(),
+				new SchedulingService.ScheduleProposalCommand(acceptedAlternative, veterinarian.session().accountId(), "Nueva hora aprobada por agenda."));
+		SessionPrincipal bosqueClient = demoClient("veterinaria-bosque", "AV_DEMO_CLIENT_BOSQUE_EMAIL", "AV_DEMO_CLIENT_BOSQUE_PASSWORD");
+		ApiException crossTenantDecision = assertThrows(ApiException.class, () -> schedulingService.decideClientScheduleProposal(bosqueClient,
+				acceptedProposal.id(), new SchedulingService.ClientProposalDecisionCommand("ACEPTADA")));
+		assertEquals(HttpStatus.NOT_FOUND, crossTenantDecision.status());
+		assertEquals("PENDIENTE_REPROGRAMACION", schedulingService.decideClientScheduleProposal(client, acceptedProposal.id(),
+				new SchedulingService.ClientProposalDecisionCommand("ACEPTADA")).status());
+		ApiException repeatedDecision = assertThrows(ApiException.class, () -> schedulingService.decideClientScheduleProposal(client,
+				acceptedProposal.id(), new SchedulingService.ClientProposalDecisionCommand("ACEPTADA")));
+		assertEquals(HttpStatus.CONFLICT, repeatedDecision.status());
+		assertFalse(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), startsAt)).available());
+		assertTrue(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), acceptedAlternative)).available());
+		assertEquals("CONFIRMADA", schedulingService.confirmScheduleRequest(administrator, request.id(),
+				new SchedulingService.ConfirmationCommand(veterinarian.session().accountId())).status());
+		assertTrue(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), startsAt)).available());
+		assertFalse(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), acceptedAlternative)).available());
+
+		var reassigned = schedulingService.reassignConfirmedScheduleProfessional(administrator, request.id(),
+				new SchedulingService.ReassignmentCommand(replacementVeterinarian.session().accountId(), "Veterinario original no disponible."));
+		assertEquals(replacementVeterinarian.session().accountId(), reassigned.professionalPrincipalId());
+		assertEquals(1, scheduleEventCount(request.id(), "PROFESIONAL_REASIGNADO"));
+		assertTrue(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), acceptedAlternative)).available());
+		assertFalse(schedulingService.checkAvailability(administrator,
+				new SchedulingService.AvailabilityCommand(service.id(), replacementVeterinarian.session().accountId(), acceptedAlternative)).available());
+		assertEquals(reassigned.id(), schedulingService.reassignConfirmedScheduleProfessional(administrator, request.id(),
+				new SchedulingService.ReassignmentCommand(replacementVeterinarian.session().accountId(), "Reintento idempotente.")).id());
+		assertEquals(1, scheduleEventCount(request.id(), "PROFESIONAL_REASIGNADO"));
+	}
+
 	private SessionPrincipal linkedClient(SessionPrincipal administrator) {
 		String tenantSlug = "veterinaria-aurora";
 		String email = "b03-client-" + UUID.randomUUID() + "@demo.invalid";

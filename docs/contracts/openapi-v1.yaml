@@ -531,6 +531,36 @@ paths:
         '403': { $ref: '#/components/responses/CsrfOrForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/client/schedule/proposals:
+    get:
+      tags: [appointment-management]
+      summary: Lista solo alternativas vigentes para solicitudes del CLIENT autenticado
+      x-implementation-status: implemented-b03-reprogramming
+      x-v1-requirements: [RF-B03-004, RF-B03-005, RF-B03-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ClientScheduleProposalsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/client/schedule/proposals/{proposalId}/decision:
+    post:
+      tags: [appointment-management]
+      summary: CLIENT acepta o rechaza una alternativa vigente de su propia solicitud
+      x-implementation-status: implemented-b03-reprogramming
+      x-v1-requirements: [RF-B03-004, RF-B03-005, RF-B03-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: proposalId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ClientScheduleProposalDecisionRequest' } } }
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/schedule/availability:
     get:
       tags: [appointment-management]
@@ -561,6 +591,44 @@ paths:
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleConfirmationRequest' } } }
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleReservationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/schedule/requests/{requestId}/proposals:
+    post:
+      tags: [appointment-management]
+      summary: Recepción o administración envía una contrapropuesta o reprogramación sin ocupar el nuevo cupo
+      x-implementation-status: implemented-b03-reprogramming
+      x-v1-requirements: [RF-B03-004, RF-B03-005, RF-B03-006, RF-B03-009, RF-B03-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleProposalRequest' } } }
+      responses:
+        '201': { $ref: '#/components/responses/ScheduleProposalResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/schedule/requests/{requestId}/reassignment:
+    post:
+      tags: [appointment-management]
+      summary: Reasigna profesional de una cita confirmada sin cambiar su fecha u hora
+      x-implementation-status: implemented-b03-reassignment
+      x-v1-requirements: [RF-B03-006, RF-B03-007, RF-B03-009]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleReassignmentRequest' } } }
       responses:
         '200': { $ref: '#/components/responses/ScheduleReservationResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -1640,6 +1708,24 @@ components:
       required: [professionalPrincipalId]
       properties:
         professionalPrincipalId: { type: string, format: uuid }
+    ScheduleProposalRequest:
+      type: object
+      required: [proposedStartsAt, professionalPrincipalId, reason]
+      properties:
+        proposedStartsAt: { type: string, format: date-time }
+        professionalPrincipalId: { type: string, format: uuid }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    ClientScheduleProposalDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [ACEPTADA, RECHAZADA] }
+    ScheduleReassignmentRequest:
+      type: object
+      required: [professionalPrincipalId, reason]
+      properties:
+        professionalPrincipalId: { type: string, format: uuid }
+        reason: { type: string, minLength: 3, maxLength: 500 }
     ScheduleCancellationResolutionRequest:
       type: object
       required: [decision, reason]
@@ -1679,6 +1765,32 @@ components:
         confirmedByPrincipalId: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    ScheduleProposal:
+      type: object
+      required: [id, tenantId, requestId, version, proposedStartsAt, proposedDurationMinutes, status, createdByPrincipalId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        requestId: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+        proposedStartsAt: { type: string, format: date-time }
+        proposedDurationMinutes: { type: integer, minimum: 15, maximum: 480, multipleOf: 15 }
+        proposedProfessionalPrincipalId: { type: [string, 'null'], format: uuid }
+        status: { type: string, enum: [ENVIADA, ACEPTADA, RECHAZADA, CERRADA] }
+        createdByPrincipalId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: [string, 'null'], format: date-time }
+    ClientScheduleProposal:
+      type: object
+      required: [id, requestId, version, proposedStartsAt, proposedDurationMinutes, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        requestId: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+        proposedStartsAt: { type: string, format: date-time }
+        proposedDurationMinutes: { type: integer, minimum: 15, maximum: 480, multipleOf: 15 }
+        status: { type: string, enum: [ENVIADA] }
+        createdAt: { type: string, format: date-time }
     ScheduleAvailability:
       type: object
       required: [professionalPrincipalId, serviceId, startsAt, endsAt, available]
@@ -1924,6 +2036,12 @@ components:
     ScheduleReservationResponse:
       description: Reserva efectiva creada por una confirmacion manual con revalidacion transaccional.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ScheduleReservation' } } } } }
+    ScheduleProposalResponse:
+      description: Alternativa de horario persistida sin reservar el nuevo intervalo.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ScheduleProposal' } } } } }
+    ClientScheduleProposalsResponse:
+      description: Alternativas vigentes de solicitudes propias, sin identidad del profesional ni actor interno.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ClientScheduleProposal' } } } } } }
     ScheduleAvailabilityResponse:
       description: Resultado no vinculante de disponibilidad; la confirmacion repite todos los controles bajo bloqueo.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ScheduleAvailability' } } } } }

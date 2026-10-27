@@ -33,6 +33,8 @@ export class SchedulePageComponent implements OnInit {
 	readonly scheduleRequests = signal<ScheduleRequest[]>([]);
 	readonly selectedProfessionalId = signal<string>('');
 	readonly cancellationReason = signal<string>('');
+	readonly proposalStartsAt = signal<string>('');
+	readonly proposalReason = signal<string>('');
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -175,6 +177,13 @@ export class SchedulePageComponent implements OnInit {
 		this.saving.set(true);
 		this.error.set(null);
 		this.notice.set(null);
+		if (request.status === 'PENDIENTE_REPROGRAMACION') {
+			this.scheduleApi.confirmScheduleRequest(request.id, professionalPrincipalId).subscribe({
+				next: () => this.finishSave('La reprogramacion fue revalidada y confirmada de forma atomica. El horario anterior se libero en la misma transaccion.'),
+				error: () => this.failSave('No fue posible confirmar la reprogramacion. El horario original se conserva y la alternativa debe revisarse.'),
+			});
+			return;
+		}
 		this.scheduleApi.checkAvailability(request.serviceId, professionalPrincipalId, request.requestedStartsAt).subscribe({
 			next: (availability) => {
 				if (!availability.data.available) {
@@ -187,6 +196,51 @@ export class SchedulePageComponent implements OnInit {
 				});
 			},
 			error: () => this.failSave('No fue posible consultar la disponibilidad actual del profesional.'),
+		});
+	}
+
+	proposeAlternative(request: ScheduleRequest): void {
+		const professionalPrincipalId = this.selectedProfessionalId();
+		const startsAt = new Date(this.proposalStartsAt());
+		const reason = this.proposalReason().trim();
+		if (!['PENDIENTE', 'PROPUESTA', 'CONFIRMADA', 'REPROGRAMACION_PROPUESTA'].includes(request.status)
+				|| this.saving() || !professionalPrincipalId || Number.isNaN(startsAt.getTime()) || startsAt.getTime() <= Date.now() || reason.length < 3) {
+			this.error.set('Selecciona un profesional, una fecha futura y una justificacion de al menos tres caracteres para proponer el cambio.');
+			return;
+		}
+		this.saving.set(true);
+		this.error.set(null);
+		this.notice.set(null);
+		this.scheduleApi.proposeScheduleAlternative(request.id, {
+			proposedStartsAt: startsAt.toISOString(), professionalPrincipalId, reason,
+		}).subscribe({
+			next: () => {
+				this.proposalStartsAt.set('');
+				this.proposalReason.set('');
+				this.finishSave(request.status === 'CONFIRMADA' || request.status === 'REPROGRAMACION_PROPUESTA'
+					? 'La reprogramacion fue enviada. La reserva original sigue vigente hasta que CLIENT acepte y se revalide.'
+					: 'La contrapropuesta fue enviada. No ocupa el nuevo horario hasta la aceptacion y confirmacion.');
+			},
+			error: () => this.failSave('No fue posible enviar la propuesta. El profesional, la disponibilidad o el estado de la solicitud pudieron cambiar.'),
+		});
+	}
+
+	reassignCurrentProfessional(request: ScheduleRequest): void {
+		const professionalPrincipalId = this.selectedProfessionalId();
+		const reason = this.proposalReason().trim();
+		if (request.status !== 'CONFIRMADA' || this.saving() || !professionalPrincipalId || reason.length < 3) {
+			this.error.set('Selecciona otro profesional vigente e indica una justificacion de al menos tres caracteres para reasignar.');
+			return;
+		}
+		this.saving.set(true);
+		this.error.set(null);
+		this.notice.set(null);
+		this.scheduleApi.reassignConfirmedScheduleProfessional(request.id, { professionalPrincipalId, reason }).subscribe({
+			next: () => {
+				this.proposalReason.set('');
+				this.finishSave('El profesional fue reasignado sin cambiar la hora. El servidor validó disponibilidad y conservó una única reserva.');
+			},
+			error: () => this.failSave('No fue posible reasignar. El profesional, el intervalo o el estado de la cita pudieron cambiar.'),
 		});
 	}
 

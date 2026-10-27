@@ -11,6 +11,8 @@ import {
   ProfessionalAvailability,
   ProfessionalAvailabilityRequest,
   ClientScheduleRequest,
+  ClientProposalDecisionRequest,
+  ClientScheduleProposal,
 
   ClientScheduleCancellationRequest,
 
@@ -18,6 +20,9 @@ import {
   ScheduleAvailability,
   ScheduleRequest,
   ScheduleReservation,
+  ScheduleProposal,
+  ScheduleProposalRequest,
+  ScheduleReassignmentRequest,
 } from './api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -67,6 +72,18 @@ export class ScheduleApiService {
     );
   }
 
+  proposeScheduleAlternative(requestId: string, request: ScheduleProposalRequest): Observable<ApiEnvelope<ScheduleProposal>> {
+    return this.http.post<ApiEnvelope<ScheduleProposal>>(
+      `/api/v1/schedule/requests/${encodeURIComponent(requestId)}/proposals`, request,
+    );
+  }
+
+  reassignConfirmedScheduleProfessional(requestId: string, request: ScheduleReassignmentRequest): Observable<ApiEnvelope<ScheduleReservation>> {
+    return this.http.post<ApiEnvelope<ScheduleReservation>>(
+      `/api/v1/schedule/requests/${encodeURIComponent(requestId)}/reassignment`, request,
+    );
+  }
+
   resolveCancellation(requestId: string, request: ScheduleCancellationResolutionRequest): Observable<ApiEnvelope<ScheduleRequest>> {
     return this.http.post<ApiEnvelope<ScheduleRequest>>(
       `/api/v1/schedule/requests/${encodeURIComponent(requestId)}/cancellation-resolution`, request,
@@ -81,6 +98,10 @@ export class ScheduleApiService {
     return this.http.get<ApiEnvelope<ScheduleRequest[]>>('/api/v1/client/schedule/requests');
   }
 
+  listClientScheduleProposals(): Observable<ApiEnvelope<ClientScheduleProposal[]>> {
+    return this.http.get<ApiEnvelope<ClientScheduleProposal[]>>('/api/v1/client/schedule/proposals');
+  }
+
   createClientScheduleRequest(request: ClientScheduleRequest): Observable<ApiEnvelope<ScheduleRequest>> {
     return this.http.post<ApiEnvelope<ScheduleRequest>>('/api/v1/client/schedule/requests', request);
   }
@@ -88,6 +109,12 @@ export class ScheduleApiService {
   cancelClientScheduleRequest(requestId: string, request: ClientScheduleCancellationRequest): Observable<ApiEnvelope<ScheduleRequest>> {
     return this.http.post<ApiEnvelope<ScheduleRequest>>(
       `/api/v1/client/schedule/requests/${encodeURIComponent(requestId)}/cancellation`, request,
+    );
+  }
+
+  decideClientScheduleProposal(proposalId: string, request: ClientProposalDecisionRequest): Observable<ApiEnvelope<ScheduleRequest>> {
+    return this.http.post<ApiEnvelope<ScheduleRequest>>(
+      `/api/v1/client/schedule/proposals/${encodeURIComponent(proposalId)}/decision`, request,
     );
   }
 }

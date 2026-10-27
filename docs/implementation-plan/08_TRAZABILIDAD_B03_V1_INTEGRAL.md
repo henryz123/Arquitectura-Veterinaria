@@ -1,6 +1,6 @@
 # Trazabilidad B03 — agenda, citas y grooming
 
-**Fecha de actualización:** 2026-10-25
+**Fecha de actualización:** 2026-10-27
 **Fuente de verdad:** `arquitectura_veterinaria_v1_FINAL/B03_CITAS_Y_GROOMING.md` (inmutable).
 **Checkpoint cubierto:** catálogo de servicios, horario operativo y disponibilidad profesional. B03 no está cerrado.
 
@@ -36,3 +36,27 @@
 ## Próxima operación concreta
 
 Implementar contrapropuesta/reprogramación con aceptación CLIENT y, después, grooming, bloqueos/ausencias, ejecución, notificaciones e historial visible. La prueba de dos confirmaciones realmente simultáneas ya complementa el rechazo secuencial de solape; faltan las variantes de reprogramación y grooming.
+
+## Actualización 2026-10-27 — estado vigente de reprogramación
+
+Esta sección sustituye el estado de las filas RF-B03-004 a RF-B03-009, RF-B03-012 y RF-B03-016 de la tabla anterior; conserva el texto previo como historial del checkpoint anterior.
+
+| Requisito | Estado vigente | Evidencia nueva y límite pendiente |
+|---|---|---|
+| RF-B03-004 | Parcial verificado | STAFF propone fecha/hora y profesional desde `/schedule`; CLIENT ve solo su proyección, acepta o rechaza. Las propuestas no ocupan cupo, se versionan y se cierran al sustituirse. Falta historial visual completo. |
+| RF-B03-005 | Parcial verificado | La aceptación CLIENT bloquea solicitud/propuesta, exige fecha futura y rechaza una alternativa que ya está ocupada. En reprogramación conserva la reserva original y exige revalidación STAFF posterior. Falta E2E de rechazo visible y la variante grooming. |
+| RF-B03-006 | Parcial verificado | La reprogramación aceptada vuelve a validar rol, horario, disponibilidad, bloqueos y reservas antes de actualizar una única reserva. Falta cobertura de todas las transiciones grooming y ausencias. |
+| RF-B03-007 | Parcial verificado | La prueba con COMMIT real deja una sola confirmación. Reprogramación bloquea ambos profesionales en orden estable y rechaza una alternativa ocupada sin perder la reserva original. Faltan carreras grooming y cancelación-confirmación. |
+| RF-B03-008 | Parcial verificado | V020 y el servicio revalidan profesionales activos; la confirmación clínica no admite rol ajeno. Falta el recorrido E2E de grooming. |
+| RF-B03-009 | Parcial verificado | STAFF reasigna una cita confirmada sin cambiar fecha/hora. La transacción valida disponibilidad, conserva una reserva única y registra `PROFESIONAL_REASIGNADO`; el reintento no duplica evento. Faltan notificación e historial visual. |
+| RF-B03-012 | Parcial verificado | La cancelación también cubre estados de reprogramación sin liberar el intervalo hasta la resolución autorizada. Faltan casos en atención y notificaciones. |
+| RF-B03-016 | Parcial verificado | Solicitud, confirmación, cancelación, propuesta, decisión, reprogramación y reasignación generan trazas tenant-locales. CLIENT no recibe identidad interna del profesional. Falta pantalla de historial completo y eventos grooming. |
+
+### Evidencia actualizada
+
+- Backend: `mvnw.cmd '-Dtest=SchedulingAccessPolicyTest,SchedulingServiceTest,SchedulingDatabaseIntegrationTest,SchedulingConcurrencyCommitIntegrationTest' test` con Java 21, PostgreSQL local y Flyway desactivado: 13/13 correctas.
+- Angular: `npm.cmd test -- --watch=false`: 15/15 correctas. `npm.cmd run build`: correcto; advertencia no bloqueante de 29.52 kB sobre el presupuesto inicial.
+- OpenAPI: `npm.cmd run validate:contract` válido con Redocly.
+- Playwright/Chromium: `B03_REPROGRAMMING_BROWSER_E2E=PASS`; STAFF propone, CLIENT acepta una proyección sin identidad interna y STAFF confirma el cambio real.
+
+**Próxima operación vigente:** grooming operativo sobre la agenda consolidada: solicitud CLIENT, confirmación STAFF, ejecución por GROOMING, estados e historial. Luego bloques/ausencias, inasistencias, notificaciones e historial visual.

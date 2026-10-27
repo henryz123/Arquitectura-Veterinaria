@@ -149,6 +149,13 @@ public class SchedulingService {
 	}
 
 	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<ClientScheduleProposal> listClientScheduleProposals(SessionPrincipal actor) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		return repository.listOpenScheduleProposalsForRequester(actor.session().accountId());
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
 	public List<ScheduleRequest> listScheduleRequests(SessionPrincipal actor) {
 		accessPolicy.requireSchedulingManager(actor);
 		setTrustedContext(actor);
@@ -174,12 +181,14 @@ public class SchedulingService {
 					request.requestedStartsAt(), null, null, null, reason);
 			return repository.findScheduleRequest(request.id()).orElseThrow();
 		}
-		if ("CONFIRMADA".equals(request.status())) {
+		if ("CONFIRMADA".equals(request.status()) || "REPROGRAMACION_PROPUESTA".equals(request.status())
+				|| "PENDIENTE_REPROGRAMACION".equals(request.status())) {
 			ScheduleReservation reservation = repository.findCurrentReservation(request.id())
 					.orElseThrow(() -> conflict("B03_CANCELLATION_STATE", "La cita confirmada no conserva una reserva vigente."));
-			if (repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), "CONFIRMADA", "CANCELACION_SOLICITADA") != 1) {
+			if (repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), request.status(), "CANCELACION_SOLICITADA") != 1) {
 				throw conflict("B03_CANCELLATION_STATE", "La cita cambio antes de solicitar la cancelacion.");
 			}
+			repository.closeOpenProposals(actor.session().tenantId(), request.id());
 			repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(), "CANCELACION_SOLICITADA",
 					reservation.startsAt(), reservation.startsAt(), reservation.professionalPrincipalId(), reservation.professionalPrincipalId(), reason);
 			return repository.findScheduleRequest(request.id()).orElseThrow();
@@ -216,6 +225,155 @@ public class SchedulingService {
 		return repository.findScheduleRequest(request.id()).orElseThrow();
 	}
 
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ScheduleProposal proposeScheduleAlternative(SessionPrincipal actor, UUID requestId, ScheduleProposalCommand command) {
+		accessPolicy.requireSchedulingManager(actor);
+		setTrustedContext(actor);
+		if (command == null || command.proposedStartsAt() == null || command.professionalPrincipalId() == null) {
+			throw validation("proposal", "Selecciona una fecha futura y un profesional para la propuesta.");
+		}
+		String reason = required(command.reason(), "reason", 500);
+		ScheduleRequest request = repository.lockScheduleRequest(requestId)
+				.orElseThrow(() -> notFound("No se encontro la solicitud de agenda."));
+		boolean reprogramming = "CONFIRMADA".equals(request.status()) || "REPROGRAMACION_PROPUESTA".equals(request.status());
+		boolean pending = "PENDIENTE".equals(request.status()) || "PROPUESTA".equals(request.status());
+		if (!reprogramming && !pending) {
+			throw conflict("B03_PROPOSAL_STATE", "La solicitud no admite una contrapropuesta en su estado actual.");
+		}
+		OfferedService service = activeService(request.serviceId(), false);
+		Interval proposedInterval = interval(command.proposedStartsAt(), request.requestedDurationMinutes());
+		ScheduleReservation currentReservation = reprogramming ? repository.findCurrentReservation(request.id())
+				.orElseThrow(() -> conflict("B03_PROPOSAL_STATE", "La reprogramacion no conserva una reserva vigente.")) : null;
+		lockProfessionalSchedules(currentReservation == null ? null : currentReservation.professionalPrincipalId(), command.professionalPrincipalId());
+		ScheduleAvailability availability = evaluateAvailability(actor, service, command.professionalPrincipalId(), proposedInterval,
+				reprogramming ? request.id() : null);
+		if (!availability.available()) {
+			throw conflict("B03_SLOT_UNAVAILABLE", "El intervalo propuesto ya no esta disponible: " + availability.reasonCode());
+		}
+		repository.closeOpenProposals(actor.session().tenantId(), request.id());
+		String nextStatus = reprogramming ? "REPROGRAMACION_PROPUESTA" : "PROPUESTA";
+		if (repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), request.status(), nextStatus) != 1) {
+			throw conflict("B03_PROPOSAL_STATE", "La solicitud cambio antes de registrar la propuesta.");
+		}
+		ScheduleProposal proposal = repository.createScheduleProposal(actor.session().tenantId(), request.id(), proposedInterval.startsAt(),
+				request.requestedDurationMinutes(), command.professionalPrincipalId(), actor.session().accountId());
+		repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(),
+				reprogramming ? "REPROGRAMACION_PROPUESTA" : "CONTRAPROPUESTA_ENVIADA",
+				currentReservation == null ? request.requestedStartsAt() : currentReservation.startsAt(), proposedInterval.startsAt(),
+				currentReservation == null ? null : currentReservation.professionalPrincipalId(), command.professionalPrincipalId(), reason);
+		return proposal;
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ScheduleRequest decideClientScheduleProposal(SessionPrincipal actor, UUID proposalId,
+			ClientProposalDecisionCommand command) {
+		accessPolicy.requireClient(actor);
+		setTrustedContext(actor);
+		if (command == null || (!"ACEPTADA".equals(command.decision()) && !"RECHAZADA".equals(command.decision()))) {
+			throw validation("proposal", "La propuesta debe aceptarse o rechazarse.");
+		}
+		ScheduleProposal reference = repository.findScheduleProposal(proposalId)
+				.orElseThrow(() -> notFound("No se encontro la propuesta de horario."));
+		ScheduleRequest request = repository.lockScheduleRequest(reference.requestId())
+				.orElseThrow(() -> notFound("No se encontro la solicitud de agenda."));
+		if (!request.requesterPrincipalId().equals(actor.session().accountId())) {
+			throw notFound("No se encontro la propuesta de horario.");
+		}
+		ScheduleProposal proposal = repository.lockScheduleProposal(proposalId)
+				.orElseThrow(() -> notFound("No se encontro la propuesta de horario."));
+		if (!"ENVIADA".equals(proposal.status())) {
+			throw conflict("B03_PROPOSAL_STATE", "La propuesta ya fue resuelta o reemplazada.");
+		}
+		if (proposal.proposedProfessionalPrincipalId() == null) {
+			throw conflict("B03_PROPOSAL_STATE", "La propuesta no conserva un profesional revalidable.");
+		}
+		boolean reprogramming = "REPROGRAMACION_PROPUESTA".equals(request.status());
+		if (!reprogramming && !"PROPUESTA".equals(request.status())) {
+			throw conflict("B03_PROPOSAL_STATE", "La solicitud no conserva una propuesta vigente.");
+		}
+		ScheduleReservation currentReservation = reprogramming ? repository.findCurrentReservation(request.id())
+				.orElseThrow(() -> conflict("B03_PROPOSAL_STATE", "La cita no conserva la reserva original.")) : null;
+		Interval proposedInterval = interval(proposal.proposedStartsAt(), proposal.proposedDurationMinutes());
+		if ("ACEPTADA".equals(command.decision())) {
+			lockProfessionalSchedules(currentReservation == null ? null : currentReservation.professionalPrincipalId(),
+					proposal.proposedProfessionalPrincipalId());
+			if (repository.hasCurrentReservationConflictExceptRequest(proposal.proposedProfessionalPrincipalId(),
+					proposedInterval.startsAt(), proposedInterval.endsAt(), request.id())) {
+				throw conflict("B03_SLOT_UNAVAILABLE",
+						"La alternativa ya fue ocupada. La cita vigente se conserva y el personal debe proponer otro horario.");
+			}
+		}
+		if (repository.decideScheduleProposal(actor.session().tenantId(), proposal.id(), "ENVIADA", command.decision()) != 1) {
+			throw conflict("B03_PROPOSAL_STATE", "La propuesta cambio antes de registrar la decision.");
+		}
+		if ("RECHAZADA".equals(command.decision())) {
+			String nextStatus = reprogramming ? "CONFIRMADA" : "PENDIENTE";
+			if (repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), request.status(), nextStatus) != 1) {
+				throw conflict("B03_PROPOSAL_STATE", "La solicitud cambio antes de rechazar la propuesta.");
+			}
+			repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(),
+					reprogramming ? "REPROGRAMACION_RECHAZADA" : "CONTRAPROPUESTA_RECHAZADA",
+					currentReservation == null ? request.requestedStartsAt() : currentReservation.startsAt(),
+					currentReservation == null ? request.requestedStartsAt() : currentReservation.startsAt(),
+					currentReservation == null ? null : currentReservation.professionalPrincipalId(),
+					currentReservation == null ? null : currentReservation.professionalPrincipalId(), null);
+			return repository.findScheduleRequest(request.id()).orElseThrow();
+		}
+		if (reprogramming) {
+			if (repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), "REPROGRAMACION_PROPUESTA",
+					"PENDIENTE_REPROGRAMACION") != 1) {
+				throw conflict("B03_PROPOSAL_STATE", "La solicitud cambio antes de aceptar la reprogramacion.");
+			}
+			repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(),
+					"REPROGRAMACION_ACEPTADA", currentReservation.startsAt(), proposal.proposedStartsAt(),
+					currentReservation.professionalPrincipalId(), proposal.proposedProfessionalPrincipalId(), null);
+		} else {
+			if (repository.transitionScheduleRequestWithTime(actor.session().tenantId(), request.id(), "PROPUESTA", "PENDIENTE",
+					proposal.proposedStartsAt(), proposal.proposedDurationMinutes()) != 1) {
+				throw conflict("B03_PROPOSAL_STATE", "La solicitud cambio antes de aceptar la contrapropuesta.");
+			}
+			repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(),
+					"CONTRAPROPUESTA_ACEPTADA", request.requestedStartsAt(), proposal.proposedStartsAt(), null,
+					proposal.proposedProfessionalPrincipalId(), null);
+		}
+		return repository.findScheduleRequest(request.id()).orElseThrow();
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ScheduleReservation reassignConfirmedScheduleProfessional(SessionPrincipal actor, UUID requestId,
+			ReassignmentCommand command) {
+		accessPolicy.requireSchedulingManager(actor);
+		setTrustedContext(actor);
+		if (command == null || command.professionalPrincipalId() == null) {
+			throw validation("professionalPrincipalId", "Selecciona el profesional que asumira la cita confirmada.");
+		}
+		String reason = required(command.reason(), "reason", 500);
+		ScheduleRequest request = repository.lockScheduleRequest(requestId)
+				.orElseThrow(() -> notFound("No se encontro la solicitud de agenda."));
+		if (!"CONFIRMADA".equals(request.status())) {
+			throw conflict("B03_REASSIGNMENT_STATE", "Solo se puede reasignar una cita confirmada sin cambio de horario.");
+		}
+		ScheduleReservation current = repository.findCurrentReservation(request.id())
+				.orElseThrow(() -> conflict("B03_REASSIGNMENT_STATE", "La cita confirmada no conserva una reserva vigente."));
+		if (current.professionalPrincipalId().equals(command.professionalPrincipalId())) {
+			return current;
+		}
+		OfferedService service = activeService(request.serviceId(), false);
+		Interval currentInterval = interval(current.startsAt(), request.requestedDurationMinutes());
+		lockProfessionalSchedules(current.professionalPrincipalId(), command.professionalPrincipalId());
+		ScheduleAvailability availability = evaluateAvailability(actor, service, command.professionalPrincipalId(), currentInterval,
+				request.id());
+		if (!availability.available()) {
+			throw conflict("B03_SLOT_UNAVAILABLE", "El profesional seleccionado no puede asumir esta cita: " + availability.reasonCode());
+		}
+		ScheduleReservation reassigned = repository.rescheduleCurrentReservation(actor.session().tenantId(), request.id(), current.version(),
+				command.professionalPrincipalId(), current.startsAt(), current.endsAt())
+				.orElseThrow(() -> conflict("B03_REASSIGNMENT_STATE", "La reserva cambio antes de reasignar al profesional."));
+		repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(), "PROFESIONAL_REASIGNADO",
+				current.startsAt(), current.startsAt(), current.professionalPrincipalId(), command.professionalPrincipalId(), reason);
+		return reassigned;
+	}
+
 	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
 	public ScheduleAvailability checkAvailability(SessionPrincipal actor, AvailabilityCommand command) {
 		accessPolicy.requireSchedulingManager(actor);
@@ -241,10 +399,32 @@ public class SchedulingService {
 			return repository.findCurrentReservation(request.id())
 					.orElseThrow(() -> conflict("B03_CONFIRMATION_STATE", "La solicitud confirmada no conserva su reserva vigente."));
 		}
-		if (!"PENDIENTE".equals(request.status())) {
+		if (!"PENDIENTE".equals(request.status()) && !"PENDIENTE_REPROGRAMACION".equals(request.status())) {
 			throw conflict("B03_CONFIRMATION_STATE", "Solo se pueden confirmar solicitudes pendientes.");
 		}
 		OfferedService service = activeService(request.serviceId(), false);
+		if ("PENDIENTE_REPROGRAMACION".equals(request.status())) {
+			ScheduleProposal proposal = repository.findLatestAcceptedScheduleProposal(request.id())
+					.orElseThrow(() -> conflict("B03_CONFIRMATION_STATE", "La reprogramacion aceptada no conserva su propuesta."));
+			ScheduleReservation previous = repository.findCurrentReservation(request.id())
+					.orElseThrow(() -> conflict("B03_CONFIRMATION_STATE", "La reprogramacion no conserva su reserva original."));
+			Interval interval = interval(proposal.proposedStartsAt(), proposal.proposedDurationMinutes());
+			lockProfessionalSchedules(previous.professionalPrincipalId(), command.professionalPrincipalId());
+			ScheduleAvailability availability = evaluateAvailability(actor, service, command.professionalPrincipalId(), interval, request.id());
+			if (!availability.available()) {
+				throw conflict("B03_SLOT_UNAVAILABLE", "La alternativa aceptada ya no esta disponible: " + availability.reasonCode());
+			}
+			ScheduleReservation updated = repository.rescheduleCurrentReservation(actor.session().tenantId(), request.id(), previous.version(),
+					command.professionalPrincipalId(), interval.startsAt(), interval.endsAt())
+					.orElseThrow(() -> conflict("B03_CONFIRMATION_STATE", "La reserva cambio antes de reprogramar."));
+			if (repository.transitionScheduleRequestWithTime(actor.session().tenantId(), request.id(), "PENDIENTE_REPROGRAMACION",
+					"CONFIRMADA", interval.startsAt(), proposal.proposedDurationMinutes()) != 1) {
+				throw conflict("B03_CONFIRMATION_STATE", "La solicitud cambio antes de confirmar la reprogramacion.");
+			}
+			repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(), "CITA_REPROGRAMADA",
+					previous.startsAt(), interval.startsAt(), previous.professionalPrincipalId(), command.professionalPrincipalId(), null);
+			return updated;
+		}
 		Interval interval = interval(request.requestedStartsAt(), request.requestedDurationMinutes());
 		repository.lockProfessionalSchedule(command.professionalPrincipalId());
 		ScheduleAvailability availability = evaluateAvailability(actor, service, command.professionalPrincipalId(), interval);
@@ -267,6 +447,11 @@ public class SchedulingService {
 
 	private ScheduleAvailability evaluateAvailability(SessionPrincipal actor, OfferedService service, UUID professionalPrincipalId,
 			Interval interval) {
+		return evaluateAvailability(actor, service, professionalPrincipalId, interval, null);
+	}
+
+	private ScheduleAvailability evaluateAvailability(SessionPrincipal actor, OfferedService service, UUID professionalPrincipalId,
+			Interval interval, UUID excludedRequestId) {
 		String requiredRole = "CLINICA".equals(service.serviceType()) ? "VETERINARIO" : "GROOMING";
 		boolean assignable = repository.listAssignableProfessionals(actor.session().sessionTokenHash()).stream()
 				.anyMatch(candidate -> candidate.principalId().equals(professionalPrincipalId)
@@ -284,10 +469,28 @@ public class SchedulingService {
 		if (repository.hasScheduleBlock(professionalPrincipalId, interval.startsAt(), interval.endsAt())) {
 			return unavailable(professionalPrincipalId, service.id(), interval, "SCHEDULE_BLOCKED");
 		}
-		if (repository.hasCurrentReservationConflict(professionalPrincipalId, interval.startsAt(), interval.endsAt())) {
+		boolean hasConflict = excludedRequestId == null
+				? repository.hasCurrentReservationConflict(professionalPrincipalId, interval.startsAt(), interval.endsAt())
+				: repository.hasCurrentReservationConflictExceptRequest(professionalPrincipalId, interval.startsAt(), interval.endsAt(),
+						excludedRequestId);
+		if (hasConflict) {
 			return unavailable(professionalPrincipalId, service.id(), interval, "PROFESSIONAL_INTERVAL_CONFLICT");
 		}
 		return new ScheduleAvailability(professionalPrincipalId, service.id(), interval.startsAt(), interval.endsAt(), true, null);
+	}
+
+	private void lockProfessionalSchedules(UUID firstProfessionalId, UUID secondProfessionalId) {
+		if (firstProfessionalId == null || firstProfessionalId.equals(secondProfessionalId)) {
+			repository.lockProfessionalSchedule(secondProfessionalId);
+			return;
+		}
+		if (firstProfessionalId.toString().compareTo(secondProfessionalId.toString()) < 0) {
+			repository.lockProfessionalSchedule(firstProfessionalId);
+			repository.lockProfessionalSchedule(secondProfessionalId);
+		} else {
+			repository.lockProfessionalSchedule(secondProfessionalId);
+			repository.lockProfessionalSchedule(firstProfessionalId);
+		}
 	}
 
 	private ScheduleAvailability unavailable(UUID professionalPrincipalId, UUID serviceId, Interval interval, String reasonCode) {
@@ -438,6 +641,15 @@ public class SchedulingService {
 	}
 
 	public record CancellationResolutionCommand(String decision, String reason) {
+	}
+
+	public record ScheduleProposalCommand(Instant proposedStartsAt, UUID professionalPrincipalId, String reason) {
+	}
+
+	public record ClientProposalDecisionCommand(String decision) {
+	}
+
+	public record ReassignmentCommand(UUID professionalPrincipalId, String reason) {
 	}
 
 	private record Interval(Instant startsAt, Instant endsAt, int weekday, LocalTime startsAtLocal, LocalTime endsAtLocal) {

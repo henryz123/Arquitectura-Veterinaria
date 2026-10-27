@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import pe.arquitecturaveterinaria.appointmentmanagement.application.AssignableProfessional;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ClientScheduleProposal;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedService;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OperatingHours;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ProfessionalAvailability;
@@ -21,6 +22,7 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedServi
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedServiceUpdateDraft;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleRequest;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleReservation;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleProposal;
 
 /** JDBC adapter for V020; it has no direct read privilege on identity tables. */
 @Repository
@@ -189,6 +191,72 @@ public class SchedulingJdbcRepository {
 				""", this::mapScheduleRequest, requesterPrincipalId);
 	}
 
+	public List<ClientScheduleProposal> listOpenScheduleProposalsForRequester(UUID requesterPrincipalId) {
+		return jdbcTemplate.query("""
+				select proposal.id, proposal.request_id, proposal.version, proposal.proposed_starts_at,
+				       proposal.proposed_duration_minutes, proposal.status, proposal.created_at
+				from appointment_management.schedule_proposal proposal
+				join appointment_management.schedule_request request on request.id = proposal.request_id
+				where request.requester_principal_id = ? and proposal.status = 'ENVIADA'
+				order by proposal.created_at, proposal.id
+				""", this::mapClientScheduleProposal, requesterPrincipalId);
+	}
+
+	public Optional<ScheduleProposal> lockScheduleProposal(UUID proposalId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, request_id, version, proposed_starts_at, proposed_duration_minutes,
+				       proposed_professional_principal_id, status, created_by_principal_id, created_at, decided_at
+				from appointment_management.schedule_proposal
+				where id = ?
+				for update
+				""", this::mapScheduleProposal, proposalId).stream().findFirst();
+	}
+
+	public Optional<ScheduleProposal> findScheduleProposal(UUID proposalId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, request_id, version, proposed_starts_at, proposed_duration_minutes,
+				       proposed_professional_principal_id, status, created_by_principal_id, created_at, decided_at
+				from appointment_management.schedule_proposal
+				where id = ?
+				""", this::mapScheduleProposal, proposalId).stream().findFirst();
+	}
+
+	public Optional<ScheduleProposal> findLatestAcceptedScheduleProposal(UUID requestId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, request_id, version, proposed_starts_at, proposed_duration_minutes,
+				       proposed_professional_principal_id, status, created_by_principal_id, created_at, decided_at
+				from appointment_management.schedule_proposal
+				where request_id = ? and status = 'ACEPTADA'
+				order by version desc
+				limit 1
+				""", this::mapScheduleProposal, requestId).stream().findFirst();
+	}
+
+	public ScheduleProposal createScheduleProposal(UUID tenantId, UUID requestId, Instant proposedStartsAt,
+			int proposedDurationMinutes, UUID proposedProfessionalPrincipalId, UUID actorPrincipalId) {
+		return jdbcTemplate.queryForObject("""
+				insert into appointment_management.schedule_proposal (
+				    tenant_id, request_id, version, proposed_starts_at, proposed_duration_minutes,
+				    proposed_professional_principal_id, created_by_principal_id
+				) values (?, ?, (
+				    select coalesce(max(version), 0) + 1
+				    from appointment_management.schedule_proposal
+				    where tenant_id = ? and request_id = ?
+				), ?, ?, ?, ?)
+				returning id, tenant_id, request_id, version, proposed_starts_at, proposed_duration_minutes,
+				          proposed_professional_principal_id, status, created_by_principal_id, created_at, decided_at
+				""", this::mapScheduleProposal, tenantId, requestId, tenantId, requestId, timestamp(proposedStartsAt),
+				proposedDurationMinutes, proposedProfessionalPrincipalId, actorPrincipalId);
+	}
+
+	public int decideScheduleProposal(UUID tenantId, UUID proposalId, String expectedStatus, String nextStatus) {
+		return jdbcTemplate.update("""
+				update appointment_management.schedule_proposal
+				set status = ?, decided_at = statement_timestamp()
+				where tenant_id = ? and id = ? and status = ?
+				""", nextStatus, tenantId, proposalId, expectedStatus);
+	}
+
 	/** Serializes confirmation for one person until the surrounding JDBC transaction completes. */
 	public void lockProfessionalSchedule(UUID professionalPrincipalId) {
 		jdbcTemplate.query("select pg_advisory_xact_lock(hashtextextended(?::text, 8303))",
@@ -235,6 +303,18 @@ public class SchedulingJdbcRepository {
 				""", Boolean.class, professionalPrincipalId, timestamp(endsAt), timestamp(startsAt)));
 	}
 
+	public boolean hasCurrentReservationConflictExceptRequest(UUID professionalPrincipalId, Instant startsAt, Instant endsAt,
+			UUID excludedRequestId) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+				select exists (
+				    select 1 from appointment_management.schedule_reservation
+				    where professional_principal_id = ? and request_id <> ? and is_current
+				      and status in ('CONFIRMADA', 'EN_ATENCION')
+				      and starts_at < ? and ends_at > ?
+				)
+				""", Boolean.class, professionalPrincipalId, excludedRequestId, timestamp(endsAt), timestamp(startsAt)));
+	}
+
 	public Optional<ScheduleReservation> findCurrentReservation(UUID requestId) {
 		return jdbcTemplate.query("""
 				select id, tenant_id, request_id, professional_principal_id, starts_at, ends_at, status, is_current,
@@ -272,6 +352,15 @@ public class SchedulingJdbcRepository {
 				""", nextStatus, tenantId, requestId, expectedStatus);
 	}
 
+	public int transitionScheduleRequestWithTime(UUID tenantId, UUID requestId, String expectedStatus, String nextStatus,
+			Instant requestedStartsAt, int requestedDurationMinutes) {
+		return jdbcTemplate.update("""
+				update appointment_management.schedule_request
+				set status = ?, requested_starts_at = ?, requested_duration_minutes = ?, updated_at = statement_timestamp()
+				where tenant_id = ? and id = ? and status = ?
+				""", nextStatus, timestamp(requestedStartsAt), requestedDurationMinutes, tenantId, requestId, expectedStatus);
+	}
+
 	public void closeOpenProposals(UUID tenantId, UUID requestId) {
 		jdbcTemplate.update("""
 				update appointment_management.schedule_proposal
@@ -289,6 +378,18 @@ public class SchedulingJdbcRepository {
 				returning id, tenant_id, request_id, professional_principal_id, starts_at, ends_at, status, is_current,
 				          version, confirmed_by_principal_id, created_at, updated_at
 				""", this::mapScheduleReservation, nextStatus, tenantId, requestId, expectedStatus).stream().findFirst();
+	}
+
+	public Optional<ScheduleReservation> rescheduleCurrentReservation(UUID tenantId, UUID requestId, int expectedVersion,
+			UUID professionalPrincipalId, Instant startsAt, Instant endsAt) {
+		return jdbcTemplate.query("""
+				update appointment_management.schedule_reservation
+				set professional_principal_id = ?, starts_at = ?, ends_at = ?, updated_at = statement_timestamp(), version = version + 1
+				where tenant_id = ? and request_id = ? and is_current and status = 'CONFIRMADA' and version = ?
+				returning id, tenant_id, request_id, professional_principal_id, starts_at, ends_at, status, is_current,
+				          version, confirmed_by_principal_id, created_at, updated_at
+				""", this::mapScheduleReservation, professionalPrincipalId, timestamp(startsAt), timestamp(endsAt), tenantId,
+				requestId, expectedVersion).stream().findFirst();
 	}
 
 	public void recordScheduleChange(UUID tenantId, UUID requestId, UUID actorPrincipalId, String actionCode,
@@ -338,6 +439,20 @@ public class SchedulingJdbcRepository {
 				resultSet.getObject("idempotency_key", UUID.class), instant(resultSet, "created_at"), instant(resultSet, "updated_at"));
 	}
 
+	private ScheduleProposal mapScheduleProposal(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new ScheduleProposal(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
+				resultSet.getObject("request_id", UUID.class), resultSet.getInt("version"), instant(resultSet, "proposed_starts_at"),
+				resultSet.getInt("proposed_duration_minutes"), resultSet.getObject("proposed_professional_principal_id", UUID.class),
+				resultSet.getString("status"), resultSet.getObject("created_by_principal_id", UUID.class),
+				instant(resultSet, "created_at"), nullableInstant(resultSet, "decided_at"));
+	}
+
+	private ClientScheduleProposal mapClientScheduleProposal(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new ClientScheduleProposal(resultSet.getObject("id", UUID.class), resultSet.getObject("request_id", UUID.class),
+				resultSet.getInt("version"), instant(resultSet, "proposed_starts_at"), resultSet.getInt("proposed_duration_minutes"),
+				resultSet.getString("status"), instant(resultSet, "created_at"));
+	}
+
 	private ScheduleReservation mapScheduleReservation(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new ScheduleReservation(resultSet.getObject("id", UUID.class), resultSet.getObject("tenant_id", UUID.class),
 				resultSet.getObject("request_id", UUID.class), resultSet.getObject("professional_principal_id", UUID.class),
@@ -349,6 +464,11 @@ public class SchedulingJdbcRepository {
 
 	private Instant instant(ResultSet resultSet, String column) throws SQLException {
 		return resultSet.getTimestamp(column).toInstant();
+	}
+
+	private Instant nullableInstant(ResultSet resultSet, String column) throws SQLException {
+		Timestamp value = resultSet.getTimestamp(column);
+		return value == null ? null : value.toInstant();
 	}
 
 	private Timestamp timestamp(Instant value) {

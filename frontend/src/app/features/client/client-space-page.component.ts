@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize, forkJoin } from 'rxjs';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
-import { ClientOwnerLinkStatus, ClientPetProfile, ClientSpace, OfferedService, OwnerProfile, OwnerRequest, PetRequest, ScheduleRequest } from '../../core/api/api.models';
+import { ClientOwnerLinkStatus, ClientPetProfile, ClientScheduleProposal, ClientSpace, OfferedService, OwnerProfile, OwnerRequest, PetRequest, ScheduleRequest } from '../../core/api/api.models';
 import { ScheduleApiService } from '../../core/api/schedule-api.service';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 
@@ -25,6 +25,7 @@ export class ClientSpacePageComponent implements OnInit {
   readonly pets = signal<ClientPetProfile[]>([]);
   readonly scheduleServices = signal<OfferedService[]>([]);
   readonly scheduleRequests = signal<ScheduleRequest[]>([]);
+  readonly scheduleProposals = signal<ClientScheduleProposal[]>([]);
   readonly ownerProfile = signal<OwnerProfile | null>(null);
   readonly editingPet = signal<ClientPetProfile | null>(null);
   readonly loading = signal(true);
@@ -43,6 +44,7 @@ export class ClientSpacePageComponent implements OnInit {
       pets: this.administrationApi.listClientPets(),
 	  scheduleServices: this.scheduleApi.listClientScheduleServices(),
 	  scheduleRequests: this.scheduleApi.listClientScheduleRequests(),
+	  scheduleProposals: this.scheduleApi.listClientScheduleProposals(),
     }).subscribe({
       next: (response) => {
         this.space.set(response.space.data);
@@ -50,6 +52,7 @@ export class ClientSpacePageComponent implements OnInit {
         this.pets.set(response.pets.data);
 		this.scheduleServices.set(response.scheduleServices.data);
 		this.scheduleRequests.set(response.scheduleRequests.data);
+		this.scheduleProposals.set(response.scheduleProposals.data);
         if (response.linkStatus.data.status === 'APROBADA') {
           this.loadOwnerProfile();
         }
@@ -192,7 +195,7 @@ export class ClientSpacePageComponent implements OnInit {
 	}
 
 	cancelScheduleRequest(request: ScheduleRequest): void {
-		if (this.actionPending() || !['PENDIENTE', 'PROPUESTA', 'CONFIRMADA'].includes(request.status)) {
+		if (this.actionPending() || !['PENDIENTE', 'PROPUESTA', 'CONFIRMADA', 'REPROGRAMACION_PROPUESTA', 'PENDIENTE_REPROGRAMACION'].includes(request.status)) {
 			return;
 		}
 		this.error.set(null);
@@ -206,6 +209,31 @@ export class ClientSpacePageComponent implements OnInit {
 					: 'La cancelacion fue enviada para revision. La cita confirmada sigue vigente hasta la decision de la veterinaria.');
 			},
 			error: () => this.error.set('No fue posible procesar la cancelacion con el estado actual de la solicitud.'),
+		});
+	}
+
+	proposalFor(request: ScheduleRequest): ClientScheduleProposal | null {
+		return this.scheduleProposals().find((proposal) => proposal.requestId === request.id) ?? null;
+	}
+
+	decideScheduleProposal(proposal: ClientScheduleProposal, decision: 'ACEPTADA' | 'RECHAZADA'): void {
+		if (this.actionPending()) {
+			return;
+		}
+		this.error.set(null);
+		this.notice.set(null);
+		this.actionPending.set(true);
+		this.scheduleApi.decideClientScheduleProposal(proposal.id, { decision }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+			next: (response) => {
+				this.scheduleRequests.update((requests) => requests.map((item) => item.id === response.data.id ? response.data : item));
+				this.scheduleProposals.update((proposals) => proposals.filter((item) => item.id !== proposal.id));
+				this.notice.set(decision === 'RECHAZADA'
+					? 'La alternativa fue rechazada. Tu cita confirmada se conserva o la solicitud vuelve a revision.'
+					: response.data.status === 'PENDIENTE_REPROGRAMACION'
+						? 'Aceptaste la alternativa. Recepcion debe revalidar la disponibilidad antes de cambiar la cita confirmada.'
+						: 'Aceptaste la alternativa. La solicitud volvera a confirmarse con disponibilidad vigente.');
+			},
+			error: () => this.error.set('No fue posible registrar la decision. La propuesta pudo cambiar, vencer o no pertenecer a tu cuenta.'),
 		});
 	}
 

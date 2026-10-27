@@ -81,4 +81,45 @@ describe('ScheduleApiService', () => {
     staffResolution.flush({ data: { id: 'request-1', status: 'CANCELADA' } });
     http.verify();
   });
+
+  it('separates a time-changing proposal from a staff-only reassignment', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const service = TestBed.inject(ScheduleApiService);
+    const http = TestBed.inject(HttpTestingController);
+    const proposal = {
+      proposedStartsAt: '2030-01-02T15:00:00.000Z', professionalPrincipalId: 'professional-2', reason: 'Cambio solicitado.',
+    };
+    const reassignment = { professionalPrincipalId: 'professional-3', reason: 'Reemplazo disponible.' };
+
+    service.proposeScheduleAlternative('request-1', proposal).subscribe();
+    const proposalRequest = http.expectOne('/api/v1/schedule/requests/request-1/proposals');
+    expect(proposalRequest.request.method).toBe('POST');
+    expect(proposalRequest.request.body).toEqual(proposal);
+    proposalRequest.flush({ data: { id: 'proposal-1', requestId: 'request-1', status: 'ENVIADA' } });
+
+    service.reassignConfirmedScheduleProfessional('request-1', reassignment).subscribe();
+    const reassignmentRequest = http.expectOne('/api/v1/schedule/requests/request-1/reassignment');
+    expect(reassignmentRequest.request.method).toBe('POST');
+    expect(reassignmentRequest.request.body).toEqual(reassignment);
+    reassignmentRequest.flush({ data: { id: 'reservation-1', requestId: 'request-1', status: 'CONFIRMADA' } });
+    http.verify();
+  });
+
+  it('exposes proposals only through the CLIENT projection and decision route', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const service = TestBed.inject(ScheduleApiService);
+    const http = TestBed.inject(HttpTestingController);
+
+    service.listClientScheduleProposals().subscribe();
+    const list = http.expectOne('/api/v1/client/schedule/proposals');
+    expect(list.request.method).toBe('GET');
+    list.flush({ data: [] });
+
+    service.decideClientScheduleProposal('proposal-1', { decision: 'ACEPTADA' }).subscribe();
+    const decision = http.expectOne('/api/v1/client/schedule/proposals/proposal-1/decision');
+    expect(decision.request.method).toBe('POST');
+    expect(decision.request.body).toEqual({ decision: 'ACEPTADA' });
+    decision.flush({ data: { id: 'request-1', status: 'PENDIENTE_REPROGRAMACION' } });
+    http.verify();
+  });
 });

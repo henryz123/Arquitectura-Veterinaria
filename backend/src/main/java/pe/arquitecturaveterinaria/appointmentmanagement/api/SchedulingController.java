@@ -30,12 +30,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import pe.arquitecturaveterinaria.appointmentmanagement.application.AssignableProfessional;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ClientScheduleProposal;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedService;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OperatingHours;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ProfessionalAvailability;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleAvailability;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleRequest;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleReservation;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleProposal;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.OfferedServiceCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.OfferedServiceUpdateCommand;
@@ -46,6 +48,9 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingSe
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ConfirmationCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.CancellationCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.CancellationResolutionCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ClientProposalDecisionCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ReassignmentCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ScheduleProposalCommand;
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.shared.api.ApiEnvelope;
 
@@ -139,6 +144,23 @@ public class SchedulingController {
 				new ConfirmationCommand(request.professionalPrincipalId())));
 	}
 
+	@PostMapping("/schedule/requests/{requestId}/proposals")
+	ResponseEntity<ApiEnvelope<ScheduleProposal>> proposeScheduleAlternative(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID requestId, @Valid @RequestBody ScheduleProposalRequest request) {
+		ScheduleProposal proposal = schedulingService.proposeScheduleAlternative(principal, requestId,
+				new ScheduleProposalCommand(request.proposedStartsAt(), request.professionalPrincipalId(), request.reason()));
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.location(URI.create("/api/v1/schedule/requests/" + requestId + "/proposals/" + proposal.id()))
+				.body(ApiEnvelope.of(proposal));
+	}
+
+	@PostMapping("/schedule/requests/{requestId}/reassignment")
+	ApiEnvelope<ScheduleReservation> reassignConfirmedScheduleProfessional(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID requestId, @Valid @RequestBody ReassignmentRequest request) {
+		return ApiEnvelope.of(schedulingService.reassignConfirmedScheduleProfessional(principal, requestId,
+				new ReassignmentCommand(request.professionalPrincipalId(), request.reason())));
+	}
+
 	@PostMapping("/schedule/requests/{requestId}/cancellation-resolution")
 	ApiEnvelope<ScheduleRequest> resolveCancellation(@AuthenticationPrincipal SessionPrincipal principal,
 			@PathVariable UUID requestId, @Valid @RequestBody CancellationResolutionRequest request) {
@@ -156,6 +178,11 @@ public class SchedulingController {
 		return ApiEnvelope.of(schedulingService.listClientScheduleRequests(principal));
 	}
 
+	@GetMapping("/client/schedule/proposals")
+	ApiEnvelope<List<ClientScheduleProposal>> listClientScheduleProposals(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(schedulingService.listClientScheduleProposals(principal));
+	}
+
 	@PostMapping("/client/schedule/requests")
 	ResponseEntity<ApiEnvelope<ScheduleRequest>> createClientScheduleRequest(@AuthenticationPrincipal SessionPrincipal principal,
 			@Valid @RequestBody ClientScheduleRequest request) {
@@ -171,6 +198,13 @@ public class SchedulingController {
 			@PathVariable UUID requestId, @Valid @RequestBody ClientCancellationRequest request) {
 		return ApiEnvelope.of(schedulingService.cancelClientScheduleRequest(principal, requestId,
 				new CancellationCommand(request.reason())));
+	}
+
+	@PostMapping("/client/schedule/proposals/{proposalId}/decision")
+	ApiEnvelope<ScheduleRequest> decideClientScheduleProposal(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID proposalId, @Valid @RequestBody ClientProposalDecisionRequest request) {
+		return ApiEnvelope.of(schedulingService.decideClientScheduleProposal(principal, proposalId,
+				new ClientProposalDecisionCommand(request.decision())));
 	}
 
 	record ServiceRequest(
@@ -207,6 +241,17 @@ public class SchedulingController {
 	record ConfirmationRequest(@NotNull UUID professionalPrincipalId) {
 	}
 
+	record ScheduleProposalRequest(
+			@NotNull @Future Instant proposedStartsAt,
+			@NotNull UUID professionalPrincipalId,
+			@NotBlank @Size(min = 3, max = 500) String reason) {
+	}
+
+	record ReassignmentRequest(
+			@NotNull UUID professionalPrincipalId,
+			@NotBlank @Size(min = 3, max = 500) String reason) {
+	}
+
 	record CancellationResolutionRequest(
 			@NotBlank @Pattern(regexp = "CANCELADA|CONFIRMADA") String decision,
 			@NotBlank @Size(min = 3, max = 500) String reason) {
@@ -221,5 +266,8 @@ public class SchedulingController {
 	}
 
 	record ClientCancellationRequest(@Size(max = 500) String reason) {
+	}
+
+	record ClientProposalDecisionRequest(@NotBlank @Pattern(regexp = "ACEPTADA|RECHAZADA") String decision) {
 	}
 }
