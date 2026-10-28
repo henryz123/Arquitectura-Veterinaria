@@ -1,0 +1,73 @@
+<div class="catalog-shell">
+  <a class="skip-link" href="#catalog-main">Saltar al contenido</a>
+  <header class="catalog-header">
+    <a class="back-link" routerLink="/workspace">← Espacio de trabajo</a>
+    <div>
+      <p class="eyebrow">Inventario · Catálogo</p>
+      <h1>Productos de la veterinaria</h1>
+      <p>Las categorías y productos se guardan en el tenant de la sesión. El stock y las ventas se incorporarán en los siguientes verticales.</p>
+    </div>
+  </header>
+
+  <main id="catalog-main" *ngIf="canManageCatalog(); else forbidden">
+    <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
+    <p class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</p>
+    <p class="loading" *ngIf="loading()">Cargando catálogo autorizado…</p>
+
+    <section class="catalog-grid" aria-label="Gestión de catálogo" *ngIf="!loading()">
+      <section class="editor-panel" aria-labelledby="category-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Clasificación</p><h2 id="category-title">{{ selectedCategory() ? 'Editar categoría' : 'Nueva categoría' }}</h2></div>
+          <button class="button button-quiet" type="button" *ngIf="selectedCategory()" (click)="resetCategoryForm()">Cancelar edición</button>
+        </div>
+        <form [formGroup]="categoryForm" (ngSubmit)="submitCategory()" novalidate>
+          <label for="category-name">Nombre</label>
+          <input id="category-name" formControlName="name" autocomplete="off" [attr.aria-invalid]="categorySubmitted() && categoryForm.controls.name.invalid" />
+          <p class="field-error" role="alert" *ngIf="categorySubmitted() && categoryForm.controls.name.invalid">Escribe un nombre de hasta 120 caracteres.</p>
+          <label for="category-status">Estado</label>
+          <select id="category-status" formControlName="status">
+            <option *ngFor="let option of categoryStatusOptions" [value]="option.value">{{ option.label }}</option>
+          </select>
+          <button class="button button-primary" type="submit" [disabled]="saving()">{{ selectedCategory() ? 'Guardar categoría' : 'Registrar categoría' }}</button>
+        </form>
+
+        <div class="compact-list" *ngIf="categories().length; else noCategories">
+          <div class="compact-row" *ngFor="let category of categories(); trackBy: trackById" [attr.data-category-id]="category.id">
+            <div><strong>{{ category.name }}</strong><span>{{ categoryStatusLabel(category.status) }}</span></div>
+            <button class="button button-secondary" type="button" (click)="editCategory(category)" [disabled]="saving()">Editar</button>
+          </div>
+        </div>
+        <ng-template #noCategories><p class="empty-state">Aún no hay categorías. Puedes registrar productos sin categoría si corresponde.</p></ng-template>
+      </section>
+
+      <section class="editor-panel" aria-labelledby="product-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Catálogo interno</p><h2 id="product-title">{{ selectedProduct() ? 'Editar producto' : 'Registrar producto' }}</h2></div>
+          <button class="button button-quiet" type="button" *ngIf="selectedProduct()" (click)="resetProductForm()">Cancelar edición</button>
+        </div>
+        <form [formGroup]="productForm" (ngSubmit)="submitProduct()" novalidate>
+          <div class="form-row"><div><label for="product-sku">SKU</label><input id="product-sku" formControlName="sku" autocomplete="off" /></div><div><label for="product-title-input">Nombre</label><input id="product-title-input" formControlName="title" autocomplete="off" /></div></div>
+          <div class="form-row"><div><label for="product-category">Categoría</label><select id="product-category" formControlName="categoryId"><option value="">Sin categoría</option><option *ngFor="let category of activeCategories(); trackBy: trackById" [value]="category.id">{{ category.name }}</option></select></div><div><label for="product-price">Precio (PEN)</label><input id="product-price" type="number" min="0" step="0.01" formControlName="salePricePen" /></div></div>
+          <label for="product-description">Descripción</label><textarea id="product-description" formControlName="description" rows="3"></textarea>
+          <div class="form-row"><div><label for="product-status">Estado</label><select id="product-status" formControlName="status"><option *ngFor="let option of productStatusOptions" [value]="option.value">{{ option.label }}</option></select></div><div><label for="product-image">Imagen HTTPS opcional</label><input id="product-image" type="url" formControlName="imageUrl" placeholder="https://…" /></div></div>
+          <label class="check-field" for="inventory-managed"><input id="inventory-managed" type="checkbox" formControlName="inventoryManaged" /> Controlar existencias físicas para este producto</label>
+          <p class="field-error" role="alert" *ngIf="productSubmitted() && productForm.invalid">Completa SKU, nombre, precio y los límites de cada campo.</p>
+          <button class="button button-primary" type="submit" [disabled]="saving()">{{ selectedProduct() ? 'Guardar producto' : 'Registrar producto' }}</button>
+        </form>
+      </section>
+    </section>
+
+    <section class="catalog-table-section" *ngIf="!loading()" aria-labelledby="products-title">
+      <div class="section-heading"><div><p class="eyebrow">Consulta real</p><h2 id="products-title">Productos registrados</h2></div><span>{{ products().length }} visibles</span></div>
+      <form class="filters" [formGroup]="filterForm" (ngSubmit)="reload()">
+        <label for="catalog-query">Buscar</label><input id="catalog-query" formControlName="query" placeholder="SKU o nombre" />
+        <label for="catalog-status-filter">Estado</label><select id="catalog-status-filter" formControlName="status"><option value="">Todos</option><option *ngFor="let option of productStatusOptions" [value]="option.value">{{ option.label }}</option></select>
+        <label for="catalog-category-filter">Categoría</label><select id="catalog-category-filter" formControlName="categoryId"><option value="">Todas</option><option *ngFor="let category of categories(); trackBy: trackById" [value]="category.id">{{ category.name }}</option></select>
+        <button class="button button-secondary" type="submit" [disabled]="saving()">Filtrar</button>
+      </form>
+      <div class="table-wrap" *ngIf="products().length; else noProducts"><table><caption>Productos del tenant actual</caption><thead><tr><th scope="col">Producto</th><th scope="col">Categoría</th><th scope="col">Precio</th><th scope="col">Estado</th><th scope="col">Existencias</th><th scope="col"><span class="visually-hidden">Acciones</span></th></tr></thead><tbody><tr *ngFor="let product of products(); trackBy: trackById" [attr.data-product-id]="product.id"><td><strong>{{ product.title }}</strong><span>{{ product.sku }}</span></td><td>{{ product.categoryName || 'Sin categoría' }}</td><td>{{ product.salePricePen | currency:'PEN':'S/ ':'1.2-2' }}</td><td>{{ productStatusLabel(product.status) }}</td><td>{{ product.inventoryManaged ? 'Controlado' : 'Servicio / sin stock' }}</td><td><button class="button button-secondary" type="button" (click)="editProduct(product)" [disabled]="saving()">Editar</button></td></tr></tbody></table></div>
+      <ng-template #noProducts><p class="empty-state">No hay productos que coincidan con el filtro. Registra uno para comenzar el catálogo real.</p></ng-template>
+    </section>
+  </main>
+  <ng-template #forbidden><main id="catalog-main"><p class="feedback feedback-error" role="alert">{{ error() }}</p><a class="button button-secondary" routerLink="/workspace">Volver al espacio de trabajo</a></main></ng-template>
+</div>

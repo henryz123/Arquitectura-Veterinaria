@@ -63,6 +63,12 @@ export const routes: Routes = [
     title: 'Grooming | Arquitectura Veterinaria',
   },
   {
+    path: 'inventory',
+    loadComponent: () => import('./features/inventory/inventory-catalog-page.component').then((module) => module.InventoryCatalogPageComponent),
+    canActivate: [sessionGuard],
+    title: 'Inventario y catálogo | Arquitectura Veterinaria',
+  },
+  {
     path: 'saas/login',
     loadComponent: () => import('./features/saas/saas-login-page.component').then((module) => module.SaasLoginPageComponent),
     title: 'Administración SaaS | Arquitectura Veterinaria',

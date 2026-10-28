@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Arquitectura - Veterinaria API
-  version: 0.3.0-v1-integral-b03-requests-confirmation
+  version: 0.4.0-v1-integral-b04-catalog
   description: |
    B03-B06 permanecen definidos únicamente en la especificación funcional V1
    hasta que sus incrementos estén implementados y validados. Todo dato de
@@ -1282,6 +1282,94 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/catalog/categories:
+    get:
+      tags: [catalog]
+      summary: Lista categorías del tenant STAFF administrador
+      x-implementation-status: implemented-b04-catalog
+      x-v1-requirements: [RF-B04-001, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: query, in: query, schema: { type: string, maxLength: 120 } }
+        - { name: status, in: query, schema: { type: string, enum: [ACTIVA, INACTIVA] } }
+      responses:
+        '200': { $ref: '#/components/responses/CatalogCategoriesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [catalog]
+      summary: Crea una categoría propia de la veterinaria
+      x-implementation-status: implemented-b04-catalog
+      x-v1-requirements: [RF-B04-001, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody: { $ref: '#/components/requestBodies/CatalogCategoryRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/CatalogCategoryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/catalog/categories/{categoryId}:
+    put:
+      tags: [catalog]
+      summary: Actualiza una categoría visible para el administrador del tenant
+      x-implementation-status: implemented-b04-catalog
+      x-v1-requirements: [RF-B04-001, RF-B04-012, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ name: categoryId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { $ref: '#/components/requestBodies/CatalogCategoryRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/CatalogCategoryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/catalog/products:
+    get:
+      tags: [catalog]
+      summary: Lista productos internos del tenant STAFF administrador
+      x-implementation-status: implemented-b04-catalog
+      x-v1-requirements: [RF-B04-001, RF-B04-012, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: query, in: query, schema: { type: string, maxLength: 160 } }
+        - { name: status, in: query, schema: { type: string, enum: [ACTIVO_PUBLICADO, ACTIVO_NO_PUBLICADO, INACTIVO] } }
+        - { name: categoryId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200': { $ref: '#/components/responses/CatalogProductsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [catalog]
+      summary: Crea un producto propio de la veterinaria
+      x-implementation-status: implemented-b04-catalog
+      x-v1-requirements: [RF-B04-001, RF-B04-012, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody: { $ref: '#/components/requestBodies/CatalogProductRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/CatalogProductResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/catalog/products/{productId}:
+    put:
+      tags: [catalog]
+      summary: Actualiza un producto visible para el administrador del tenant
+      x-implementation-status: implemented-b04-catalog
+      x-v1-requirements: [RF-B04-001, RF-B04-012, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { $ref: '#/components/requestBodies/CatalogProductRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/CatalogProductResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 components:
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: AV_SESSION }
@@ -1330,6 +1418,8 @@ components:
     VaccinationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/VaccinationRequest' } } } }
     PrescriptionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PrescriptionRequest' } } } }
     AmendmentRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AmendmentRequest' } } } }
+    CatalogCategoryRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogCategoryRequest' } } } }
+    CatalogProductRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogProductRequest' } } } }
   schemas:
     LoginRequest:
       type: object
@@ -2071,6 +2161,51 @@ components:
         previousContent: { type: string, description: Instantanea JSON del episodio previa a la adenda; solo visible para veterinarios autorizados. }
         addendum: { type: string }
         createdAt: { type: string, format: date-time }
+    CatalogCategoryRequest:
+      type: object
+      required: [name, status]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        status: { type: string, enum: [ACTIVA, INACTIVA] }
+    CatalogCategory:
+      type: object
+      required: [id, tenantId, name, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid, description: 'Tenant derivado de la sesión; no aceptado en solicitudes.' }
+        name: { type: string }
+        status: { type: string, enum: [ACTIVA, INACTIVA] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CatalogProductRequest:
+      type: object
+      required: [sku, title, salePricePen, status, inventoryManaged]
+      properties:
+        categoryId: { type: [string, 'null'], format: uuid }
+        sku: { type: string, minLength: 1, maxLength: 64 }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        salePricePen: { type: number, minimum: 0, multipleOf: 0.01 }
+        status: { type: string, enum: [ACTIVO_PUBLICADO, ACTIVO_NO_PUBLICADO, INACTIVO] }
+        inventoryManaged: { type: boolean }
+        imageUrl: { type: [string, 'null'], format: uri, maxLength: 500, description: URL HTTPS opcional sin credenciales. }
+    CatalogProduct:
+      type: object
+      required: [id, tenantId, sku, title, salePricePen, status, inventoryManaged, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid, description: 'Tenant derivado de la sesión; no aceptado en solicitudes.' }
+        categoryId: { type: [string, 'null'], format: uuid }
+        categoryName: { type: [string, 'null'] }
+        sku: { type: string }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        salePricePen: { type: number, multipleOf: 0.01 }
+        status: { type: string, enum: [ACTIVO_PUBLICADO, ACTIVO_NO_PUBLICADO, INACTIVO] }
+        inventoryManaged: { type: boolean }
+        imageUrl: { type: [string, 'null'], format: uri }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     Data:
       type: object
       required: [data]
@@ -2165,6 +2300,18 @@ components:
     CsrfOrForbidden: { description: 'Token CSRF inválido o autorización insuficiente.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     NotFound: { description: 'Recurso inexistente o no visible.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     Conflict: { description: 'Conflicto de estado o concurrencia.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    CatalogCategoryResponse:
+      description: Categoría visible únicamente para la administración del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/CatalogCategory' } } } } }
+    CatalogCategoriesResponse:
+      description: Categorías del tenant autenticado; no incluye categorías de otras veterinarias.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/CatalogCategory' } } } } } }
+    CatalogProductResponse:
+      description: Producto interno visible únicamente para la administración del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/CatalogProduct' } } } } }
+    CatalogProductsResponse:
+      description: Productos internos del tenant autenticado; no es un catálogo público B05.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/CatalogProduct' } } } } } }
     OwnerResponse:
       description: Propietario visible para el tenant autorizado.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/OwnerProfile' } } } } }

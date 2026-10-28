@@ -556,3 +556,47 @@ export interface OwnershipTransferRequest {
   reason: string;
   identityVerified: boolean;
 }
+
+export type CatalogCategoryStatus = 'ACTIVA' | 'INACTIVA';
+export type CatalogProductStatus = 'ACTIVO_PUBLICADO' | 'ACTIVO_NO_PUBLICADO' | 'INACTIVO';
+
+export interface CatalogCategory {
+  id: string;
+  tenantId: string;
+  name: string;
+  status: CatalogCategoryStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CatalogCategoryRequest {
+  name: string;
+  status: CatalogCategoryStatus;
+}
+
+export interface CatalogProduct {
+  id: string;
+  tenantId: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  sku: string;
+  title: string;
+  description: string | null;
+  salePricePen: number;
+  status: CatalogProductStatus;
+  inventoryManaged: boolean;
+  imageUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CatalogProductRequest {
+  categoryId: string | null;
+  sku: string;
+  title: string;
+  description: string | null;
+  salePricePen: number;
+  status: CatalogProductStatus;
+  inventoryManaged: boolean;
+  imageUrl: string | null;
+}
