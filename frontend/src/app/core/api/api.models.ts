@@ -173,6 +173,17 @@ export interface ScheduleBlockRequest {
   reason: string;
 }
 
+/** Administrative audit projection; it intentionally omits actors and professional identities. */
+export interface ScheduleChangeEvent {
+  id: string;
+  requestId: string;
+  actionCode: string;
+  previousStartsAt: string | null;
+  newStartsAt: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
 export interface ScheduleNoShowRequest {
   reason: string;
 }

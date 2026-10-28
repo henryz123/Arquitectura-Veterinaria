@@ -12,6 +12,7 @@ import {
   ProfessionalAvailabilityRequest,
   ScheduleBlock,
   ScheduleBlockRequest,
+  ScheduleChangeEvent,
   ScheduleNoShowRequest,
   ClientScheduleRequest,
   ClientProposalDecisionRequest,
@@ -69,6 +70,10 @@ export class ScheduleApiService {
 
   createScheduleBlock(request: ScheduleBlockRequest): Observable<ApiEnvelope<ScheduleBlock>> {
     return this.http.post<ApiEnvelope<ScheduleBlock>>('/api/v1/schedule/blocks', request);
+  }
+
+  listScheduleChangeEvents(): Observable<ApiEnvelope<ScheduleChangeEvent[]>> {
+    return this.http.get<ApiEnvelope<ScheduleChangeEvent[]>>('/api/v1/schedule/changes');
   }
 
   listScheduleRequests(): Observable<ApiEnvelope<ScheduleRequest[]>> {

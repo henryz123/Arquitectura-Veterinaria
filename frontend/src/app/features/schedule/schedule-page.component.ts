@@ -9,6 +9,7 @@ import {
   OperatingHours,
   ProfessionalAvailability,
   ScheduleBlock,
+  ScheduleChangeEvent,
   ScheduleRequest,
 } from '../../core/api/api.models';
 import { ScheduleApiService } from '../../core/api/schedule-api.service';
@@ -32,6 +33,7 @@ export class SchedulePageComponent implements OnInit {
   readonly operatingHours = signal<OperatingHours[]>([]);
   readonly professionalAvailability = signal<ProfessionalAvailability[]>([]);
 	readonly scheduleBlocks = signal<ScheduleBlock[]>([]);
+	readonly scheduleChangeEvents = signal<ScheduleChangeEvent[]>([]);
 	readonly scheduleRequests = signal<ScheduleRequest[]>([]);
 	readonly selectedProfessionalId = signal<string>('');
 	readonly cancellationReason = signal<string>('');
@@ -108,6 +110,7 @@ export class SchedulePageComponent implements OnInit {
       operatingHours: this.scheduleApi.listOperatingHours(),
       professionalAvailability: this.scheduleApi.listProfessionalAvailability(),
 		scheduleBlocks: this.scheduleApi.listScheduleBlocks(),
+		scheduleChangeEvents: this.scheduleApi.listScheduleChangeEvents(),
 		scheduleRequests: this.scheduleApi.listScheduleRequests(),
     }).subscribe({
       next: (response) => {
@@ -116,6 +119,7 @@ export class SchedulePageComponent implements OnInit {
         this.operatingHours.set(response.operatingHours.data);
         this.professionalAvailability.set(response.professionalAvailability.data);
 		this.scheduleBlocks.set(response.scheduleBlocks.data);
+		this.scheduleChangeEvents.set(response.scheduleChangeEvents.data);
 		this.scheduleRequests.set(response.scheduleRequests.data);
         const current = this.selectedProfessionalId();
         const selected = response.professionals.data.find((professional) => professional.principalId === current)
@@ -374,6 +378,24 @@ export class SchedulePageComponent implements OnInit {
 			SCHEDULE_BLOCKED: 'hay un bloqueo registrado',
 			PROFESSIONAL_INTERVAL_CONFLICT: 'existe otra reserva confirmada para ese profesional',
 		} as Record<string, string>)[reasonCode ?? ''] ?? 'el intervalo no puede confirmarse';
+	}
+
+	changeActionLabel(actionCode: string): string {
+		return ({
+			SOLICITUD_CREADA: 'Solicitud creada',
+			CITA_CONFIRMADA: 'Cita confirmada',
+			PROPUESTA_ENVIADA: 'Propuesta enviada',
+			PROPUESTA_ACEPTADA: 'Propuesta aceptada',
+			PROPUESTA_RECHAZADA: 'Propuesta rechazada',
+			CITA_REPROGRAMADA: 'Cita reprogramada',
+			PROFESIONAL_REASIGNADO: 'Profesional reasignado',
+			SOLICITUD_CANCELADA: 'Solicitud cancelada',
+			CANCELACION_SOLICITADA: 'Cancelación solicitada',
+			CANCELACION_RESUELTA: 'Cancelación resuelta',
+			INASISTENCIA_REGISTRADA: 'Inasistencia registrada',
+			GROOMING_INICIADO: 'Grooming iniciado',
+			GROOMING_COMPLETADO: 'Grooming completado',
+		} as Record<string, string>)[actionCode] ?? actionCode;
 	}
 
   trackById(_: number, item: { id: string }): string {

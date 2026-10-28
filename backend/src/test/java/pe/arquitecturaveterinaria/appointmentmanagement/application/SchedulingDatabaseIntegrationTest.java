@@ -373,6 +373,10 @@ class SchedulingDatabaseIntegrationTest {
 		assertEquals(marked.id(), schedulingService.markScheduleNoShow(auroraAdministrator, request.id(),
 				new SchedulingService.NoShowCommand("Reintento sin duplicar evento.")).id());
 		assertEquals(1, scheduleEventCount(request.id(), "INASISTENCIA_REGISTRADA"));
+		assertTrue(schedulingService.listScheduleChangeEvents(auroraAdministrator).stream()
+				.anyMatch(item -> item.requestId().equals(request.id()) && "INASISTENCIA_REGISTRADA".equals(item.actionCode())));
+		assertTrue(schedulingService.listScheduleChangeEvents(bosqueAdministrator).stream()
+				.noneMatch(item -> item.requestId().equals(request.id())));
 		ApiException crossTenant = assertThrows(ApiException.class, () -> schedulingService.markScheduleNoShow(bosqueAdministrator,
 				request.id(), new SchedulingService.NoShowCommand("Intento aislado.")));
 		assertEquals(HttpStatus.NOT_FOUND, crossTenant.status());

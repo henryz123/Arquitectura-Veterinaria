@@ -41,6 +41,7 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleRequ
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleReservation;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleProposal;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleBlock;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleChangeEvent;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.OfferedServiceCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.OfferedServiceUpdateCommand;
@@ -134,6 +135,11 @@ public class SchedulingController {
 	@GetMapping("/schedule/blocks")
 	ApiEnvelope<List<ScheduleBlock>> listScheduleBlocks(@AuthenticationPrincipal SessionPrincipal principal) {
 		return ApiEnvelope.of(schedulingService.listScheduleBlocks(principal));
+	}
+
+	@GetMapping("/schedule/changes")
+	ApiEnvelope<List<ScheduleChangeEvent>> listScheduleChangeEvents(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(schedulingService.listScheduleChangeEvents(principal));
 	}
 
 	@PostMapping("/schedule/blocks")

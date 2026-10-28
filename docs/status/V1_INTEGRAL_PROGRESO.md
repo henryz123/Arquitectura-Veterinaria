@@ -337,3 +337,10 @@ vacunas, recetas y rectificaciones.
 - El mismo rol registra `INASISTENCIA` únicamente sobre citas `CONFIRMADA` y con motivo. La operación bloquea solicitud/profesional, transiciona solicitud y reserva, libera el slot y registra `INASISTENCIA_REGISTRADA` una sola vez; el reintento es idempotente y otro tenant recibe rechazo.
 - Evidencia: backend B03 17/17, Angular 5 archivos/17 pruebas, build correcto con advertencia no bloqueante de 52.63 kB sobre el presupuesto inicial y Redocly válido. Playwright Chrome ejecutó `B03_BLOCKS_NO_SHOW_BROWSER_E2E=PASS`: flujo CLIENT→STAFF con confirmación, inasistencia, bloqueo y consulta autenticada de persistencia.
 - B03 continúa **parcial**. Permanecen notificaciones, historial administrativo completo, variantes de reprogramación grooming, E2E grooming (faltan variables locales de cuenta sintética) y regresiones concurrentes de transiciones adicionales. No se declara la cobertura total de B03.
+
+## Checkpoint B03 — historial administrativo visible (2026-10-27)
+
+- Sin migración nueva: se reutiliza `schedule_change_event` de V022 con RLS y privilegios mínimos existentes. La nueva lectura administrativa no expone actor, profesionales ni contenido clínico.
+- ADMIN_VETERINARIA/RECEPCION visualiza en `/schedule` los cambios tenant-locales con solicitud, acción, fechas, motivo y momento. Aurora solo ve sus eventos; Bosque no recupera `requestId` de Aurora. El adaptador JDBC trata como nulas las fechas opcionales de eventos que no cambian hora.
+- Evidencia: backend de historial 14/14, Angular 5 archivos/18 pruebas, contrato Redocly válido y Playwright Chrome `B03_BLOCKS_NO_SHOW_BROWSER_E2E=PASS`; el recorrido reutiliza su fixture sin duplicar la inasistencia ni el bloqueo y comprueba el evento visible.
+- B03 continúa **parcial**. RF-B03-015 de notificaciones sigue sin implementar; faltan E2E grooming por credenciales sintéticas, variantes de reprogramación grooming y regresiones concurrentes adicionales. No se declaran esas funciones como verificadas.

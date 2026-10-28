@@ -141,6 +141,13 @@ public class SchedulingService {
 	}
 
 	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<ScheduleChangeEvent> listScheduleChangeEvents(SessionPrincipal actor) {
+		accessPolicy.requireSchedulingManager(actor);
+		setTrustedContext(actor);
+		return repository.listScheduleChangeEvents();
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
 	public List<OfferedService> listPublishedServicesForClient(SessionPrincipal actor) {
 		accessPolicy.requireClient(actor);
 		setTrustedContext(actor);

@@ -65,30 +65,43 @@ try {
     assert.equal((await confirmation).status(), 200, 'staff must confirm the synthetic appointment before a no-show');
     current = (await browserFetch(staffPage, '/api/v1/schedule/requests')).body?.data?.find((item) => item.id === request.id);
   }
-  assert.equal(current?.status, 'CONFIRMADA', 'the fixture must reach CONFIRMADA before the no-show action');
+  assert.ok(['CONFIRMADA', 'INASISTENCIA'].includes(current?.status),
+    'the fixture must reach CONFIRMADA or retain its idempotent INASISTENCIA state');
 
-  const row = staffPage.locator(`[data-request-id="${request.id}"]`);
-  await row.locator('input[id^="no-show-reason-"]').fill('Inasistencia registrada en recorrido E2E.');
-  const noShow = staffPage.waitForResponse((response) => response.request().method() === 'POST'
-    && new URL(response.url()).pathname.endsWith(`/schedule/requests/${request.id}/no-show`));
-  await row.getByRole('button', { name: 'Marcar inasistencia' }).click();
-  assert.equal((await noShow).status(), 200, 'staff must register the no-show through the visible action');
+  if (current?.status === 'CONFIRMADA') {
+    const row = staffPage.locator(`[data-request-id="${request.id}"]`);
+    await row.locator('input[id^="no-show-reason-"]').fill('Inasistencia registrada en recorrido E2E.');
+    const noShow = staffPage.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith(`/schedule/requests/${request.id}/no-show`));
+    await row.getByRole('button', { name: 'Marcar inasistencia' }).click();
+    assert.equal((await noShow).status(), 200, 'staff must register the no-show through the visible action');
+  } else {
+    assert.equal(current?.status, 'INASISTENCIA', 'the synthetic request must be confirmed or retain its idempotent no-show state');
+  }
 
-  await staffPage.locator('#block-scope').selectOption('PROFESIONAL');
-  await staffPage.locator('#block-professional').selectOption(professional.principalId);
-  await staffPage.locator('#block-start').fill('2031-01-06T11:30');
-  await staffPage.locator('#block-end').fill('2031-01-06T12:00');
-  await staffPage.locator('#block-reason').fill('Ausencia excepcional registrada en E2E.');
-  const blockCreated = staffPage.waitForResponse((response) => response.request().method() === 'POST'
-    && new URL(response.url()).pathname === '/api/v1/schedule/blocks');
-  await staffPage.getByRole('button', { name: 'Guardar bloqueo' }).click();
-  assert.equal((await blockCreated).status(), 201, 'staff must persist an exceptional block through the visible form');
+  await staffPage.getByText('Inasistencia registrada', { exact: true }).waitFor({ state: 'visible' });
+  const existingBlocks = (await browserFetch(staffPage, '/api/v1/schedule/blocks')).body?.data ?? [];
+  if (!existingBlocks.some((item) => item.blockScope === 'PROFESIONAL' && item.professionalPrincipalId === professional.principalId
+    && item.reason === 'Ausencia excepcional registrada en E2E.')) {
+    await staffPage.locator('#block-scope').selectOption('PROFESIONAL');
+    await staffPage.locator('#block-professional').selectOption(professional.principalId);
+    await staffPage.locator('#block-start').fill('2031-01-06T11:30');
+    await staffPage.locator('#block-end').fill('2031-01-06T12:00');
+    await staffPage.locator('#block-reason').fill('Ausencia excepcional registrada en E2E.');
+    const blockCreated = staffPage.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/v1/schedule/blocks');
+    await staffPage.getByRole('button', { name: 'Guardar bloqueo' }).click();
+    assert.equal((await blockCreated).status(), 201, 'staff must persist an exceptional block through the visible form');
+  }
 
   const finalRequest = (await browserFetch(staffPage, '/api/v1/schedule/requests')).body?.data?.find((item) => item.id === request.id);
   const blocks = (await browserFetch(staffPage, '/api/v1/schedule/blocks')).body?.data ?? [];
   assert.equal(finalRequest?.status, 'INASISTENCIA', 'the completed staff action must release the request to INASISTENCIA');
   assert.ok(blocks.some((item) => item.blockScope === 'PROFESIONAL' && item.professionalPrincipalId === professional.principalId
     && item.reason === 'Ausencia excepcional registrada en E2E.'), 'the tenant-local professional block must persist');
+  const history = (await browserFetch(staffPage, '/api/v1/schedule/changes')).body?.data ?? [];
+  assert.ok(history.some((item) => item.requestId === request.id && item.actionCode === 'INASISTENCIA_REGISTRADA'),
+    'the administrative history must preserve the no-show without identity fields');
   await staffContext.close();
   process.stdout.write('B03_BLOCKS_NO_SHOW_BROWSER_E2E=PASS\n');
 } finally {

@@ -36,3 +36,9 @@ El E2E autenticado solicita una cita clínica sintética, la confirma desde STAF
 - RF-B03-015 (notificaciones) continúa pendiente.
 - El E2E de grooming sigue bloqueado por la ausencia local de `AV_DEMO_GROOMER_AURORA_EMAIL` y `AV_DEMO_GROOMER_AURORA_PASSWORD`; no se sustituyeron roles ni se modificó `.env.local`.
 - B03 permanece parcial hasta cubrir sus requisitos y regresiones restantes.
+
+## Historial administrativo visible
+
+`GET /api/v1/schedule/changes` proyecta exclusivamente `id`, solicitud, código de acción, fechas anteriores/nuevas, motivo y creación. Solo ADMIN_VETERINARIA o RECEPCION del tenant puede consultarlo. La proyección no expone el actor ni identificadores de profesionales y reutiliza RLS de V022.
+
+La integración descubrió que las fechas previa/nueva son opcionales por diseño. El mapper JDBC ya trata esos valores nulos de forma segura. La prueba de integración comprueba que Aurora ve su evento de inasistencia y Bosque no recibe ese `requestId`; Angular presenta la trazabilidad en `/schedule` y el E2E vuelve a comprobarla con el flujo autenticado.

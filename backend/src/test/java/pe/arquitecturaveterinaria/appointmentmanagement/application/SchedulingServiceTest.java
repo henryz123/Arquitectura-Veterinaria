@@ -183,6 +183,19 @@ class SchedulingServiceTest {
 		verify(repository).findCurrentReservation(confirmed.id());
 	}
 
+	@Test
+	void listsOnlyTheTenantLocalAdministrativeScheduleHistoryForAnAuthorizedManager() {
+		SessionPrincipal actor = manager();
+		ScheduleChangeEvent expected = new ScheduleChangeEvent(UUID.randomUUID(), UUID.randomUUID(), "CITA_CONFIRMADA",
+				Instant.now().minusSeconds(1800), Instant.now(), null, Instant.now());
+		when(repository.listScheduleChangeEvents()).thenReturn(List.of(expected));
+
+		assertEquals(List.of(expected), service.listScheduleChangeEvents(actor));
+		verify(tenantContext).setTenantId(actor.session().tenantId());
+		verify(tenantContext).setPrincipalId(actor.session().accountId());
+		verify(repository).listScheduleChangeEvents();
+	}
+
 	private SessionPrincipal manager() {
 		return new SessionPrincipal(new TenantSession(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "aurora",
 				"Aurora", "ACTIVO", AccountType.STAFF, List.of("ADMIN_VETERINARIA"), "session-hash",

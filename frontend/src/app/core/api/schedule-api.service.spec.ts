@@ -178,4 +178,16 @@ describe('ScheduleApiService', () => {
     noShow.flush({ data: { id: 'request-1', status: 'INASISTENCIA' } });
     http.verify();
   });
+
+  it('reads the protected administrative schedule history without sending identity data', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const service = TestBed.inject(ScheduleApiService);
+    const http = TestBed.inject(HttpTestingController);
+
+    service.listScheduleChangeEvents().subscribe();
+    const request = http.expectOne('/api/v1/schedule/changes');
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+    http.verify();
+  });
 });

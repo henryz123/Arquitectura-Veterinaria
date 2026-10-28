@@ -26,6 +26,7 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleRequ
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleReservation;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleProposal;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleBlock;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleChangeEvent;
 
 /** JDBC adapter for V020; it has no direct read privilege on identity tables. */
 @Repository
@@ -150,6 +151,14 @@ public class SchedulingJdbcRepository {
 				returning id, block_scope, professional_principal_id, starts_at, ends_at, reason, created_at
 				""", this::mapScheduleBlock, tenantId, blockScope, professionalPrincipalId, timestamp(startsAt), timestamp(endsAt),
 				reason, actorPrincipalId);
+	}
+
+	public List<ScheduleChangeEvent> listScheduleChangeEvents() {
+		return jdbcTemplate.query("""
+				select id, request_id, action_code, previous_starts_at, new_starts_at, reason, created_at
+				from appointment_management.schedule_change_event
+				order by created_at desc, id desc
+				""", this::mapScheduleChangeEvent);
 	}
 
 	public Optional<ScheduleRequest> createScheduleRequest(UUID tenantId, UUID requesterPrincipalId, UUID ownerId, UUID petId,
@@ -511,6 +520,12 @@ public class SchedulingJdbcRepository {
 		return new ScheduleBlock(resultSet.getObject("id", UUID.class), resultSet.getString("block_scope"),
 				resultSet.getObject("professional_principal_id", UUID.class), instant(resultSet, "starts_at"),
 				instant(resultSet, "ends_at"), resultSet.getString("reason"), instant(resultSet, "created_at"));
+	}
+
+	private ScheduleChangeEvent mapScheduleChangeEvent(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new ScheduleChangeEvent(resultSet.getObject("id", UUID.class), resultSet.getObject("request_id", UUID.class),
+				resultSet.getString("action_code"), nullableInstant(resultSet, "previous_starts_at"), nullableInstant(resultSet, "new_starts_at"),
+				resultSet.getString("reason"), instant(resultSet, "created_at"));
 	}
 
 	private ScheduleRequest mapScheduleRequest(ResultSet resultSet, int rowNumber) throws SQLException {

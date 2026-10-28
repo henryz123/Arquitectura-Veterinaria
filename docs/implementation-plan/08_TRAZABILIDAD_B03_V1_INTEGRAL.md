@@ -98,3 +98,18 @@ Esta actualización sustituye el límite anterior de RF-B03-001 y RF-B03-014 y c
 - Playwright/Chrome: `B03_BLOCKS_NO_SHOW_BROWSER_E2E=PASS`; CLIENT solicita, STAFF confirma, registra la inasistencia y crea un bloqueo real desde el navegador. La consulta posterior autorizada comprueba los datos persistidos.
 
 **Próxima operación vigente:** mantener pendiente el E2E grooming hasta contar con credenciales sintéticas y continuar B03 con historial visible y notificaciones aprobadas, sin declararlo completo.
+
+## Actualización 2026-10-27 — historial administrativo de agenda
+
+| Requisito | Estado vigente | Evidencia nueva y límite pendiente |
+|---|---|---|
+| RF-B03-016 | Parcial verificado | ADMIN_VETERINARIA/RECEPCION consulta un historial tenant-local de solicitudes, confirmaciones, propuestas, cancelaciones, inasistencias y grooming desde `/schedule`. La proyección omite actor e identificadores de profesionales y soporta fechas de cambio opcionales. Falta incorporar todas las transiciones pendientes y un historial CLIENT limitado cuando el alcance lo requiera. |
+
+### Evidencia de esta actualización
+
+- TDD backend: la prueba RED expuso la API ausente. La integración posterior detectó y corrigió el manejo de marcas temporales nulas en eventos que no tienen hora previa/nueva.
+- Backend: `SchedulingServiceTest` y `SchedulingDatabaseIntegrationTest`, 14/14 correctas con Java 21, PostgreSQL local y Flyway desactivado; Aurora recupera su evento y Bosque no puede verlo.
+- Angular: 5 archivos/18 pruebas correctas; el cliente HTTP usa exclusivamente `GET /api/v1/schedule/changes` y la pantalla explica la proyección sin datos clínicos ni identidades internas.
+- Contrato: Redocly válido. Playwright/Chrome: `B03_BLOCKS_NO_SHOW_BROWSER_E2E=PASS` tras verificar visualmente `Inasistencia registrada`, persistencia y ausencia de duplicación del fixture.
+
+**Próxima operación vigente:** notificaciones B03 según cambios válidos; el E2E grooming permanece bloqueado por credenciales sintéticas no configuradas.

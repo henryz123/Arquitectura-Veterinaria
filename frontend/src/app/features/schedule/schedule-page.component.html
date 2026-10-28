@@ -107,6 +107,22 @@
             </li>
           </ul>
         </article>
+
+        <article class="panel list-panel" aria-labelledby="schedule-history-title">
+          <div class="panel-heading"><div><p class="eyebrow">Trazabilidad B03</p><h2 id="schedule-history-title">Historial de cambios</h2></div><span class="panel-caption">{{ scheduleChangeEvents().length }} eventos</span></div>
+          <p class="helper">Esta vista administrativa muestra el cambio y su motivo sin exponer cuentas internas ni datos clínicos.</p>
+          <p class="empty-state compact" *ngIf="scheduleChangeEvents().length === 0">Aún no hay cambios de agenda registrados para esta veterinaria.</p>
+          <ul class="record-list" *ngIf="scheduleChangeEvents().length > 0">
+            <li *ngFor="let event of scheduleChangeEvents(); trackBy: trackById">
+              <div>
+                <strong>{{ changeActionLabel(event.actionCode) }}</strong>
+                <span>Solicitud {{ event.requestId.slice(0, 8) }} · {{ requestDateTime(event.createdAt) }}</span>
+                <span *ngIf="event.reason">{{ event.reason }}</span>
+              </div>
+              <span class="status-pill">{{ event.actionCode }}</span>
+            </li>
+          </ul>
+        </article>
       </section>
 
       <section class="schedule-grid availability-grid" *ngIf="!loading() && canManageSchedule()">

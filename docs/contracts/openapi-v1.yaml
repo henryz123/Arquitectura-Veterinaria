@@ -489,6 +489,17 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/CsrfOrForbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/schedule/changes:
+    get:
+      tags: [appointment-management]
+      summary: Lista la trazabilidad administrativa de agenda del tenant autorizado
+      x-implementation-status: implemented-b03-history
+      x-v1-requirements: [RF-B03-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleChangeEventsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /api/v1/client/schedule/services:
     get:
       tags: [appointment-management]
@@ -1800,6 +1811,18 @@ components:
         startsAt: { type: string, format: date-time }
         endsAt: { type: string, format: date-time }
         reason: { type: string, minLength: 3, maxLength: 500 }
+    ScheduleChangeEvent:
+      type: object
+      description: Proyección de auditoría administrativa tenant-local; no expone identidades internas ni datos clínicos.
+      required: [id, requestId, actionCode, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        requestId: { type: string, format: uuid }
+        actionCode: { type: string, maxLength: 64 }
+        previousStartsAt: { type: [string, 'null'], format: date-time }
+        newStartsAt: { type: [string, 'null'], format: date-time }
+        reason: { type: [string, 'null'], maxLength: 500 }
+        createdAt: { type: string, format: date-time }
     ClientScheduleRequest:
       type: object
       required: [petId, serviceId, requestedStartsAt, idempotencyKey]
@@ -2175,6 +2198,9 @@ components:
     ScheduleBlocksResponse:
       description: Bloqueos y ausencias visibles solo a administración o recepción del tenant.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ScheduleBlock' } } } } } }
+    ScheduleChangeEventsResponse:
+      description: Eventos de agenda visibles solo a administración o recepción del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ScheduleChangeEvent' } } } } } }
     ClientOfferedServicesResponse:
       description: Servicios publicados y activos visibles para el CLIENT autenticado de su tenant.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/OfferedService' } } } } } }
