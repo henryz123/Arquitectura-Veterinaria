@@ -15,6 +15,9 @@ import {
   ClientScheduleProposal,
 
   ClientScheduleCancellationRequest,
+  GroomingAttention,
+  GroomingCompletionRequest,
+  GroomingTask,
 
   ScheduleCancellationResolutionRequest,
   ScheduleAvailability,
@@ -87,6 +90,22 @@ export class ScheduleApiService {
   resolveCancellation(requestId: string, request: ScheduleCancellationResolutionRequest): Observable<ApiEnvelope<ScheduleRequest>> {
     return this.http.post<ApiEnvelope<ScheduleRequest>>(
       `/api/v1/schedule/requests/${encodeURIComponent(requestId)}/cancellation-resolution`, request,
+    );
+  }
+
+  listGroomingTasks(): Observable<ApiEnvelope<GroomingTask[]>> {
+    return this.http.get<ApiEnvelope<GroomingTask[]>>('/api/v1/grooming/tasks');
+  }
+
+  startGroomingAttention(reservationId: string): Observable<ApiEnvelope<GroomingAttention>> {
+    return this.http.post<ApiEnvelope<GroomingAttention>>(
+      `/api/v1/grooming/reservations/${encodeURIComponent(reservationId)}/start`, null,
+    );
+  }
+
+  completeGroomingAttention(reservationId: string, request: GroomingCompletionRequest): Observable<ApiEnvelope<GroomingAttention>> {
+    return this.http.post<ApiEnvelope<GroomingAttention>>(
+      `/api/v1/grooming/reservations/${encodeURIComponent(reservationId)}/complete`, request,
     );
   }
 

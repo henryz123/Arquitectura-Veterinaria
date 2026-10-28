@@ -60,3 +60,22 @@ Esta sección sustituye el estado de las filas RF-B03-004 a RF-B03-009, RF-B03-0
 - Playwright/Chromium: `B03_REPROGRAMMING_BROWSER_E2E=PASS`; STAFF propone, CLIENT acepta una proyección sin identidad interna y STAFF confirma el cambio real.
 
 **Próxima operación vigente:** grooming operativo sobre la agenda consolidada: solicitud CLIENT, confirmación STAFF, ejecución por GROOMING, estados e historial. Luego bloques/ausencias, inasistencias, notificaciones e historial visual.
+
+## Actualización 2026-10-27 — ejecución grooming asignada
+
+Esta actualización sustituye el límite de RF-B03-010, RF-B03-011 y complementa RF-B03-016. Las filas históricas se conservan para mostrar el avance incremental.
+
+| Requisito | Estado vigente | Evidencia nueva y límite pendiente |
+|---|---|---|
+| RF-B03-010 | Parcial verificado | CLIENT ya solicita un servicio grooming, STAFF lo confirma con encargado activo/disponible y `/grooming` muestra solo la tarea del encargado asignado. Falta la reprogramación grooming con aceptación CLIENT y su E2E autenticado. |
+| RF-B03-011 | Parcial verificado | El encargado GROOMING inicia y completa su reserva mediante API y Angular; el resultado/notas se conservan en `grooming_attention` y el historial asignado. La integración PostgreSQL verifica rol, asignación, idempotencia y eventos. Falta E2E autenticado y estados operativos adicionales aprobados. |
+| RF-B03-016 | Parcial verificado | Los eventos `GROOMING_INICIADO` y `GROOMING_COMPLETADO` se escriben una sola vez y la tarea completada permanece visible al encargado. Falta una consulta/historial visual completo para administración/recepción y notificaciones. |
+
+### Evidencia de esta actualización
+
+- Backend: 15/15 pruebas B03 focalizadas correctas con Java 21, PostgreSQL local y Flyway desactivado; incluye rechazo de la reserva grooming Bosque desde un encargado Aurora.
+- Angular: 5 archivos/16 pruebas correctas; build correcto con advertencia de presupuesto inicial no bloqueante.
+- OpenAPI: Redocly válido. Contrato cubre las tres rutas grooming y sus proyecciones sin datos clínicos.
+- E2E: el recorrido `b03-grooming.e2e.mjs` está preparado pero **no ejecutado**; faltan las variables locales `AV_DEMO_GROOMER_AURORA_EMAIL`, `AV_DEMO_GROOMER_AURORA_PASSWORD` y `AV_E2E_CHROME_PATH`. No se declaran resultados de navegador ni accesibilidad autenticada.
+
+**Próxima operación vigente:** cuando existan las credenciales grooming sintéticas, ejecutar el recorrido E2E controlado; mientras tanto, continuar B03 con bloques/ausencias e inasistencias, sin afirmar cierre del bloque.

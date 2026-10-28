@@ -15,6 +15,8 @@ import org.springframework.stereotype.Repository;
 
 import pe.arquitecturaveterinaria.appointmentmanagement.application.AssignableProfessional;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ClientScheduleProposal;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.GroomingAttention;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.GroomingTask;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedService;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OperatingHours;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ProfessionalAvailability;
@@ -324,6 +326,61 @@ public class SchedulingJdbcRepository {
 				""", this::mapScheduleReservation, requestId).stream().findFirst();
 	}
 
+	public Optional<ScheduleReservation> lockCurrentReservation(UUID reservationId) {
+		return jdbcTemplate.query("""
+				select id, tenant_id, request_id, professional_principal_id, starts_at, ends_at, status, is_current,
+				       version, confirmed_by_principal_id, created_at, updated_at
+				from appointment_management.schedule_reservation
+				where id = ? and is_current
+				for update
+				""", this::mapScheduleReservation, reservationId).stream().findFirst();
+	}
+
+	public List<GroomingTask> listGroomingTasks(UUID groomerPrincipalId) {
+		return jdbcTemplate.query("""
+				select reservation.id as reservation_id, reservation.request_id, service.name as service_name,
+				       reservation.starts_at, reservation.ends_at, reservation.status as reservation_status,
+				       attention.id as attention_id, attention.reservation_id as attention_reservation_id,
+				       attention.groomer_principal_id, attention.started_at as attention_started_at,
+				       attention.completed_at as attention_completed_at, attention.result as attention_result,
+				       attention.operational_notes as attention_operational_notes, attention.created_at as attention_created_at,
+				       attention.updated_at as attention_updated_at
+				from appointment_management.schedule_reservation reservation
+				join appointment_management.schedule_request request on request.id = reservation.request_id
+				join appointment_management.offered_service service on service.id = request.service_id
+				left join appointment_management.grooming_attention attention on attention.reservation_id = reservation.id
+				where reservation.professional_principal_id = ? and reservation.is_current
+				  and reservation.status in ('CONFIRMADA', 'EN_ATENCION', 'COMPLETADA') and service.service_type = 'GROOMING'
+				order by reservation.starts_at, reservation.id
+				""", this::mapGroomingTask, groomerPrincipalId);
+	}
+
+	public Optional<GroomingAttention> findGroomingAttention(UUID reservationId) {
+		return jdbcTemplate.query("""
+				select id, reservation_id, groomer_principal_id, started_at, completed_at, result, operational_notes, created_at, updated_at
+				from appointment_management.grooming_attention
+				where reservation_id = ?
+				""", this::mapGroomingAttention, reservationId).stream().findFirst();
+	}
+
+	public GroomingAttention createGroomingAttention(UUID tenantId, UUID reservationId, UUID groomerPrincipalId) {
+		return jdbcTemplate.queryForObject("""
+				insert into appointment_management.grooming_attention (tenant_id, reservation_id, groomer_principal_id, started_at)
+				values (?, ?, ?, statement_timestamp())
+				returning id, reservation_id, groomer_principal_id, started_at, completed_at, result, operational_notes, created_at, updated_at
+				""", this::mapGroomingAttention, tenantId, reservationId, groomerPrincipalId);
+	}
+
+	public Optional<GroomingAttention> completeGroomingAttention(UUID tenantId, UUID reservationId, UUID groomerPrincipalId,
+			String result, String operationalNotes) {
+		return jdbcTemplate.query("""
+				update appointment_management.grooming_attention
+				set completed_at = statement_timestamp(), result = ?, operational_notes = ?, updated_at = statement_timestamp()
+				where tenant_id = ? and reservation_id = ? and groomer_principal_id = ? and completed_at is null
+				returning id, reservation_id, groomer_principal_id, started_at, completed_at, result, operational_notes, created_at, updated_at
+				""", this::mapGroomingAttention, result, operationalNotes, tenantId, reservationId, groomerPrincipalId).stream().findFirst();
+	}
+
 	public ScheduleReservation createConfirmedReservation(UUID tenantId, UUID requestId, UUID professionalPrincipalId,
 			Instant startsAt, Instant endsAt, UUID confirmedByPrincipalId) {
 		return jdbcTemplate.queryForObject("""
@@ -460,6 +517,26 @@ public class SchedulingJdbcRepository {
 				resultSet.getBoolean("is_current"), resultSet.getInt("version"),
 				resultSet.getObject("confirmed_by_principal_id", UUID.class), instant(resultSet, "created_at"),
 				instant(resultSet, "updated_at"));
+	}
+
+	private GroomingTask mapGroomingTask(ResultSet resultSet, int rowNumber) throws SQLException {
+		GroomingAttention attention = resultSet.getObject("attention_id") == null ? null
+				: new GroomingAttention(resultSet.getObject("attention_id", UUID.class),
+						resultSet.getObject("attention_reservation_id", UUID.class),
+						resultSet.getObject("groomer_principal_id", UUID.class), nullableInstant(resultSet, "attention_started_at"),
+						nullableInstant(resultSet, "attention_completed_at"), resultSet.getString("attention_result"),
+						resultSet.getString("attention_operational_notes"), nullableInstant(resultSet, "attention_created_at"),
+						nullableInstant(resultSet, "attention_updated_at"));
+		return new GroomingTask(resultSet.getObject("reservation_id", UUID.class), resultSet.getObject("request_id", UUID.class),
+				resultSet.getString("service_name"), instant(resultSet, "starts_at"), instant(resultSet, "ends_at"),
+				resultSet.getString("reservation_status"), attention);
+	}
+
+	private GroomingAttention mapGroomingAttention(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new GroomingAttention(resultSet.getObject("id", UUID.class), resultSet.getObject("reservation_id", UUID.class),
+				resultSet.getObject("groomer_principal_id", UUID.class), nullableInstant(resultSet, "started_at"),
+				nullableInstant(resultSet, "completed_at"), resultSet.getString("result"), resultSet.getString("operational_notes"),
+				instant(resultSet, "created_at"), instant(resultSet, "updated_at"));
 	}
 
 	private Instant instant(ResultSet resultSet, String column) throws SQLException {

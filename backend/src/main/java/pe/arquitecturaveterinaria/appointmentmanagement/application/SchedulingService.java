@@ -162,6 +162,69 @@ public class SchedulingService {
 		return repository.listScheduleRequests();
 	}
 
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<GroomingTask> listGroomingTasks(SessionPrincipal actor) {
+		accessPolicy.requireGroomingExecutor(actor);
+		setTrustedContext(actor);
+		return repository.listGroomingTasks(actor.session().accountId());
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public GroomingAttention startGroomingAttention(SessionPrincipal actor, UUID reservationId) {
+		accessPolicy.requireGroomingExecutor(actor);
+		setTrustedContext(actor);
+		ScheduleReservation reservation = repository.lockCurrentReservation(reservationId)
+				.orElseThrow(() -> notFound("No se encontro la reserva de grooming."));
+		ScheduleRequest request = groomingRequestForActor(actor, reservation);
+		if ("EN_ATENCION".equals(reservation.status())) {
+			return repository.findGroomingAttention(reservation.id())
+					.orElseThrow(() -> conflict("B03_GROOMING_STATE", "La reserva en atencion no conserva su registro operativo."));
+		}
+		if (!"CONFIRMADA".equals(reservation.status())) {
+			throw conflict("B03_GROOMING_STATE", "Solo se puede iniciar una reserva grooming confirmada.");
+		}
+		if (repository.changeCurrentReservationStatus(actor.session().tenantId(), request.id(), "CONFIRMADA", "EN_ATENCION").isEmpty()
+				|| repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), "CONFIRMADA", "EN_ATENCION") != 1) {
+			throw conflict("B03_GROOMING_STATE", "La reserva cambio antes de iniciar el servicio.");
+		}
+		GroomingAttention attention = repository.createGroomingAttention(actor.session().tenantId(), reservation.id(), actor.session().accountId());
+		repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(), "GROOMING_INICIADO",
+				reservation.startsAt(), reservation.startsAt(), actor.session().accountId(), actor.session().accountId(), null);
+		return attention;
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public GroomingAttention completeGroomingAttention(SessionPrincipal actor, UUID reservationId, GroomingCompletionCommand command) {
+		accessPolicy.requireGroomingExecutor(actor);
+		setTrustedContext(actor);
+		if (command == null) {
+			throw validation("grooming", "Registra el resultado del servicio de grooming.");
+		}
+		String result = required(command.result(), "result", 1000);
+		String operationalNotes = optional(command.operationalNotes(), 2000);
+		ScheduleReservation reservation = repository.lockCurrentReservation(reservationId)
+				.orElseThrow(() -> notFound("No se encontro la reserva de grooming."));
+		ScheduleRequest request = groomingRequestForActor(actor, reservation);
+		GroomingAttention existing = repository.findGroomingAttention(reservation.id())
+				.orElseThrow(() -> conflict("B03_GROOMING_STATE", "La reserva no conserva un inicio de grooming."));
+		if ("COMPLETADA".equals(reservation.status())) {
+			return existing;
+		}
+		if (!"EN_ATENCION".equals(reservation.status()) || existing.completedAt() != null) {
+			throw conflict("B03_GROOMING_STATE", "Solo se puede completar un grooming en atencion.");
+		}
+		GroomingAttention completed = repository.completeGroomingAttention(actor.session().tenantId(), reservation.id(),
+				actor.session().accountId(), result, operationalNotes)
+				.orElseThrow(() -> conflict("B03_GROOMING_STATE", "El registro operativo cambio antes de completar el servicio."));
+		if (repository.changeCurrentReservationStatus(actor.session().tenantId(), request.id(), "EN_ATENCION", "COMPLETADA").isEmpty()
+				|| repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), "EN_ATENCION", "COMPLETADA") != 1) {
+			throw conflict("B03_GROOMING_STATE", "La reserva cambio antes de completar el servicio.");
+		}
+		repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(), "GROOMING_COMPLETADO",
+				reservation.startsAt(), reservation.startsAt(), actor.session().accountId(), actor.session().accountId(), null);
+		return completed;
+	}
+
 	@Transactional(transactionManager = "jdbcTransactionManager")
 	public ScheduleRequest cancelClientScheduleRequest(SessionPrincipal actor, UUID requestId, CancellationCommand command) {
 		accessPolicy.requireClient(actor);
@@ -450,6 +513,18 @@ public class SchedulingService {
 		return evaluateAvailability(actor, service, professionalPrincipalId, interval, null);
 	}
 
+	private ScheduleRequest groomingRequestForActor(SessionPrincipal actor, ScheduleReservation reservation) {
+		if (!reservation.professionalPrincipalId().equals(actor.session().accountId())) {
+			throw notFound("No se encontro la reserva de grooming.");
+		}
+		ScheduleRequest request = repository.findScheduleRequest(reservation.requestId())
+				.orElseThrow(() -> notFound("No se encontro la reserva de grooming."));
+		if (!"GROOMING".equals(activeService(request.serviceId(), false).serviceType())) {
+			throw conflict("B03_GROOMING_STATE", "La reserva no corresponde a un servicio de grooming.");
+		}
+		return request;
+	}
+
 	private ScheduleAvailability evaluateAvailability(SessionPrincipal actor, OfferedService service, UUID professionalPrincipalId,
 			Interval interval, UUID excludedRequestId) {
 		String requiredRole = "CLINICA".equals(service.serviceType()) ? "VETERINARIO" : "GROOMING";
@@ -650,6 +725,9 @@ public class SchedulingService {
 	}
 
 	public record ReassignmentCommand(UUID professionalPrincipalId, String reason) {
+	}
+
+	public record GroomingCompletionCommand(String result, String operationalNotes) {
 	}
 
 	private record Interval(Instant startsAt, Instant endsAt, int weekday, LocalTime startsAtLocal, LocalTime endsAtLocal) {

@@ -31,6 +31,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import pe.arquitecturaveterinaria.appointmentmanagement.application.AssignableProfessional;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ClientScheduleProposal;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.GroomingAttention;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.GroomingTask;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedService;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.OperatingHours;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ProfessionalAvailability;
@@ -50,6 +52,7 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingSe
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.CancellationResolutionCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ClientProposalDecisionCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ReassignmentCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.GroomingCompletionCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ScheduleProposalCommand;
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.shared.api.ApiEnvelope;
@@ -168,6 +171,24 @@ public class SchedulingController {
 				new CancellationResolutionCommand(request.decision(), request.reason())));
 	}
 
+	@GetMapping("/grooming/tasks")
+	ApiEnvelope<List<GroomingTask>> listGroomingTasks(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(schedulingService.listGroomingTasks(principal));
+	}
+
+	@PostMapping("/grooming/reservations/{reservationId}/start")
+	ApiEnvelope<GroomingAttention> startGroomingAttention(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID reservationId) {
+		return ApiEnvelope.of(schedulingService.startGroomingAttention(principal, reservationId));
+	}
+
+	@PostMapping("/grooming/reservations/{reservationId}/complete")
+	ApiEnvelope<GroomingAttention> completeGroomingAttention(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID reservationId, @Valid @RequestBody GroomingCompletionRequest request) {
+		return ApiEnvelope.of(schedulingService.completeGroomingAttention(principal, reservationId,
+				new GroomingCompletionCommand(request.result(), request.operationalNotes())));
+	}
+
 	@GetMapping("/client/schedule/services")
 	ApiEnvelope<List<OfferedService>> listClientScheduleServices(@AuthenticationPrincipal SessionPrincipal principal) {
 		return ApiEnvelope.of(schedulingService.listPublishedServicesForClient(principal));
@@ -250,6 +271,11 @@ public class SchedulingController {
 	record ReassignmentRequest(
 			@NotNull UUID professionalPrincipalId,
 			@NotBlank @Size(min = 3, max = 500) String reason) {
+	}
+
+	record GroomingCompletionRequest(
+			@NotBlank @Size(max = 1000) String result,
+			@Size(max = 2000) String operationalNotes) {
 	}
 
 	record CancellationResolutionRequest(

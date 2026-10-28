@@ -122,4 +122,29 @@ describe('ScheduleApiService', () => {
     decision.flush({ data: { id: 'request-1', status: 'PENDIENTE_REPROGRAMACION' } });
     http.verify();
   });
+
+  it('uses dedicated GROOMING routes for an assigned operational task', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const service = TestBed.inject(ScheduleApiService);
+    const http = TestBed.inject(HttpTestingController);
+
+    service.listGroomingTasks().subscribe();
+    const list = http.expectOne('/api/v1/grooming/tasks');
+    expect(list.request.method).toBe('GET');
+    list.flush({ data: [] });
+
+    service.startGroomingAttention('reservation-1').subscribe();
+    const start = http.expectOne('/api/v1/grooming/reservations/reservation-1/start');
+    expect(start.request.method).toBe('POST');
+    expect(start.request.body).toBeNull();
+    start.flush({ data: { id: 'attention-1', reservationId: 'reservation-1' } });
+
+    const completion = { result: 'Servicio terminado', operationalNotes: null };
+    service.completeGroomingAttention('reservation-1', completion).subscribe();
+    const complete = http.expectOne('/api/v1/grooming/reservations/reservation-1/complete');
+    expect(complete.request.method).toBe('POST');
+    expect(complete.request.body).toEqual(completion);
+    complete.flush({ data: { id: 'attention-1', reservationId: 'reservation-1', completedAt: '2030-01-01T00:00:00Z' } });
+    http.verify();
+  });
 });

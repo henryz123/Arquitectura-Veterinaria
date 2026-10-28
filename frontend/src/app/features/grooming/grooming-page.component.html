@@ -1,0 +1,96 @@
+<main class="grooming-shell" aria-labelledby="grooming-title">
+  <a class="skip-link" href="#grooming-main">Saltar al contenido</a>
+  <aside class="sidebar" aria-label="Navegación de grooming">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">AV</span>
+      <div><strong>Arquitectura</strong><span>Veterinaria</span></div>
+    </div>
+    <nav>
+      <a routerLink="/workspace">Espacio de trabajo</a>
+      <a routerLink="/grooming" aria-current="page">Mis servicios grooming</a>
+    </nav>
+    <p class="sidebar-note">Solo se muestran reservas de grooming asignadas a tu cuenta laboral.</p>
+  </aside>
+
+  <div class="grooming-body">
+    <header class="topbar">
+      <div><p class="eyebrow">Grooming</p><p class="topbar-title">Ejecución de servicios asignados</p></div>
+      <a class="button button-quiet topbar-link" routerLink="/workspace">Volver al espacio</a>
+    </header>
+
+    <section id="grooming-main" class="grooming-content" *ngIf="!canOperate(); else groomingWorkspace" aria-labelledby="grooming-title">
+      <div class="access-notice">
+        <p class="eyebrow">Acceso restringido</p>
+        <h1 id="grooming-title">Esta vista requiere el rol Grooming</h1>
+        <p>La ejecución de un servicio solo puede realizarla el encargado asignado con un rol vigente. No se muestran datos clínicos en este espacio.</p>
+      </div>
+    </section>
+
+    <ng-template #groomingWorkspace>
+      <section id="grooming-main" class="grooming-content" aria-labelledby="grooming-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Agenda compartida</p>
+            <h1 id="grooming-title">Mis servicios de grooming</h1>
+            <p>Inicia y completa únicamente las reservas de grooming confirmadas y asignadas a tu cuenta. Las citas clínicas y sus datos no se exponen aquí.</p>
+          </div>
+          <button class="button button-secondary" type="button" (click)="loadTasks()" [disabled]="loading() || actionPending()">
+            {{ loading() ? 'Actualizando…' : 'Actualizar tareas' }}
+          </button>
+        </div>
+
+        <p class="loading" *ngIf="loading()">Consultando tareas asignadas…</p>
+        <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
+        <p class="feedback feedback-success" role="status" *ngIf="notice()">{{ notice() }}</p>
+
+        <section class="task-summary" *ngIf="!loading()">
+          <article class="summary-card"><p class="eyebrow">Pendientes</p><strong>{{ pendingCount() }}</strong><span>por iniciar</span></article>
+          <article class="summary-card"><p class="eyebrow">En atención</p><strong>{{ inProgressCount() }}</strong><span>requieren cierre operativo</span></article>
+          <article class="summary-card"><p class="eyebrow">Historial</p><strong>{{ completedCount() }}</strong><span>servicios completados</span></article>
+        </section>
+
+        <section class="panel task-panel" *ngIf="!loading()" aria-labelledby="grooming-list-title">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Tareas asignadas</p><h2 id="grooming-list-title">Agenda operativa</h2></div>
+            <span class="panel-caption">{{ tasks().length }} registros</span>
+          </div>
+          <p class="empty-state compact" *ngIf="tasks().length === 0">No tienes servicios de grooming confirmados o en curso. Las nuevas tareas aparecen solo después de una confirmación autorizada.</p>
+          <ol class="task-list" *ngIf="tasks().length > 0">
+            <li *ngFor="let task of tasks(); trackBy: trackByReservation" [attr.data-reservation-id]="task.reservationId">
+              <div class="task-time"><strong>{{ task.startsAt | date:'medium':'America/Lima':'es-PE' }}</strong><span>Hasta {{ task.endsAt | date:'shortTime':'America/Lima':'es-PE' }}</span></div>
+              <div class="task-details"><strong>{{ task.serviceName }}</strong><span>Reserva de grooming asignada a tu cuenta</span><p *ngIf="task.attention?.completedAt"><strong>Resultado:</strong> {{ task.attention?.result }}</p><p *ngIf="task.attention?.operationalNotes"><strong>Notas operativas:</strong> {{ task.attention?.operationalNotes }}</p></div>
+              <div class="task-actions">
+                <span class="status-pill" [class.status-ok]="task.reservationStatus === 'COMPLETADA'">{{ task.reservationStatus }}</span>
+                <button class="button button-primary" type="button" *ngIf="task.reservationStatus === 'CONFIRMADA'" [disabled]="actionPending()" (click)="startTask(task)">Iniciar servicio</button>
+                <button class="button button-primary" type="button" *ngIf="task.reservationStatus === 'EN_ATENCION'" [disabled]="actionPending()" (click)="selectForCompletion(task)">Completar servicio</button>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="inline-dialog completion-dialog" *ngIf="selectedTask() as task" aria-labelledby="completion-title">
+          <div>
+            <p class="eyebrow">Cierre operativo</p>
+            <h2 id="completion-title">Completar {{ task.serviceName }}</h2>
+            <p>Este registro no contiene historia clínica. El servicio se marcará como completado una sola vez para esta reserva.</p>
+          </div>
+          <form [formGroup]="completionForm" (ngSubmit)="completeTask()" novalidate>
+            <div class="field-group">
+              <label for="grooming-result">Resultado del servicio</label>
+              <textarea id="grooming-result" rows="3" formControlName="result" maxlength="1000" [attr.aria-invalid]="completionSubmitted() && completionForm.controls.result.invalid" [attr.aria-describedby]="completionSubmitted() && completionForm.controls.result.invalid ? 'grooming-result-error' : null"></textarea>
+              <p id="grooming-result-error" class="field-error" role="alert" *ngIf="completionSubmitted() && completionForm.controls.result.invalid">Describe el resultado con al menos tres caracteres.</p>
+            </div>
+            <div class="field-group">
+              <label for="grooming-notes">Notas operativas <span class="optional">Opcional</span></label>
+              <textarea id="grooming-notes" rows="3" formControlName="operationalNotes" maxlength="2000"></textarea>
+            </div>
+            <div class="dialog-actions">
+              <button class="button button-primary" type="submit" [disabled]="actionPending()">{{ actionPending() ? 'Guardando…' : 'Confirmar finalización' }}</button>
+              <button class="button button-quiet" type="button" (click)="cancelCompletion()" [disabled]="actionPending()">Cancelar</button>
+            </div>
+          </form>
+        </section>
+      </section>
+    </ng-template>
+  </div>
+</main>

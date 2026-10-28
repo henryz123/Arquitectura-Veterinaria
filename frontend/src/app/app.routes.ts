@@ -8,6 +8,7 @@ import { ClientSpacePageComponent } from './features/client/client-space-page.co
 import { ClientAccessPageComponent } from './features/client/client-access-page.component';
 import { OwnerPetCarePageComponent } from './features/care/owner-pet-care-page.component';
 import { SchedulePageComponent } from './features/schedule/schedule-page.component';
+import { GroomingPageComponent } from './features/grooming/grooming-page.component';
 
 export const routes: Routes = [
   {
@@ -63,6 +64,12 @@ export const routes: Routes = [
     component: SchedulePageComponent,
     canActivate: [sessionGuard],
     title: 'Agenda | Arquitectura Veterinaria',
+  },
+  {
+    path: 'grooming',
+    component: GroomingPageComponent,
+    canActivate: [sessionGuard],
+    title: 'Grooming | Arquitectura Veterinaria',
   },
   {
     path: 'saas/login',

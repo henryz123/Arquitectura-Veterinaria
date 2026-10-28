@@ -9,6 +9,7 @@
       <a routerLink="/workspace">Administración</a>
       <a routerLink="/care">Propietarios y clínica</a>
       <a routerLink="/schedule" aria-current="page">Agenda</a>
+      <a routerLink="/grooming" *ngIf="context()?.roles?.includes('GROOMING')">Mis servicios grooming</a>
     </nav>
     <p class="sidebar-note">Los servicios y franjas pertenecen solo al tenant de la sesión.</p>
   </aside>

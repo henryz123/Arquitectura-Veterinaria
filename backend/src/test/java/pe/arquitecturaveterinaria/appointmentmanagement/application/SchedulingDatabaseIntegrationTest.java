@@ -239,8 +239,82 @@ class SchedulingDatabaseIntegrationTest {
 		assertEquals(1, scheduleEventCount(request.id(), "PROFESIONAL_REASIGNADO"));
 	}
 
+	@Test
+	void letsOnlyTheAssignedGroomerStartAndCompleteAnOperationalTask() {
+		SessionPrincipal administrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		SessionPrincipal client = linkedClient(administrator);
+		SessionPrincipal groomer = groomer(administrator);
+		SessionPrincipal veterinarian = veterinarian(administrator);
+		Instant startsAt = nextMondayAt(LocalTime.of(13, 0));
+		var service = schedulingService.createOfferedService(administrator,
+				new SchedulingService.OfferedServiceCommand("GROOMING", "B03 Grooming " + UUID.randomUUID(),
+						"Servicio sintetico de grooming", 30, java.math.BigDecimal.valueOf(35), true));
+		schedulingService.createOperatingHours(administrator,
+				new SchedulingService.OperatingHoursCommand(DayOfWeek.MONDAY.getValue(), LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		schedulingService.createProfessionalAvailability(administrator,
+				new SchedulingService.ProfessionalAvailabilityCommand(groomer.session().accountId(), DayOfWeek.MONDAY.getValue(),
+						LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		UUID petId = ownerPetCareService.listCurrentPetsForClient(client).getFirst().id();
+		var request = schedulingService.createClientScheduleRequest(client,
+				new SchedulingService.ClientScheduleRequestCommand(petId, service.id(), startsAt, "Bano y cepillado", UUID.randomUUID()));
+		var reservation = schedulingService.confirmScheduleRequest(administrator, request.id(),
+				new SchedulingService.ConfirmationCommand(groomer.session().accountId()));
+		assertEquals("CONFIRMADA", reservation.status());
+		assertTrue(schedulingService.listGroomingTasks(groomer).stream().anyMatch(task -> task.reservationId().equals(reservation.id())
+				&& "CONFIRMADA".equals(task.reservationStatus()) && task.attention() == null));
+		ApiException unauthorized = assertThrows(ApiException.class, () -> schedulingService.startGroomingAttention(veterinarian, reservation.id()));
+		assertEquals(HttpStatus.FORBIDDEN, unauthorized.status());
+
+		var started = schedulingService.startGroomingAttention(groomer, reservation.id());
+		assertNotNull(started.startedAt());
+		assertEquals(started.id(), schedulingService.startGroomingAttention(groomer, reservation.id()).id());
+		assertEquals("EN_ATENCION", schedulingService.listScheduleRequests(administrator).stream()
+				.filter(item -> item.id().equals(request.id())).findFirst().orElseThrow().status());
+		var completed = schedulingService.completeGroomingAttention(groomer, reservation.id(),
+				new SchedulingService.GroomingCompletionCommand("Servicio realizado", "Cepillado y bano sin incidencias."));
+		assertNotNull(completed.completedAt());
+		assertEquals("Servicio realizado", completed.result());
+		assertEquals(completed.id(), schedulingService.completeGroomingAttention(groomer, reservation.id(),
+				new SchedulingService.GroomingCompletionCommand("Reintento", null)).id());
+		assertEquals("COMPLETADA", schedulingService.listScheduleRequests(administrator).stream()
+				.filter(item -> item.id().equals(request.id())).findFirst().orElseThrow().status());
+		assertTrue(schedulingService.listGroomingTasks(groomer).stream().anyMatch(task -> task.reservationId().equals(reservation.id())
+				&& "COMPLETADA".equals(task.reservationStatus()) && task.attention() != null
+				&& completed.id().equals(task.attention().id())));
+		assertEquals(1, scheduleEventCount(request.id(), "GROOMING_INICIADO"));
+		assertEquals(1, scheduleEventCount(request.id(), "GROOMING_COMPLETADO"));
+	}
+
+	@Test
+	void keepsAssignedGroomingTasksInsideTheirTenant() {
+		SessionPrincipal auroraAdministrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		SessionPrincipal auroraGroomer = groomer(auroraAdministrator);
+		SessionPrincipal bosqueAdministrator = administrator("veterinaria-bosque", "AV_DEMO_BOSQUE_PASSWORD");
+		SessionPrincipal bosqueClient = linkedClient(bosqueAdministrator);
+		SessionPrincipal bosqueGroomer = groomer(bosqueAdministrator);
+		Instant startsAt = nextMondayAt(LocalTime.of(14, 0));
+		var service = schedulingService.createOfferedService(bosqueAdministrator,
+				new SchedulingService.OfferedServiceCommand("GROOMING", "B03 Grooming Bosque " + UUID.randomUUID(),
+						"Servicio sintetico aislado", 30, java.math.BigDecimal.valueOf(35), true));
+		schedulingService.createOperatingHours(bosqueAdministrator,
+				new SchedulingService.OperatingHoursCommand(DayOfWeek.MONDAY.getValue(), LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		schedulingService.createProfessionalAvailability(bosqueAdministrator,
+				new SchedulingService.ProfessionalAvailabilityCommand(bosqueGroomer.session().accountId(), DayOfWeek.MONDAY.getValue(),
+						LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		UUID petId = ownerPetCareService.listCurrentPetsForClient(bosqueClient).getFirst().id();
+		var request = schedulingService.createClientScheduleRequest(bosqueClient,
+				new SchedulingService.ClientScheduleRequestCommand(petId, service.id(), startsAt, "Fixture aislado", UUID.randomUUID()));
+		var reservation = schedulingService.confirmScheduleRequest(bosqueAdministrator, request.id(),
+				new SchedulingService.ConfirmationCommand(bosqueGroomer.session().accountId()));
+
+		assertTrue(schedulingService.listGroomingTasks(auroraGroomer).stream().noneMatch(task -> task.reservationId().equals(reservation.id())));
+		ApiException crossTenantStart = assertThrows(ApiException.class,
+				() -> schedulingService.startGroomingAttention(auroraGroomer, reservation.id()));
+		assertEquals(HttpStatus.NOT_FOUND, crossTenantStart.status());
+	}
+
 	private SessionPrincipal linkedClient(SessionPrincipal administrator) {
-		String tenantSlug = "veterinaria-aurora";
+		String tenantSlug = administrator.session().tenantSlug();
 		String email = "b03-client-" + UUID.randomUUID() + "@demo.invalid";
 		String password = generatedPassword();
 		var registration = administrationService.registerClient(tenantSlug, email, password);
@@ -263,7 +337,15 @@ class SchedulingDatabaseIntegrationTest {
 		String password = generatedPassword();
 		StaffInvitationResult invitation = administrationService.inviteStaff(administrator, email, List.of("VETERINARIO"));
 		administrationService.acceptStaffInvitation(tokenFor(invitation.principalId()), password);
-		return new SessionPrincipal(identityAccessService.authenticateStaff("veterinaria-aurora", email, password).context());
+		return new SessionPrincipal(identityAccessService.authenticateStaff(administrator.session().tenantSlug(), email, password).context());
+	}
+
+	private SessionPrincipal groomer(SessionPrincipal administrator) {
+		String email = "b03-groomer-" + UUID.randomUUID() + "@demo.invalid";
+		String password = generatedPassword();
+		StaffInvitationResult invitation = administrationService.inviteStaff(administrator, email, List.of("GROOMING"));
+		administrationService.acceptStaffInvitation(tokenFor(invitation.principalId()), password);
+		return new SessionPrincipal(identityAccessService.authenticateStaff(administrator.session().tenantSlug(), email, password).context());
 	}
 
 	private SessionPrincipal administrator(String tenantSlug, String passwordVariable) {

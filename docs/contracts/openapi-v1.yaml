@@ -655,6 +655,51 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/grooming/tasks:
+    get:
+      tags: [appointment-management]
+      summary: Lista tareas de grooming asignadas exclusivamente al encargado autenticado
+      x-implementation-status: implemented-b03-grooming-execution
+      x-v1-requirements: [RF-B03-010, RF-B03-011, RF-B03-016]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/GroomingTasksResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/grooming/reservations/{reservationId}/start:
+    post:
+      tags: [appointment-management]
+      summary: Inicia de forma idempotente la ejecución de una reserva grooming asignada
+      x-implementation-status: implemented-b03-grooming-execution
+      x-v1-requirements: [RF-B03-010, RF-B03-011, RF-B03-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: reservationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { $ref: '#/components/responses/GroomingAttentionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/grooming/reservations/{reservationId}/complete:
+    post:
+      tags: [appointment-management]
+      summary: Completa de forma idempotente una tarea grooming iniciada por su encargado asignado
+      x-implementation-status: implemented-b03-grooming-execution
+      x-v1-requirements: [RF-B03-010, RF-B03-011, RF-B03-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: reservationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/GroomingCompletionRequest' } } }
+      responses:
+        '200': { $ref: '#/components/responses/GroomingAttentionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/owners:
     post:
       tags: [owner-pet-care]
@@ -1765,6 +1810,39 @@ components:
         confirmedByPrincipalId: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    GroomingAttention:
+      type: object
+      required: [id, reservationId, groomerPrincipalId, startedAt, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        reservationId: { type: string, format: uuid }
+        groomerPrincipalId: { type: string, format: uuid }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        result: { type: [string, 'null'], maxLength: 1000 }
+        operationalNotes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    GroomingTask:
+      type: object
+      required: [reservationId, requestId, serviceName, startsAt, endsAt, reservationStatus, attention]
+      properties:
+        reservationId: { type: string, format: uuid }
+        requestId: { type: string, format: uuid }
+        serviceName: { type: string, maxLength: 160 }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        reservationStatus: { type: string, enum: [CONFIRMADA, EN_ATENCION, COMPLETADA] }
+        attention:
+          oneOf:
+            - $ref: '#/components/schemas/GroomingAttention'
+            - type: 'null'
+    GroomingCompletionRequest:
+      type: object
+      required: [result]
+      properties:
+        result: { type: string, minLength: 1, maxLength: 1000 }
+        operationalNotes: { type: [string, 'null'], maxLength: 2000 }
     ScheduleProposal:
       type: object
       required: [id, tenantId, requestId, version, proposedStartsAt, proposedDurationMinutes, status, createdByPrincipalId, createdAt]
@@ -2036,6 +2114,12 @@ components:
     ScheduleReservationResponse:
       description: Reserva efectiva creada por una confirmacion manual con revalidacion transaccional.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ScheduleReservation' } } } } }
+    GroomingAttentionResponse:
+      description: Registro operativo de grooming restringido al encargado asignado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/GroomingAttention' } } } } }
+    GroomingTasksResponse:
+      description: Tareas grooming asignadas al encargado actual, sin información clínica ni de otros trabajadores.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/GroomingTask' } } } } } }
     ScheduleProposalResponse:
       description: Alternativa de horario persistida sin reservar el nuevo intervalo.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ScheduleProposal' } } } } }

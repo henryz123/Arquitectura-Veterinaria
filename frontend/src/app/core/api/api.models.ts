@@ -243,6 +243,34 @@ export interface ScheduleReservation {
   updatedAt: string;
 }
 
+/** Operational projection restricted to the GROOMING worker assigned to the reservation. */
+export interface GroomingAttention {
+  id: string;
+  reservationId: string;
+  groomerPrincipalId: string;
+  startedAt: string;
+  completedAt: string | null;
+  result: string | null;
+  operationalNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroomingTask {
+  reservationId: string;
+  requestId: string;
+  serviceName: string;
+  startsAt: string;
+  endsAt: string;
+  reservationStatus: 'CONFIRMADA' | 'EN_ATENCION' | 'COMPLETADA';
+  attention: GroomingAttention | null;
+}
+
+export interface GroomingCompletionRequest {
+  result: string;
+  operationalNotes: string | null;
+}
+
 export interface ScheduleAvailability {
   professionalPrincipalId: string;
   serviceId: string;

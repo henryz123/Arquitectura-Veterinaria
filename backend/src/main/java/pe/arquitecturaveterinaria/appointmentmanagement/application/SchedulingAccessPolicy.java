@@ -15,6 +15,7 @@ import pe.arquitecturaveterinaria.shared.api.ApiException;
 public final class SchedulingAccessPolicy {
 
 	private static final Set<String> SCHEDULING_ROLES = Set.of("ADMIN_VETERINARIA", "RECEPCION");
+	private static final Set<String> GROOMING_ROLES = Set.of("GROOMING");
 
 	public void requireSchedulingManager(SessionPrincipal actor) {
 		if (actor == null || actor.accountType() != AccountType.STAFF || actor.session().tenantId() == null) {
@@ -39,6 +40,21 @@ public final class SchedulingAccessPolicy {
 		if (!"ACTIVO".equals(actor.session().tenantStatus())) {
 			throw new ApiException(HttpStatus.FORBIDDEN, "TENANT_NOT_ACTIVE",
 					"La veterinaria no estÃ¡ disponible para esta operaciÃ³n.");
+		}
+	}
+
+	public void requireGroomingExecutor(SessionPrincipal actor) {
+		if (actor == null || actor.accountType() != AccountType.STAFF || actor.session().tenantId() == null) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "B03_GROOMING_REQUIRED",
+					"La operacion requiere personal de grooming autorizado.");
+		}
+		if (!"ACTIVO".equals(actor.session().tenantStatus())) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "TENANT_NOT_ACTIVE",
+					"La veterinaria no esta disponible para esta operacion.");
+		}
+		if (actor.session().roles().stream().noneMatch(GROOMING_ROLES::contains)) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "B03_GROOMING_ROLE_REQUIRED",
+					"Se requiere el rol GROOMING para ejecutar este servicio.");
 		}
 	}
 }
