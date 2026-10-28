@@ -113,3 +113,23 @@ Esta actualización sustituye el límite anterior de RF-B03-001 y RF-B03-014 y c
 - Contrato: Redocly válido. Playwright/Chrome: `B03_BLOCKS_NO_SHOW_BROWSER_E2E=PASS` tras verificar visualmente `Inasistencia registrada`, persistencia y ausencia de duplicación del fixture.
 
 **Próxima operación vigente:** notificaciones B03 según cambios válidos; el E2E grooming permanece bloqueado por credenciales sintéticas no configuradas.
+
+## Actualización 2026-10-28 — E2E grooming y corrección de locale
+
+Esta actualización sustituye únicamente el límite de evidencia de RF-B03-010, RF-B03-011 y complementa RF-B03-016. No declara B03 completo ni altera la especificación funcional.
+
+| Requisito | Estado vigente | Evidencia nueva y límite pendiente |
+|---|---|---|
+| RF-B03-010 | Parcial verificado | El recorrido autenticado ahora cubre solicitud CLIENT, confirmación STAFF y visualización exclusiva de la tarea por la cuenta GROOMING asignada. El fixture crea o reutiliza servicio, horario y disponibilidad desde `/schedule`; faltan contrapropuesta/reprogramación específica grooming y su aceptación CLIENT. |
+| RF-B03-011 | Parcial verificado | Playwright/Chrome inició y completó una reserva grooming desde `/grooming`; el resultado queda en PostgreSQL sin historia clínica visible. La segunda ejecución mantuvo una sola atención. Faltan las variantes operativas todavía aprobadas para grooming. |
+| RF-B03-016 | Parcial verificado | Inicio y finalización grooming permanecen trazables y el historial administrativo existente conserva su proyección tenant-local. Falta completar notificaciones transversales B06 y cubrir las transiciones B03 aún pendientes. |
+
+### Evidencia de esta actualización
+
+- Fixture local: `database/demo/seed-groomer-synthetic.psql` y su invocador conservan una cuenta sintética GROOMING de Aurora mediante invitación/aceptación auditadas. Dos ejecuciones no duplicaron la cuenta.
+- Angular: la excepción `NG0701` por datos locale ausentes impedía renderizar las acciones de Grooming. `registerAppLocale()` registra `es-PE` al iniciar y una prueba impide la regresión. `npm.cmd test -- --watch=false` → **6 archivos / 19 pruebas correctas**. Las rutas pasaron a `loadComponent`, reduciendo el bundle inicial de 556.89 kB a **282.44 kB** sin alterar el presupuesto ni los guards.
+- Backend: `mvnw.cmd '-Dtest=SchedulingAccessPolicyTest,SchedulingServiceTest,SchedulingDatabaseIntegrationTest,SchedulingConcurrencyCommitIntegrationTest' test` con Java 21, PostgreSQL local y Flyway desactivado → **18/18 correctas**.
+- Playwright/Chrome: `B03_GROOMING_BROWSER_E2E=PASS` dos veces. La verificación agregada de PostgreSQL devolvió exactamente una solicitud, una reserva y una atención `COMPLETADA` para la clave sintética idempotente.
+- V001–V022 no cambiaron; no se aplicó migración ni se habilitó Flyway durante las pruebas ordinarias.
+
+**Próxima operación vigente:** B04, comenzando por categorías y productos tenant-locales. B03 continúa parcial: notificaciones corresponden a B06 y las variantes restantes de reprogramación/concurrencia grooming no se presentan como verificadas.

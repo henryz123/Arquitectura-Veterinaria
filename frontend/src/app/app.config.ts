@@ -1,8 +1,9 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { ApplicationConfig, LOCALE_ID, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
+import { APP_LOCALE } from './app.locale';
 import { csrfSessionInterceptor } from './core/http/csrf-session.interceptor';
 
 export const appConfig: ApplicationConfig = {
@@ -10,5 +11,6 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
     provideHttpClient(withInterceptors([csrfSessionInterceptor])),
+    { provide: LOCALE_ID, useValue: APP_LOCALE },
   ],
 };
