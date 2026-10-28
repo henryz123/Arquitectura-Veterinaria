@@ -109,6 +109,38 @@ public class SchedulingService {
 	}
 
 	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
+	public List<ScheduleBlock> listScheduleBlocks(SessionPrincipal actor) {
+		accessPolicy.requireSchedulingManager(actor);
+		setTrustedContext(actor);
+		return repository.listScheduleBlocks();
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ScheduleBlock createScheduleBlock(SessionPrincipal actor, ScheduleBlockCommand command) {
+		accessPolicy.requireSchedulingManager(actor);
+		setTrustedContext(actor);
+		if (command == null || command.startsAt() == null || command.endsAt() == null || !command.endsAt().isAfter(command.startsAt())) {
+			throw validation("blockInterval", "El final del bloqueo debe ser posterior a su inicio.");
+		}
+		String scope = blockScope(command.blockScope());
+		String reason = required(command.reason(), "reason", 500);
+		if (reason.length() < 3) {
+			throw validation("reason", "El motivo del bloqueo debe tener al menos 3 caracteres.");
+		}
+		if ("ORGANIZACION".equals(scope) && command.professionalPrincipalId() != null) {
+			throw validation("professionalPrincipalId", "Un bloqueo organizacional no puede asignarse a un profesional.");
+		}
+		if ("PROFESIONAL".equals(scope) && (command.professionalPrincipalId() == null
+				|| repository.listAssignableProfessionals(actor.session().sessionTokenHash()).stream()
+						.noneMatch(candidate -> candidate.principalId().equals(command.professionalPrincipalId())))) {
+			throw forbidden("B03_PROFESSIONAL_NOT_ASSIGNABLE",
+					"El bloqueo profesional exige un trabajador activo con rol vigente de agenda.");
+		}
+		return repository.createScheduleBlock(actor.session().tenantId(), actor.session().accountId(), scope,
+				command.professionalPrincipalId(), command.startsAt(), command.endsAt(), reason);
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager", readOnly = true)
 	public List<OfferedService> listPublishedServicesForClient(SessionPrincipal actor) {
 		accessPolicy.requireClient(actor);
 		setTrustedContext(actor);
@@ -285,6 +317,38 @@ public class SchedulingService {
 				"CANCELADA".equals(command.decision()) ? "CANCELACION_APROBADA" : "CANCELACION_RECHAZADA",
 				reservation.startsAt(), "CANCELADA".equals(command.decision()) ? null : reservation.startsAt(),
 				reservation.professionalPrincipalId(), "CANCELADA".equals(command.decision()) ? null : reservation.professionalPrincipalId(), reason);
+		return repository.findScheduleRequest(request.id()).orElseThrow();
+	}
+
+	@Transactional(transactionManager = "jdbcTransactionManager")
+	public ScheduleRequest markScheduleNoShow(SessionPrincipal actor, UUID requestId, NoShowCommand command) {
+		accessPolicy.requireSchedulingManager(actor);
+		setTrustedContext(actor);
+		String reason = command == null ? null : required(command.reason(), "reason", 500);
+		if (reason == null || reason.length() < 3) {
+			throw validation("reason", "El motivo de inasistencia debe tener al menos 3 caracteres.");
+		}
+		ScheduleRequest request = repository.lockScheduleRequest(requestId)
+				.orElseThrow(() -> notFound("No se encontro la solicitud de agenda."));
+		if ("INASISTENCIA".equals(request.status())) {
+			return request;
+		}
+		if (!"CONFIRMADA".equals(request.status())) {
+			throw conflict("B03_NO_SHOW_STATE", "Solo se puede registrar inasistencia en una cita confirmada.");
+		}
+		ScheduleReservation reservation = repository.findCurrentReservation(request.id())
+				.orElseThrow(() -> conflict("B03_NO_SHOW_STATE", "La cita confirmada no conserva una reserva vigente."));
+		if (!"CONFIRMADA".equals(reservation.status())) {
+			throw conflict("B03_NO_SHOW_STATE", "La reserva ya cambio antes de registrar la inasistencia.");
+		}
+		lockProfessionalSchedules(null, reservation.professionalPrincipalId());
+		reservation = repository.changeCurrentReservationStatus(actor.session().tenantId(), request.id(), "CONFIRMADA", "INASISTENCIA")
+				.orElseThrow(() -> conflict("B03_NO_SHOW_STATE", "La reserva cambio antes de registrar la inasistencia."));
+		if (repository.transitionScheduleRequest(actor.session().tenantId(), request.id(), "CONFIRMADA", "INASISTENCIA") != 1) {
+			throw conflict("B03_NO_SHOW_STATE", "La solicitud cambio antes de registrar la inasistencia.");
+		}
+		repository.recordScheduleChange(actor.session().tenantId(), request.id(), actor.session().accountId(), "INASISTENCIA_REGISTRADA",
+				reservation.startsAt(), null, reservation.professionalPrincipalId(), null, reason);
 		return repository.findScheduleRequest(request.id()).orElseThrow();
 	}
 
@@ -633,6 +697,13 @@ public class SchedulingService {
 		return value;
 	}
 
+	private String blockScope(String value) {
+		if (!"ORGANIZACION".equals(value) && !"PROFESIONAL".equals(value)) {
+			throw validation("blockScope", "El alcance del bloqueo debe ser ORGANIZACION o PROFESIONAL.");
+		}
+		return value;
+	}
+
 	private int duration(int value) {
 		if (value < 15 || value > 480 || value % 15 != 0) {
 			throw validation("durationMinutes", "La duracion debe estar entre 15 y 480 minutos, en intervalos de 15.");
@@ -702,6 +773,10 @@ public class SchedulingService {
 			LocalTime endsAtLocal) {
 	}
 
+	public record ScheduleBlockCommand(String blockScope, UUID professionalPrincipalId, Instant startsAt, Instant endsAt,
+			String reason) {
+	}
+
 	public record ClientScheduleRequestCommand(UUID petId, UUID serviceId, Instant requestedStartsAt, String observation,
 			UUID idempotencyKey) {
 	}
@@ -716,6 +791,9 @@ public class SchedulingService {
 	}
 
 	public record CancellationResolutionCommand(String decision, String reason) {
+	}
+
+	public record NoShowCommand(String reason) {
 	}
 
 	public record ScheduleProposalCommand(Instant proposedStartsAt, UUID professionalPrincipalId, String reason) {

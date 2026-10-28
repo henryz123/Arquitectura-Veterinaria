@@ -79,3 +79,22 @@ Esta actualización sustituye el límite de RF-B03-010, RF-B03-011 y complementa
 - E2E: el recorrido `b03-grooming.e2e.mjs` está preparado pero **no ejecutado**; faltan las variables locales `AV_DEMO_GROOMER_AURORA_EMAIL`, `AV_DEMO_GROOMER_AURORA_PASSWORD` y `AV_E2E_CHROME_PATH`. No se declaran resultados de navegador ni accesibilidad autenticada.
 
 **Próxima operación vigente:** cuando existan las credenciales grooming sintéticas, ejecutar el recorrido E2E controlado; mientras tanto, continuar B03 con bloques/ausencias e inasistencias, sin afirmar cierre del bloque.
+
+## Actualización 2026-10-27 — bloqueos, ausencias e inasistencias
+
+Esta actualización sustituye el límite anterior de RF-B03-001 y RF-B03-014 y complementa RF-B03-016. No altera las filas históricas ni la especificación V1.
+
+| Requisito | Estado vigente | Evidencia nueva y límite pendiente |
+|---|---|---|
+| RF-B03-001 | Parcial verificado | ADMIN_VETERINARIA/RECEPCION consulta y crea bloqueos tenant-locales de organización o profesional desde `/schedule`. El bloqueo exige intervalo futuro y profesional activo/asignable; la disponibilidad lo aplica a confirmaciones posteriores sin alterar reservas ya existentes. Falta gestión visual completa de horarios semanales y edición/retiro de bloqueos cuando V1 lo permita. |
+| RF-B03-014 | Parcial verificado | ADMIN_VETERINARIA/RECEPCION registra `INASISTENCIA` solo sobre una solicitud confirmada y con motivo. La transacción bloquea solicitud y profesional, actualiza reserva/solicitud, libera la franja y escribe una sola traza; el reintento es idempotente. Falta integrar las transiciones restantes de atención clínica y su historial administrativo visible. |
+| RF-B03-016 | Parcial verificado | `INASISTENCIA_REGISTRADA` conserva el cambio tenant-local y el E2E comprueba la persistencia visible. Falta una consulta visual integral de eventos, propuestas, reasignaciones y grooming. |
+
+### Evidencia de esta actualización
+
+- Backend: 17/17 pruebas B03 focalizadas correctas con Java 21, PostgreSQL local y Flyway desactivado, incluidas ausencia tenant-local, rechazo cross-tenant, liberación de franja e idempotencia de inasistencia.
+- Angular: 5 archivos/17 pruebas correctas; build correcto con advertencia no bloqueante de 52.63 kB sobre el presupuesto inicial.
+- OpenAPI: Redocly válido; contrato añade las rutas protegidas de bloques e inasistencia y sus esquemas.
+- Playwright/Chrome: `B03_BLOCKS_NO_SHOW_BROWSER_E2E=PASS`; CLIENT solicita, STAFF confirma, registra la inasistencia y crea un bloqueo real desde el navegador. La consulta posterior autorizada comprueba los datos persistidos.
+
+**Próxima operación vigente:** mantener pendiente el E2E grooming hasta contar con credenciales sintéticas y continuar B03 con historial visible y notificaciones aprobadas, sin declararlo completo.

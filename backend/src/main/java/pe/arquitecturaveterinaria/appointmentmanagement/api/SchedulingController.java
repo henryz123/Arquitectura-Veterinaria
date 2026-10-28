@@ -40,6 +40,7 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleAvai
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleRequest;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleReservation;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleProposal;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleBlock;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.OfferedServiceCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.OfferedServiceUpdateCommand;
@@ -50,10 +51,12 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingSe
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ConfirmationCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.CancellationCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.CancellationResolutionCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.NoShowCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ClientProposalDecisionCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ReassignmentCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.GroomingCompletionCommand;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ScheduleProposalCommand;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.SchedulingService.ScheduleBlockCommand;
 import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.shared.api.ApiEnvelope;
 
@@ -128,6 +131,22 @@ public class SchedulingController {
 				.body(ApiEnvelope.of(availability));
 	}
 
+	@GetMapping("/schedule/blocks")
+	ApiEnvelope<List<ScheduleBlock>> listScheduleBlocks(@AuthenticationPrincipal SessionPrincipal principal) {
+		return ApiEnvelope.of(schedulingService.listScheduleBlocks(principal));
+	}
+
+	@PostMapping("/schedule/blocks")
+	ResponseEntity<ApiEnvelope<ScheduleBlock>> createScheduleBlock(@AuthenticationPrincipal SessionPrincipal principal,
+			@Valid @RequestBody ScheduleBlockRequest request) {
+		ScheduleBlock block = schedulingService.createScheduleBlock(principal,
+				new ScheduleBlockCommand(request.blockScope(), request.professionalPrincipalId(), request.startsAt(), request.endsAt(),
+						request.reason()));
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.location(URI.create("/api/v1/schedule/blocks/" + block.id()))
+				.body(ApiEnvelope.of(block));
+	}
+
 	@GetMapping("/schedule/requests")
 	ApiEnvelope<List<ScheduleRequest>> listScheduleRequests(@AuthenticationPrincipal SessionPrincipal principal) {
 		return ApiEnvelope.of(schedulingService.listScheduleRequests(principal));
@@ -169,6 +188,12 @@ public class SchedulingController {
 			@PathVariable UUID requestId, @Valid @RequestBody CancellationResolutionRequest request) {
 		return ApiEnvelope.of(schedulingService.resolveCancellation(principal, requestId,
 				new CancellationResolutionCommand(request.decision(), request.reason())));
+	}
+
+	@PostMapping("/schedule/requests/{requestId}/no-show")
+	ApiEnvelope<ScheduleRequest> markScheduleNoShow(@AuthenticationPrincipal SessionPrincipal principal,
+			@PathVariable UUID requestId, @Valid @RequestBody NoShowRequest request) {
+		return ApiEnvelope.of(schedulingService.markScheduleNoShow(principal, requestId, new NoShowCommand(request.reason())));
 	}
 
 	@GetMapping("/grooming/tasks")
@@ -259,6 +284,14 @@ public class SchedulingController {
 			@NotNull LocalTime endsAtLocal) {
 	}
 
+	record ScheduleBlockRequest(
+			@NotBlank @Pattern(regexp = "ORGANIZACION|PROFESIONAL") String blockScope,
+			UUID professionalPrincipalId,
+			@NotNull Instant startsAt,
+			@NotNull Instant endsAt,
+			@NotBlank @Size(min = 3, max = 500) String reason) {
+	}
+
 	record ConfirmationRequest(@NotNull UUID professionalPrincipalId) {
 	}
 
@@ -281,6 +314,9 @@ public class SchedulingController {
 	record CancellationResolutionRequest(
 			@NotBlank @Pattern(regexp = "CANCELADA|CONFIRMADA") String decision,
 			@NotBlank @Size(min = 3, max = 500) String reason) {
+	}
+
+	record NoShowRequest(@NotBlank @Size(min = 3, max = 500) String reason) {
 	}
 
 	record ClientScheduleRequest(

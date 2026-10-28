@@ -147,4 +147,35 @@ describe('ScheduleApiService', () => {
     complete.flush({ data: { id: 'attention-1', reservationId: 'reservation-1', completedAt: '2030-01-01T00:00:00Z' } });
     http.verify();
   });
+
+  it('keeps exceptional blocks and no-show registration on protected staff routes', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const service = TestBed.inject(ScheduleApiService);
+    const http = TestBed.inject(HttpTestingController);
+    const block = {
+      blockScope: 'PROFESIONAL' as const,
+      professionalPrincipalId: 'professional-1',
+      startsAt: '2030-01-02T14:00:00.000Z',
+      endsAt: '2030-01-02T14:30:00.000Z',
+      reason: 'Ausencia registrada.',
+    };
+
+    service.listScheduleBlocks().subscribe();
+    const list = http.expectOne('/api/v1/schedule/blocks');
+    expect(list.request.method).toBe('GET');
+    list.flush({ data: [] });
+
+    service.createScheduleBlock(block).subscribe();
+    const create = http.expectOne('/api/v1/schedule/blocks');
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual(block);
+    create.flush({ data: { ...block, id: 'block-1' } });
+
+    service.markScheduleNoShow('request-1', { reason: 'No se presento.' }).subscribe();
+    const noShow = http.expectOne('/api/v1/schedule/requests/request-1/no-show');
+    expect(noShow.request.method).toBe('POST');
+    expect(noShow.request.body).toEqual({ reason: 'No se presento.' });
+    noShow.flush({ data: { id: 'request-1', status: 'INASISTENCIA' } });
+    http.verify();
+  });
 });

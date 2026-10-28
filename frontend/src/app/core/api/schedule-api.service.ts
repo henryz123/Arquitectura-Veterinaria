@@ -10,6 +10,9 @@ import {
   OperatingHoursRequest,
   ProfessionalAvailability,
   ProfessionalAvailabilityRequest,
+  ScheduleBlock,
+  ScheduleBlockRequest,
+  ScheduleNoShowRequest,
   ClientScheduleRequest,
   ClientProposalDecisionRequest,
   ClientScheduleProposal,
@@ -60,6 +63,14 @@ export class ScheduleApiService {
     return this.http.post<ApiEnvelope<ProfessionalAvailability>>('/api/v1/schedule/professional-availability', request);
   }
 
+  listScheduleBlocks(): Observable<ApiEnvelope<ScheduleBlock[]>> {
+    return this.http.get<ApiEnvelope<ScheduleBlock[]>>('/api/v1/schedule/blocks');
+  }
+
+  createScheduleBlock(request: ScheduleBlockRequest): Observable<ApiEnvelope<ScheduleBlock>> {
+    return this.http.post<ApiEnvelope<ScheduleBlock>>('/api/v1/schedule/blocks', request);
+  }
+
   listScheduleRequests(): Observable<ApiEnvelope<ScheduleRequest[]>> {
     return this.http.get<ApiEnvelope<ScheduleRequest[]>>('/api/v1/schedule/requests');
   }
@@ -90,6 +101,12 @@ export class ScheduleApiService {
   resolveCancellation(requestId: string, request: ScheduleCancellationResolutionRequest): Observable<ApiEnvelope<ScheduleRequest>> {
     return this.http.post<ApiEnvelope<ScheduleRequest>>(
       `/api/v1/schedule/requests/${encodeURIComponent(requestId)}/cancellation-resolution`, request,
+    );
+  }
+
+  markScheduleNoShow(requestId: string, request: ScheduleNoShowRequest): Observable<ApiEnvelope<ScheduleRequest>> {
+    return this.http.post<ApiEnvelope<ScheduleRequest>>(
+      `/api/v1/schedule/requests/${encodeURIComponent(requestId)}/no-show`, request,
     );
   }
 

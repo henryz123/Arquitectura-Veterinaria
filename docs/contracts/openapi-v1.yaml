@@ -464,6 +464,31 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/CsrfOrForbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/schedule/blocks:
+    get:
+      tags: [appointment-management]
+      summary: Lista bloqueos excepcionales y ausencias del tenant autorizado
+      x-implementation-status: implemented-b03-blocks-no-show
+      x-v1-requirements: [RF-B03-001, RF-B03-014]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleBlocksResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [appointment-management]
+      summary: Registra un cierre excepcional o ausencia de un profesional asignable
+      x-implementation-status: implemented-b03-blocks-no-show
+      x-v1-requirements: [RF-B03-001, RF-B03-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleBlockRequest' } } }
+      responses:
+        '201': { $ref: '#/components/responses/ScheduleBlockResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/client/schedule/services:
     get:
       tags: [appointment-management]
@@ -648,6 +673,25 @@ paths:
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleCancellationResolutionRequest' } } }
+      responses:
+        '200': { $ref: '#/components/responses/ScheduleRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/schedule/requests/{requestId}/no-show:
+    post:
+      tags: [appointment-management]
+      summary: Registra de forma idempotente la inasistencia de una cita confirmada
+      x-implementation-status: implemented-b03-blocks-no-show
+      x-v1-requirements: [RF-B03-014, RF-B03-016]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ScheduleNoShowRequest' } } }
       responses:
         '200': { $ref: '#/components/responses/ScheduleRequestResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -1735,6 +1779,27 @@ components:
           required: [professionalPrincipalId]
           properties:
             professionalPrincipalId: { type: string, format: uuid }
+    ScheduleBlock:
+      type: object
+      description: Cierre excepcional de la veterinaria o ausencia registrada de un profesional asignable, aislado por tenant.
+      required: [id, blockScope, startsAt, endsAt, reason, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        blockScope: { type: string, enum: [ORGANIZACION, PROFESIONAL] }
+        professionalPrincipalId: { type: [string, 'null'], format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+    ScheduleBlockRequest:
+      type: object
+      required: [blockScope, startsAt, endsAt, reason]
+      properties:
+        blockScope: { type: string, enum: [ORGANIZACION, PROFESIONAL] }
+        professionalPrincipalId: { type: [string, 'null'], format: uuid, description: Required only when blockScope is PROFESIONAL. }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        reason: { type: string, minLength: 3, maxLength: 500 }
     ClientScheduleRequest:
       type: object
       required: [petId, serviceId, requestedStartsAt, idempotencyKey]
@@ -1776,6 +1841,11 @@ components:
       required: [decision, reason]
       properties:
         decision: { type: string, enum: [CANCELADA, CONFIRMADA] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    ScheduleNoShowRequest:
+      type: object
+      required: [reason]
+      properties:
         reason: { type: string, minLength: 3, maxLength: 500 }
     ScheduleRequest:
       type: object
@@ -2099,6 +2169,12 @@ components:
     ProfessionalAvailabilityResponse:
       description: Disponibilidades semanales visibles para la administración o recepción autorizada del tenant.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ProfessionalAvailability' } } } } } }
+    ScheduleBlockResponse:
+      description: Bloqueo excepcional creado para el tenant autorizado.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/ScheduleBlock' } } } } }
+    ScheduleBlocksResponse:
+      description: Bloqueos y ausencias visibles solo a administración o recepción del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/ScheduleBlock' } } } } } }
     ClientOfferedServicesResponse:
       description: Servicios publicados y activos visibles para el CLIENT autenticado de su tenant.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/OfferedService' } } } } } }

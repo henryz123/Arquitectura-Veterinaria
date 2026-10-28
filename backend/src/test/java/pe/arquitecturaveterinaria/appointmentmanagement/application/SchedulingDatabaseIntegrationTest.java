@@ -313,6 +313,71 @@ class SchedulingDatabaseIntegrationTest {
 		assertEquals(HttpStatus.NOT_FOUND, crossTenantStart.status());
 	}
 
+	@Test
+	void appliesTenantLocalBlocksToAvailabilityWithoutMutatingExistingReservations() {
+		SessionPrincipal auroraAdministrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		SessionPrincipal auroraVeterinarian = veterinarian(auroraAdministrator);
+		SessionPrincipal bosqueAdministrator = administrator("veterinaria-bosque", "AV_DEMO_BOSQUE_PASSWORD");
+		Instant startsAt = nextMondayAt(LocalTime.of(10, 0));
+		var service = schedulingService.createOfferedService(auroraAdministrator,
+				new SchedulingService.OfferedServiceCommand("CLINICA", "B03 Bloque " + UUID.randomUUID(),
+						"Servicio sintetico para bloqueo", 30, java.math.BigDecimal.valueOf(45), true));
+		schedulingService.createOperatingHours(auroraAdministrator,
+				new SchedulingService.OperatingHoursCommand(DayOfWeek.MONDAY.getValue(), LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		schedulingService.createProfessionalAvailability(auroraAdministrator,
+				new SchedulingService.ProfessionalAvailabilityCommand(auroraVeterinarian.session().accountId(), DayOfWeek.MONDAY.getValue(),
+						LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		assertTrue(schedulingService.checkAvailability(auroraAdministrator,
+				new SchedulingService.AvailabilityCommand(service.id(), auroraVeterinarian.session().accountId(), startsAt)).available());
+
+		var block = schedulingService.createScheduleBlock(auroraAdministrator,
+				new SchedulingService.ScheduleBlockCommand("PROFESIONAL", auroraVeterinarian.session().accountId(), startsAt,
+						startsAt.plusSeconds(1800), "Ausencia sintetica autorizada"));
+
+		assertEquals("PROFESIONAL", block.blockScope());
+		assertEquals(auroraVeterinarian.session().accountId(), block.professionalPrincipalId());
+		assertFalse(schedulingService.checkAvailability(auroraAdministrator,
+				new SchedulingService.AvailabilityCommand(service.id(), auroraVeterinarian.session().accountId(), startsAt)).available());
+		assertTrue(schedulingService.listScheduleBlocks(auroraAdministrator).stream().anyMatch(item -> item.id().equals(block.id())));
+		assertTrue(schedulingService.listScheduleBlocks(bosqueAdministrator).stream().noneMatch(item -> item.id().equals(block.id())));
+	}
+
+	@Test
+	void recordsOneAuthorizedNoShowAndReleasesTheFutureSlot() {
+		SessionPrincipal auroraAdministrator = administrator("veterinaria-aurora", "AV_DEMO_AURORA_PASSWORD");
+		SessionPrincipal client = linkedClient(auroraAdministrator);
+		SessionPrincipal veterinarian = veterinarian(auroraAdministrator);
+		SessionPrincipal bosqueAdministrator = administrator("veterinaria-bosque", "AV_DEMO_BOSQUE_PASSWORD");
+		Instant startsAt = nextMondayAt(LocalTime.of(15, 0));
+		var service = schedulingService.createOfferedService(auroraAdministrator,
+				new SchedulingService.OfferedServiceCommand("CLINICA", "B03 Inasistencia " + UUID.randomUUID(),
+						"Servicio sintetico para inasistencia", 30, java.math.BigDecimal.valueOf(45), true));
+		schedulingService.createOperatingHours(auroraAdministrator,
+				new SchedulingService.OperatingHoursCommand(DayOfWeek.MONDAY.getValue(), LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		schedulingService.createProfessionalAvailability(auroraAdministrator,
+				new SchedulingService.ProfessionalAvailabilityCommand(veterinarian.session().accountId(), DayOfWeek.MONDAY.getValue(),
+						LocalTime.of(8, 0), LocalTime.of(18, 0)));
+		UUID petId = ownerPetCareService.listCurrentPetsForClient(client).getFirst().id();
+		var request = schedulingService.createClientScheduleRequest(client,
+				new SchedulingService.ClientScheduleRequestCommand(petId, service.id(), startsAt, "Cita sintetica", UUID.randomUUID()));
+		assertEquals("CONFIRMADA", schedulingService.confirmScheduleRequest(auroraAdministrator, request.id(),
+				new SchedulingService.ConfirmationCommand(veterinarian.session().accountId())).status());
+
+		var marked = schedulingService.markScheduleNoShow(auroraAdministrator, request.id(),
+				new SchedulingService.NoShowCommand("No se presento a la cita."));
+
+		assertEquals("INASISTENCIA", marked.status());
+		assertTrue(schedulingService.checkAvailability(auroraAdministrator,
+				new SchedulingService.AvailabilityCommand(service.id(), veterinarian.session().accountId(), startsAt)).available());
+		assertEquals(1, scheduleEventCount(request.id(), "INASISTENCIA_REGISTRADA"));
+		assertEquals(marked.id(), schedulingService.markScheduleNoShow(auroraAdministrator, request.id(),
+				new SchedulingService.NoShowCommand("Reintento sin duplicar evento.")).id());
+		assertEquals(1, scheduleEventCount(request.id(), "INASISTENCIA_REGISTRADA"));
+		ApiException crossTenant = assertThrows(ApiException.class, () -> schedulingService.markScheduleNoShow(bosqueAdministrator,
+				request.id(), new SchedulingService.NoShowCommand("Intento aislado.")));
+		assertEquals(HttpStatus.NOT_FOUND, crossTenant.status());
+	}
+
 	private SessionPrincipal linkedClient(SessionPrincipal administrator) {
 		String tenantSlug = administrator.session().tenantSlug();
 		String email = "b03-client-" + UUID.randomUUID() + "@demo.invalid";

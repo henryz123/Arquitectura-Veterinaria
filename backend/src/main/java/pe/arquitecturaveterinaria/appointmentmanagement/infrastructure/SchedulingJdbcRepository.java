@@ -25,6 +25,7 @@ import pe.arquitecturaveterinaria.appointmentmanagement.application.OfferedServi
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleRequest;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleReservation;
 import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleProposal;
+import pe.arquitecturaveterinaria.appointmentmanagement.application.ScheduleBlock;
 
 /** JDBC adapter for V020; it has no direct read privilege on identity tables. */
 @Repository
@@ -130,6 +131,25 @@ public class SchedulingJdbcRepository {
 				returning id, professional_principal_id, weekday, starts_at_local, ends_at_local, created_at, updated_at
 				""", this::mapProfessionalAvailability, tenantId, professionalPrincipalId, weekday, startsAtLocal,
 				endsAtLocal, actorPrincipalId);
+	}
+
+	public List<ScheduleBlock> listScheduleBlocks() {
+		return jdbcTemplate.query("""
+				select id, block_scope, professional_principal_id, starts_at, ends_at, reason, created_at
+				from appointment_management.schedule_block
+				order by starts_at, ends_at, id
+				""", this::mapScheduleBlock);
+	}
+
+	public ScheduleBlock createScheduleBlock(UUID tenantId, UUID actorPrincipalId, String blockScope,
+			UUID professionalPrincipalId, Instant startsAt, Instant endsAt, String reason) {
+		return jdbcTemplate.queryForObject("""
+				insert into appointment_management.schedule_block (
+				    tenant_id, block_scope, professional_principal_id, starts_at, ends_at, reason, created_by_principal_id
+				) values (?, ?, ?, ?, ?, ?, ?)
+				returning id, block_scope, professional_principal_id, starts_at, ends_at, reason, created_at
+				""", this::mapScheduleBlock, tenantId, blockScope, professionalPrincipalId, timestamp(startsAt), timestamp(endsAt),
+				reason, actorPrincipalId);
 	}
 
 	public Optional<ScheduleRequest> createScheduleRequest(UUID tenantId, UUID requesterPrincipalId, UUID ownerId, UUID petId,
@@ -485,6 +505,12 @@ public class SchedulingJdbcRepository {
 				resultSet.getObject("professional_principal_id", UUID.class), resultSet.getInt("weekday"),
 				resultSet.getObject("starts_at_local", LocalTime.class), resultSet.getObject("ends_at_local", LocalTime.class),
 				instant(resultSet, "created_at"), instant(resultSet, "updated_at"));
+	}
+
+	private ScheduleBlock mapScheduleBlock(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new ScheduleBlock(resultSet.getObject("id", UUID.class), resultSet.getString("block_scope"),
+				resultSet.getObject("professional_principal_id", UUID.class), instant(resultSet, "starts_at"),
+				instant(resultSet, "ends_at"), resultSet.getString("reason"), instant(resultSet, "created_at"));
 	}
 
 	private ScheduleRequest mapScheduleRequest(ResultSet resultSet, int rowNumber) throws SQLException {

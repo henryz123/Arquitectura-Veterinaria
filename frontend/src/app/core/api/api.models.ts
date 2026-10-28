@@ -155,6 +155,28 @@ export interface ProfessionalAvailabilityRequest {
   endsAtLocal: string;
 }
 
+export interface ScheduleBlock {
+  id: string;
+  blockScope: 'ORGANIZACION' | 'PROFESIONAL';
+  professionalPrincipalId: string | null;
+  startsAt: string;
+  endsAt: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface ScheduleBlockRequest {
+  blockScope: 'ORGANIZACION' | 'PROFESIONAL';
+  professionalPrincipalId: string | null;
+  startsAt: string;
+  endsAt: string;
+  reason: string;
+}
+
+export interface ScheduleNoShowRequest {
+  reason: string;
+}
+
 export interface ScheduleRequest {
   id: string;
   tenantId: string;

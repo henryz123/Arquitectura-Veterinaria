@@ -57,6 +57,11 @@
           <strong>{{ scheduleRequests().length }}</strong>
           <span>registros reales de agenda</span>
         </article>
+        <article class="panel summary-card">
+          <p class="eyebrow">Bloqueos</p>
+          <strong>{{ scheduleBlocks().length }}</strong>
+          <span>ausencias o cierres excepcionales</span>
+        </article>
       </section>
 
       <section class="schedule-grid" *ngIf="!loading() && canManageSchedule()">
@@ -164,6 +169,50 @@
         </article>
       </section>
 
+      <section class="schedule-grid availability-grid" *ngIf="!loading() && canManageSchedule()" aria-labelledby="schedule-blocks-title">
+        <article class="panel form-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Excepciones</p><h2 id="schedule-blocks-title">Bloqueo o ausencia</h2></div></div>
+          <form [formGroup]="scheduleBlockForm" (ngSubmit)="submitScheduleBlock()" novalidate>
+            <div class="form-grid compact-form">
+              <label class="field-group" for="block-scope">Alcance
+                <select id="block-scope" formControlName="blockScope">
+                  <option value="PROFESIONAL">Ausencia de profesional</option>
+                  <option value="ORGANIZACION">Cierre de la veterinaria</option>
+                </select>
+              </label>
+              <label class="field-group full" for="block-professional" *ngIf="scheduleBlockForm.controls.blockScope.value === 'PROFESIONAL'">Profesional vigente
+                <select id="block-professional" formControlName="professionalPrincipalId" [disabled]="professionals().length === 0">
+                  <option value="" *ngIf="professionals().length === 0">No hay profesionales elegibles</option>
+                  <option *ngFor="let professional of professionals(); trackBy: trackProfessional" [value]="professional.principalId">{{ professionalLabel(professional) }}</option>
+                </select>
+              </label>
+              <label class="field-group" for="block-start">Inicio
+                <input id="block-start" type="datetime-local" formControlName="startsAt" />
+              </label>
+              <label class="field-group" for="block-end">Fin
+                <input id="block-end" type="datetime-local" formControlName="endsAt" />
+              </label>
+              <label class="field-group full" for="block-reason">Motivo
+                <textarea id="block-reason" formControlName="reason" maxlength="500" rows="3"></textarea>
+              </label>
+            </div>
+            <p class="helper">Un cierre afecta toda la veterinaria. Una ausencia solo bloquea al profesional seleccionado; no borra citas ya confirmadas.</p>
+            <button class="button button-secondary" type="submit" [disabled]="saving() || (scheduleBlockForm.controls.blockScope.value === 'PROFESIONAL' && professionals().length === 0)">Guardar bloqueo</button>
+          </form>
+        </article>
+
+        <article class="panel list-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Agenda protegida</p><h2>Bloqueos registrados</h2></div><span class="panel-caption">{{ scheduleBlocks().length }} registros</span></div>
+          <p class="empty-state compact" *ngIf="scheduleBlocks().length === 0">No hay bloqueos excepcionales registrados para esta veterinaria.</p>
+          <ul class="record-list" *ngIf="scheduleBlocks().length > 0">
+            <li *ngFor="let block of scheduleBlocks(); trackBy: trackById">
+              <div><strong>{{ block.blockScope === 'ORGANIZACION' ? 'Cierre de veterinaria' : 'Ausencia de profesional' }}</strong><span>{{ requestDateTime(block.startsAt) }} â€“ {{ requestDateTime(block.endsAt) }} Â· {{ block.reason }}</span></div>
+              <span class="status-pill">{{ block.blockScope }}</span>
+            </li>
+          </ul>
+        </article>
+      </section>
+
       <section class="panel agenda-panel" *ngIf="!loading() && canManageSchedule()" aria-labelledby="agenda-requests-title">
         <div class="panel-heading">
           <div><p class="eyebrow">Agenda consolidada</p><h2 id="agenda-requests-title">Solicitudes y confirmaciones</h2></div>
@@ -196,6 +245,12 @@
                 </label>
                 <button class="button button-primary" type="button" [disabled]="saving()" (click)="resolveCancellation(request, 'CANCELADA')">Aprobar cancelacion</button>
                 <button class="button button-secondary" type="button" [disabled]="saving()" (click)="resolveCancellation(request, 'CONFIRMADA')">Mantener confirmada</button>
+              </ng-container>
+              <ng-container *ngIf="request.status === 'CONFIRMADA'">
+                <label class="field-group" [attr.for]="'no-show-reason-' + request.id">Motivo de inasistencia
+                  <input [attr.id]="'no-show-reason-' + request.id" type="text" [value]="noShowReason()" (input)="noShowReason.set($any($event.target).value)" maxlength="500" />
+                </label>
+                <button class="button button-secondary" type="button" [disabled]="saving()" (click)="markNoShow(request)">Marcar inasistencia</button>
               </ng-container>
             </div>
           </li>

@@ -8,6 +8,7 @@ import {
   OfferedService,
   OperatingHours,
   ProfessionalAvailability,
+  ScheduleBlock,
   ScheduleRequest,
 } from '../../core/api/api.models';
 import { ScheduleApiService } from '../../core/api/schedule-api.service';
@@ -30,11 +31,13 @@ export class SchedulePageComponent implements OnInit {
   readonly services = signal<OfferedService[]>([]);
   readonly operatingHours = signal<OperatingHours[]>([]);
   readonly professionalAvailability = signal<ProfessionalAvailability[]>([]);
+	readonly scheduleBlocks = signal<ScheduleBlock[]>([]);
 	readonly scheduleRequests = signal<ScheduleRequest[]>([]);
 	readonly selectedProfessionalId = signal<string>('');
 	readonly cancellationReason = signal<string>('');
 	readonly proposalStartsAt = signal<string>('');
 	readonly proposalReason = signal<string>('');
+	readonly noShowReason = signal<string>('');
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -76,6 +79,13 @@ export class SchedulePageComponent implements OnInit {
     startsAtLocal: ['08:00', Validators.required],
     endsAtLocal: ['18:00', Validators.required],
   });
+  readonly scheduleBlockForm = this.formBuilder.nonNullable.group({
+    blockScope: ['PROFESIONAL' as 'ORGANIZACION' | 'PROFESIONAL', Validators.required],
+    professionalPrincipalId: [''],
+    startsAt: ['', Validators.required],
+    endsAt: ['', Validators.required],
+    reason: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(500)]],
+  });
 
   ngOnInit(): void {
     if (!this.canManageSchedule()) {
@@ -97,6 +107,7 @@ export class SchedulePageComponent implements OnInit {
       services: this.scheduleApi.listOfferedServices(),
       operatingHours: this.scheduleApi.listOperatingHours(),
       professionalAvailability: this.scheduleApi.listProfessionalAvailability(),
+		scheduleBlocks: this.scheduleApi.listScheduleBlocks(),
 		scheduleRequests: this.scheduleApi.listScheduleRequests(),
     }).subscribe({
       next: (response) => {
@@ -104,12 +115,14 @@ export class SchedulePageComponent implements OnInit {
         this.services.set(response.services.data);
         this.operatingHours.set(response.operatingHours.data);
         this.professionalAvailability.set(response.professionalAvailability.data);
+		this.scheduleBlocks.set(response.scheduleBlocks.data);
 		this.scheduleRequests.set(response.scheduleRequests.data);
         const current = this.selectedProfessionalId();
         const selected = response.professionals.data.find((professional) => professional.principalId === current)
           ?? response.professionals.data[0];
         this.selectedProfessionalId.set(selected?.principalId ?? '');
         this.professionalAvailabilityForm.controls.professionalPrincipalId.setValue(selected?.principalId ?? '');
+		this.scheduleBlockForm.controls.professionalPrincipalId.setValue(selected?.principalId ?? '');
         this.loading.set(false);
       },
       error: () => {
@@ -167,6 +180,43 @@ export class SchedulePageComponent implements OnInit {
       error: () => this.failSave('No fue posible guardar la disponibilidad. El profesional pudo haber sido desactivado o perder su rol.'),
     });
   }
+
+	submitScheduleBlock(): void {
+		if (this.scheduleBlockForm.invalid) {
+			this.scheduleBlockForm.markAllAsTouched();
+			this.error.set('Completa el alcance, intervalo y motivo del bloqueo antes de guardarlo.');
+			return;
+		}
+		const value = this.scheduleBlockForm.getRawValue();
+		const startsAt = new Date(value.startsAt);
+		const endsAt = new Date(value.endsAt);
+		if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) {
+			this.error.set('El final del bloqueo debe ser posterior a su inicio.');
+			return;
+		}
+		if (value.blockScope === 'PROFESIONAL' && !value.professionalPrincipalId) {
+			this.error.set('Selecciona un profesional vigente para registrar su ausencia.');
+			return;
+		}
+		this.saving.set(true);
+		this.error.set(null);
+		this.notice.set(null);
+		this.scheduleApi.createScheduleBlock({
+			blockScope: value.blockScope,
+			professionalPrincipalId: value.blockScope === 'PROFESIONAL' ? value.professionalPrincipalId : null,
+			startsAt: startsAt.toISOString(),
+			endsAt: endsAt.toISOString(),
+			reason: value.reason.trim(),
+		}).subscribe({
+			next: () => {
+				this.scheduleBlockForm.reset({
+					blockScope: 'PROFESIONAL', professionalPrincipalId: this.selectedProfessionalId(), startsAt: '', endsAt: '', reason: '',
+				});
+				this.finishSave('El bloqueo fue registrado. Las confirmaciones volveran a validarlo dentro de la transaccion.');
+			},
+			error: () => this.failSave('No fue posible registrar el bloqueo. El profesional pudo haber perdido su rol o el intervalo no es valido.'),
+		});
+	}
 
 	confirmRequest(request: ScheduleRequest): void {
 		const professionalPrincipalId = this.selectedProfessionalId();
@@ -264,9 +314,28 @@ export class SchedulePageComponent implements OnInit {
 		});
 	}
 
+	markNoShow(request: ScheduleRequest): void {
+		const reason = this.noShowReason().trim();
+		if (request.status !== 'CONFIRMADA' || this.saving() || reason.length < 3) {
+			this.error.set('Indica un motivo de al menos tres caracteres para registrar la inasistencia.');
+			return;
+		}
+		this.saving.set(true);
+		this.error.set(null);
+		this.notice.set(null);
+		this.scheduleApi.markScheduleNoShow(request.id, { reason }).subscribe({
+			next: () => {
+				this.noShowReason.set('');
+				this.finishSave('La inasistencia fue registrada y el intervalo dejo de bloquear nuevas confirmaciones.');
+			},
+			error: () => this.failSave('No fue posible registrar la inasistencia. Actualiza la agenda para comprobar el estado vigente.'),
+		});
+	}
+
   selectProfessional(principalId: string): void {
     this.selectedProfessionalId.set(principalId);
     this.professionalAvailabilityForm.controls.professionalPrincipalId.setValue(principalId);
+		this.scheduleBlockForm.controls.professionalPrincipalId.setValue(principalId);
   }
 
   professionalLabel(professional: AssignableProfessional): string {
