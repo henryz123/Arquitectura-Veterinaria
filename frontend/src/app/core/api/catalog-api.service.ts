@@ -9,6 +9,10 @@ import {
   CatalogProduct,
   CatalogProductRequest,
   CatalogProductStatus,
+  StockAdjustment,
+  StockAdjustmentRequest,
+  StockBalance,
+  StockMovement,
 } from './api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -54,5 +58,23 @@ export class CatalogApiService {
 
   updateProduct(productId: string, request: CatalogProductRequest): Observable<ApiEnvelope<CatalogProduct>> {
     return this.http.put<ApiEnvelope<CatalogProduct>>(`/api/v1/catalog/products/${encodeURIComponent(productId)}`, request);
+  }
+
+  listStock(): Observable<ApiEnvelope<StockBalance[]>> {
+    return this.http.get<ApiEnvelope<StockBalance[]>>('/api/v1/inventory/stock');
+  }
+
+  listStockMovements(productId?: string): Observable<ApiEnvelope<StockMovement[]>> {
+    let params = new HttpParams();
+    if (productId) {
+      params = params.set('productId', productId);
+    }
+    return this.http.get<ApiEnvelope<StockMovement[]>>('/api/v1/inventory/stock/movements', { params });
+  }
+
+  adjustStock(productId: string, request: StockAdjustmentRequest): Observable<ApiEnvelope<StockAdjustment>> {
+    return this.http.post<ApiEnvelope<StockAdjustment>>(
+      `/api/v1/inventory/stock/products/${encodeURIComponent(productId)}/adjustments`, request,
+    );
   }
 }

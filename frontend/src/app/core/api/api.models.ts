@@ -600,3 +600,37 @@ export interface CatalogProductRequest {
   inventoryManaged: boolean;
   imageUrl: string | null;
 }
+
+export interface StockBalance {
+  id: string;
+  productId: string;
+  sku: string;
+  productTitle: string;
+  availableQuantity: number;
+  version: number;
+  updatedAt: string;
+}
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  productTitle: string;
+  movementType: 'ALTA_INICIAL' | 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO';
+  quantityDelta: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  operationId: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface StockAdjustmentRequest {
+  quantityDelta: number;
+  reason: string;
+  operationId: string;
+}
+
+export interface StockAdjustment {
+  balance: StockBalance;
+  movement: StockMovement;
+}

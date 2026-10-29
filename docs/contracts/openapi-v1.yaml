@@ -1370,6 +1370,46 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/inventory/stock:
+    get:
+      tags: [inventory]
+      summary: Consulta saldos compartidos de productos inventariables del tenant STAFF administrador
+      x-implementation-status: implemented-b04-stock
+      x-v1-requirements: [RF-B04-002, RF-B04-006, RF-B04-011, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/StockBalancesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/inventory/stock/movements:
+    get:
+      tags: [inventory]
+      summary: Lista el historial inmutable de movimientos del tenant STAFF administrador
+      x-implementation-status: implemented-b04-stock
+      x-v1-requirements: [RF-B04-003, RF-B04-006, RF-B04-011, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: productId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200': { $ref: '#/components/responses/StockMovementsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/inventory/stock/products/{productId}/adjustments:
+    post:
+      tags: [inventory]
+      summary: Registra una alta inicial o ajuste autorizado, idempotente por operationId
+      x-implementation-status: implemented-b04-stock
+      x-v1-requirements: [RF-B04-002, RF-B04-003, RF-B04-005, RF-B04-006, RF-B04-011, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { $ref: '#/components/requestBodies/StockAdjustmentRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/StockAdjustmentResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 components:
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: AV_SESSION }
@@ -1420,6 +1460,7 @@ components:
     AmendmentRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AmendmentRequest' } } } }
     CatalogCategoryRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogCategoryRequest' } } } }
     CatalogProductRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogProductRequest' } } } }
+    StockAdjustmentRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StockAdjustmentRequest' } } } }
   schemas:
     LoginRequest:
       type: object
@@ -2206,6 +2247,46 @@ components:
         imageUrl: { type: [string, 'null'], format: uri }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    StockAdjustmentRequest:
+      type: object
+      required: [quantityDelta, reason, operationId]
+      properties:
+        quantityDelta: { type: integer, minimum: -1000000, maximum: 1000000, not: { const: 0 }, description: Entero distinto de cero; el servidor rechaza saldos negativos. }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        operationId: { type: string, format: uuid, description: Clave de idempotencia de la operación de ajuste. }
+    StockBalance:
+      type: object
+      required: [id, tenantId, productId, sku, productTitle, availableQuantity, version, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid, description: Tenant derivado de la sesión; nunca se acepta desde el navegador. }
+        productId: { type: string, format: uuid }
+        sku: { type: string }
+        productTitle: { type: string }
+        availableQuantity: { type: integer, minimum: 0 }
+        version: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+    StockMovement:
+      type: object
+      required: [id, tenantId, productId, productTitle, movementType, quantityDelta, quantityBefore, quantityAfter, operationId, reason, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid, description: Tenant derivado de la sesión. }
+        productId: { type: string, format: uuid }
+        productTitle: { type: string }
+        movementType: { type: string, enum: [ALTA_INICIAL, AJUSTE_POSITIVO, AJUSTE_NEGATIVO, VENTA_POS, CONFIRMACION_ONLINE, CANCELACION_ONLINE, DEVOLUCION_APTA, RECONCILIACION] }
+        quantityDelta: { type: integer }
+        quantityBefore: { type: integer, minimum: 0 }
+        quantityAfter: { type: integer, minimum: 0 }
+        operationId: { type: string, format: uuid }
+        reason: { type: string }
+        createdAt: { type: string, format: date-time }
+    StockAdjustment:
+      type: object
+      required: [balance, movement]
+      properties:
+        balance: { $ref: '#/components/schemas/StockBalance' }
+        movement: { $ref: '#/components/schemas/StockMovement' }
     Data:
       type: object
       required: [data]
@@ -2312,6 +2393,16 @@ components:
     CatalogProductsResponse:
       description: Productos internos del tenant autenticado; no es un catálogo público B05.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/CatalogProduct' } } } } } }
+    StockBalancesResponse:
+      description: Saldos compartidos del tenant autenticado; no mezcla inventario de otra veterinaria.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/StockBalance' } } } } } }
+    StockMovementsResponse:
+      description: Movimientos inmutables del tenant autenticado, opcionalmente filtrados por producto propio.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/StockMovement' } } } } } }
+    StockAdjustmentResponse:
+      description: Resultado de la alta inicial o ajuste idempotente, con saldo y ledger resultantes.
+      headers: { Location: { description: URI del movimiento creado o recuperado por idempotencia., schema: { type: string } } }
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/StockAdjustment' } } } } }
     OwnerResponse:
       description: Propietario visible para el tenant autorizado.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/OwnerProfile' } } } } }

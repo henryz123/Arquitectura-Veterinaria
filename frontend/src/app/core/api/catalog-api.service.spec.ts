@@ -40,4 +40,24 @@ describe('CatalogApiService', () => {
     create.flush({ data: { ...product, id: 'product-1', tenantId: 'tenant-1' } });
     http.verify();
   });
+
+  it('keeps stock operations under the protected inventory API without a tenant payload', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const service = TestBed.inject(CatalogApiService);
+    const http = TestBed.inject(HttpTestingController);
+    const request = { quantityDelta: 5, reason: 'Conteo inicial', operationId: '00000000-0000-0000-0000-000000000001' };
+
+    service.adjustStock('product-1', request).subscribe();
+    const adjustment = http.expectOne('/api/v1/inventory/stock/products/product-1/adjustments');
+    expect(adjustment.request.method).toBe('POST');
+    expect(adjustment.request.body).toEqual(request);
+    expect(adjustment.request.body.tenantId).toBeUndefined();
+    adjustment.flush({ data: { balance: {}, movement: {} } });
+
+    service.listStockMovements('product-1').subscribe();
+    const movements = http.expectOne('/api/v1/inventory/stock/movements?productId=product-1');
+    expect(movements.request.method).toBe('GET');
+    movements.flush({ data: [] });
+    http.verify();
+  });
 });

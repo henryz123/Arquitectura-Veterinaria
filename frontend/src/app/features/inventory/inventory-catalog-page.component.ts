@@ -8,6 +8,8 @@ import {
   CatalogCategoryStatus,
   CatalogProduct,
   CatalogProductStatus,
+  StockBalance,
+  StockMovement,
 } from '../../core/api/api.models';
 import { CatalogApiService } from '../../core/api/catalog-api.service';
 import { AuthStateService } from '../../core/auth/auth-state.service';
@@ -33,6 +35,8 @@ export class InventoryCatalogPageComponent implements OnInit {
   readonly context = this.auth.context;
   readonly categories = signal<CatalogCategory[]>([]);
   readonly products = signal<CatalogProduct[]>([]);
+  readonly stockBalances = signal<StockBalance[]>([]);
+  readonly stockMovements = signal<StockMovement[]>([]);
   readonly selectedCategory = signal<CatalogCategory | null>(null);
   readonly selectedProduct = signal<CatalogProduct | null>(null);
   readonly loading = signal(true);
@@ -41,11 +45,13 @@ export class InventoryCatalogPageComponent implements OnInit {
   readonly notice = signal<string | null>(null);
   readonly categorySubmitted = signal(false);
   readonly productSubmitted = signal(false);
+  readonly stockSubmitted = signal(false);
   readonly canManageCatalog = computed(() => {
     const context = this.context();
     return context?.accountType === 'STAFF' && context.roles.includes('ADMIN_VETERINARIA');
   });
   readonly activeCategories = computed(() => this.categories().filter((category) => category.status === 'ACTIVA'));
+  readonly inventoryProducts = computed(() => this.products().filter((product) => product.inventoryManaged));
   readonly categoryStatusOptions: ReadonlyArray<{ value: CatalogCategoryStatus; label: string }> = [
     { value: 'ACTIVA', label: 'Activa' },
     { value: 'INACTIVA', label: 'Inactiva' },
@@ -74,6 +80,11 @@ export class InventoryCatalogPageComponent implements OnInit {
     inventoryManaged: [true],
     imageUrl: ['', Validators.maxLength(500)],
   });
+  readonly stockForm = this.formBuilder.nonNullable.group({
+    productId: ['', Validators.required],
+    quantityDelta: [0, [Validators.required, Validators.pattern(/^-?\d+$/), Validators.min(-1000000), Validators.max(1000000)]],
+    reason: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(500)]],
+  });
 
   ngOnInit(): void {
     if (!this.canManageCatalog()) {
@@ -94,10 +105,14 @@ export class InventoryCatalogPageComponent implements OnInit {
     forkJoin({
       categories: this.api.listCategories(),
       products: this.api.listProducts(filters.query, filters.status || undefined, filters.categoryId || undefined),
+      stockBalances: this.api.listStock(),
+      stockMovements: this.api.listStockMovements(),
     }).subscribe({
-      next: ({ categories, products }) => {
+      next: ({ categories, products, stockBalances, stockMovements }) => {
         this.categories.set(categories.data);
         this.products.set(products.data);
+        this.stockBalances.set(stockBalances.data);
+        this.stockMovements.set(stockMovements.data);
         this.loading.set(false);
       },
       error: () => {
@@ -188,6 +203,37 @@ export class InventoryCatalogPageComponent implements OnInit {
       categoryId: '', sku: '', title: '', description: '', salePricePen: 0,
       status: 'ACTIVO_NO_PUBLICADO', inventoryManaged: true, imageUrl: '',
     });
+  }
+
+  submitStockAdjustment(): void {
+    this.stockSubmitted.set(true);
+    if (this.stockForm.invalid || this.saving()) {
+      this.stockForm.markAllAsTouched();
+      return;
+    }
+    const raw = this.stockForm.getRawValue();
+    if (raw.quantityDelta === 0 || !Number.isInteger(raw.quantityDelta)) {
+      this.error.set('La cantidad debe ser una unidad entera distinta de cero.');
+      return;
+    }
+    this.beginSave();
+    this.api.adjustStock(raw.productId, {
+      quantityDelta: raw.quantityDelta,
+      reason: raw.reason.trim(),
+      operationId: crypto.randomUUID(),
+    }).pipe(finalize(() => this.saving.set(false))).subscribe({
+      next: ({ data }) => {
+        this.stockSubmitted.set(false);
+        this.stockForm.reset({ productId: '', quantityDelta: 0, reason: '' });
+        this.notice.set(`Movimiento ${data.movement.movementType} registrado. Saldo actual: ${data.balance.availableQuantity}.`);
+        this.reload();
+      },
+      error: () => this.error.set('No fue posible registrar el movimiento. Verifica el producto, el motivo y el saldo disponible.'),
+    });
+  }
+
+  movementLabel(type: StockMovement['movementType']): string {
+    return { ALTA_INICIAL: 'Saldo inicial', AJUSTE_POSITIVO: 'Ajuste positivo', AJUSTE_NEGATIVO: 'Ajuste negativo' }[type];
   }
 
   productStatusLabel(status: CatalogProductStatus): string {

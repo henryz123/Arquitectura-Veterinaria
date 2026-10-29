@@ -8,6 +8,10 @@
 .catalog-grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.5fr); gap: 1.25rem; align-items: start; }
 .editor-panel, .catalog-table-section { border: 1px solid #d8e5df; border-radius: 16px; background: #fff; padding: clamp(1rem, 2.5vw, 1.5rem); box-shadow: 0 8px 24px rgba(20, 65, 48, .05); }
 .catalog-table-section { margin-top: 1.25rem; }
+.stock-section { display: grid; gap: 1rem; }
+.stock-section .section-heading { margin-bottom: 0; }
+.stock-section .section-heading p:last-child { margin: .35rem 0 0; color: #5a7068; }
+.stock-form { max-width: 760px; }
 .section-heading { display: flex; justify-content: space-between; align-items: start; gap: 1rem; margin-bottom: 1rem; }
 .section-heading > span { color: #657a72; font-size: .875rem; }
 form { display: grid; gap: .7rem; }
