@@ -10,6 +10,7 @@
     "test:e2e:g4-i01": "node e2e/g4-i01-authenticated.e2e.mjs",
     "test:e2e:b02": "node e2e/b02-owner-pet-care.e2e.mjs",
     "test:e2e:client-b02": "node e2e/client-owner-pet.e2e.mjs",
+    "test:e2e:demo-client-pet": "node e2e/demo-client-pet-registration.e2e.mjs",
     "test:e2e:b03-assignable-professionals": "node e2e/b03-assignable-professionals.e2e.mjs",
     "test:e2e:b03-services-availability": "node e2e/b03-services-availability.e2e.mjs",
     "test:e2e:b03-client-confirmation": "node e2e/b03-client-confirmation.e2e.mjs",

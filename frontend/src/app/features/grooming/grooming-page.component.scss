@@ -1,13 +1,6 @@
 :host { display: block; }
 
-.grooming-shell { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); min-height: 100dvh; }
-.grooming-body { min-width: 0; background: var(--surface-canvas); }
-.grooming-content { width: min(100% - 2.5rem, 74rem); margin: 0 auto; padding: 2rem 0 4rem; }
-.topbar-link { display: inline-flex; align-items: center; text-decoration: none; }
-.task-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0; }
-.summary-card { display: grid; min-height: 8.25rem; align-content: center; gap: .25rem; }
-.summary-card strong { color: var(--ink-strong); font-size: 2rem; font-variant-numeric: tabular-nums; line-height: 1; }
-.summary-card span { color: var(--ink-muted); }
+.task-summary { margin: 1.25rem 0; }
 .task-panel { margin-top: 1rem; }
 .task-list { display: grid; gap: .65rem; margin: 1rem 0 0; padding: 0; list-style: none; }
 .task-list li { display: grid; grid-template-columns: minmax(11rem, .75fr) minmax(16rem, 1.25fr) auto; gap: 1rem; align-items: center; border-top: 1px solid var(--border-subtle); padding: 1rem 0; }
@@ -15,22 +8,14 @@
 .task-time span, .task-details span, .task-details p { margin: 0; color: var(--ink-muted); font-size: .9rem; line-height: 1.45; }
 .task-details p { overflow-wrap: anywhere; }
 .task-actions { justify-items: end; }
-.completion-dialog { flex-wrap: wrap; margin-top: 1rem; }
+.completion-dialog { flex-wrap: wrap; }
 .completion-dialog > div { flex: 1 1 18rem; }
 .completion-dialog form { display: grid; flex: 1 1 24rem; gap: .8rem; }
-.field-group { display: grid; gap: .4rem; }
 .field-group textarea { width: 100%; min-height: 5.75rem; border: 1px solid var(--border-strong); border-radius: .45rem; padding: .65rem .75rem; color: var(--ink-strong); background: var(--surface-raised); font: inherit; resize: vertical; }
 .field-group textarea:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .optional { color: var(--ink-muted); font-weight: 400; }
-.field-error { margin: 0; color: var(--danger); font-size: .9rem; }
 
 @media (max-width: 64rem) {
-  .task-summary, .task-list li { grid-template-columns: 1fr; }
+  .task-list li { grid-template-columns: 1fr; }
   .task-actions { justify-items: start; }
-}
-
-@media (max-width: 52rem) {
-  .grooming-shell { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-  .grooming-content { width: min(100% - 1.5rem, 74rem); padding-top: 1.5rem; }
 }

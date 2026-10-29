@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { chromium } from 'playwright-core';
 
 const required = ['AV_DEMO_AURORA_PASSWORD', 'AV_DEMO_BOSQUE_PASSWORD', 'AV_E2E_CHROME_PATH'];
@@ -11,6 +13,9 @@ const staffEmail = process.env.AV_E2E_AURORA_EMAIL ?? 'administracion@demo.inval
 const sku = 'B04-E2E-STOCK-001';
 const title = 'Producto sintético stock B04';
 const targetQuantity = 5;
+const screenshotPath = process.env.AV_DEMO_SCREENSHOT_PATH
+  ? resolve(process.env.AV_DEMO_SCREENSHOT_PATH)
+  : null;
 const browser = await chromium.launch({ executablePath: process.env.AV_E2E_CHROME_PATH, headless: true });
 
 try {
@@ -59,6 +64,10 @@ try {
   const movements = (await browserFetch(page, `/api/v1/inventory/stock/movements?productId=${product.id}`)).body?.data ?? [];
   assert.ok(movements.length >= 1, 'the adjustment must produce at least one immutable movement');
   assert.equal(movements.every((item) => item.productId === product.id), true, 'the movement filter must remain product-local');
+  if (screenshotPath) {
+    await mkdir(dirname(screenshotPath), { recursive: true });
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+  }
   await aurora.close();
 
   const bosque = await browser.newContext();

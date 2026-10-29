@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { chromium } from 'playwright-core';
 
 const required = [
@@ -23,6 +25,9 @@ const groomingServiceFixture = {
   durationMinutes: 30,
   referencePrice: 35,
 };
+const screenshotPath = process.env.AV_DEMO_SCREENSHOT_PATH
+  ? resolve(process.env.AV_DEMO_SCREENSHOT_PATH)
+  : null;
 const browser = await chromium.launch({ executablePath: process.env.AV_E2E_CHROME_PATH, headless: true });
 
 try {
@@ -157,6 +162,10 @@ try {
     ?.find((item) => item.requestId === request.id);
   assert.equal(finalTask?.reservationStatus, 'COMPLETADA', 'the grooming task must reach its terminal operational status exactly once');
   assert.ok(finalTask?.attention?.completedAt, 'the completed task must retain an operational completion timestamp');
+  if (screenshotPath) {
+    await mkdir(dirname(screenshotPath), { recursive: true });
+    await groomingPage.screenshot({ path: screenshotPath, fullPage: true });
+  }
   await groomingContext.close();
 
   const finalContext = await browser.newContext();
