@@ -379,3 +379,12 @@ vacunas, recetas y rectificaciones.
 - B04 continúa **parcial**: faltan anulación, devolución/inspección, informe simple y E2E POS autenticado. Este último está bloqueado porque `.env.local` no contiene variables `AV_DEMO_CASHIER_*`; no se concedió CAJERO a la cuenta administrativa como atajo.
 
 **Próxima operación vigente:** preparar una cuenta CAJERO sintética local mediante el procedimiento B01 autorizado, ejecutar el E2E POS y continuar con anulaciones/devoluciones B04 antes de B05.
+
+## Checkpoint B04 — anulaciones y devoluciones físicas inspeccionadas (2026-10-28)
+
+- V026 `b04 pos cancellations and inspected returns` se aplicó una sola vez sobre `arquitectura_veterinaria`. SHA-256 fuente `F0C4E75AD741B4A64EB189790017782DAA1FFEEBCC29FE871B1A15BDCD5CFA4D`; checksum Flyway `1874390031`. El preflight reversible confirmó sus tablas, índices, RLS y ACL antes de la aplicación. No se modificó V001–V025 ni se agregaron funciones privilegiadas, SQL dinámico, permisos `PUBLIC` o DDL destructivo.
+- La ruta `/pos` permite a CAJERO vender y a CAJERO/ADMIN_VETERINARIA consultar y corregir ventas tenant-locales. Una anulación exige motivo y condición de salida física; solo una venta no despachada repone el saldo. La devolución transiciona `SOLICITADA` → `RECIBIDA` → inspección apta/no apta → `CERRADA`; las unidades recibidas no alteran stock hasta que el operador marca una cantidad apta. El ledger recibe un único `DEVOLUCION_APTA` por línea retornada apta.
+- Evidencia: backend B04 focalizado **11/11** correcto con Java 21, PostgreSQL local y Flyway desactivado durante pruebas ordinarias. Angular **8 archivos / 25 pruebas**, build correcto (286.91 kB inicial; POS lazy 32.55 kB) y Redocly válido. La prueba nueva cubre anulación idempotente, no reposición antes de inspección, reposición parcial única, cierre y límite de cantidades.
+- B04 continúa **parcial**: faltan el informe comercial simple, carrera concurrente de devolución y el E2E POS autenticado. Este último está bloqueado únicamente porque `.env.local` no contiene `AV_DEMO_CASHIER_AURORA_EMAIL` ni `AV_DEMO_CASHIER_AURORA_PASSWORD`; se preparó un fixture local idempotente que exige correo `.invalid`, contraseña de 12–72 caracteres con mayúscula/minúscula/dígito y rol exclusivo CAJERO, sin modificar administradores.
+
+**Próxima operación vigente:** implementar el informe B04 con consultas reales y preparar el E2E POS cuando estén disponibles las dos variables CAJERO; después iniciar B05 reutilizando el mismo ledger y saldo compartido.

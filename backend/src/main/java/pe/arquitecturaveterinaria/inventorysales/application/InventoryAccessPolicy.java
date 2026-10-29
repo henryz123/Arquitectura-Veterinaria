@@ -31,6 +31,17 @@ public final class InventoryAccessPolicy {
 		}
 	}
 
+	/** Returns and cancellations are commercial corrections, available to CAJERO or ADMIN_VETERINARIA. */
+	public void requireCommercialOperator(SessionPrincipal actor) {
+		requireActiveStaff(actor);
+		boolean cashier = actor.session().roles().stream().anyMatch(CASHIER_ROLES::contains);
+		boolean catalogManager = actor.session().roles().stream().anyMatch(CATALOG_MANAGER_ROLES::contains);
+		if (!cashier && !catalogManager) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "B04_COMMERCIAL_OPERATOR_REQUIRED",
+					"La correccion comercial requiere CAJERO o administracion de veterinaria vigente.");
+		}
+	}
+
 	private void requireActiveStaff(SessionPrincipal actor) {
 		if (actor == null || actor.accountType() != AccountType.STAFF || actor.session().tenantId() == null) {
 			throw new ApiException(HttpStatus.FORBIDDEN, "B04_STAFF_REQUIRED",

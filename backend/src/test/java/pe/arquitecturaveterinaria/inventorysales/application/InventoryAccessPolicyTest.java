@@ -44,6 +44,14 @@ class InventoryAccessPolicyTest {
 				() -> policy.requireCashier(principal(AccountType.STAFF, "ACTIVO", List.of("ADMIN_VETERINARIA")))).code());
 	}
 
+	@Test
+	void correctionsAllowCashierOrAdministratorButNotAnUnrelatedStaffRole() {
+		assertDoesNotThrow(() -> policy.requireCommercialOperator(principal(AccountType.STAFF, "ACTIVO", List.of("CAJERO"))));
+		assertDoesNotThrow(() -> policy.requireCommercialOperator(principal(AccountType.STAFF, "ACTIVO", List.of("ADMIN_VETERINARIA"))));
+		assertEquals("B04_COMMERCIAL_OPERATOR_REQUIRED", assertThrows(ApiException.class,
+				() -> policy.requireCommercialOperator(principal(AccountType.STAFF, "ACTIVO", List.of("RECEPCION")))).code());
+	}
+
 	private SessionPrincipal principal(AccountType accountType, String tenantStatus, List<String> roles) {
 		return new SessionPrincipal(new TenantSession(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "tenant-prueba",
 				"Veterinaria Prueba", tenantStatus, accountType, roles, "session-hash", Instant.now().plusSeconds(3600)));

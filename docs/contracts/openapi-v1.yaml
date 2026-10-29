@@ -1426,7 +1426,7 @@ paths:
   /api/v1/pos/sales:
     get:
       tags: [inventory]
-      summary: Lista ventas internas del tenant de la sesion CAJERO
+      summary: Lista ventas internas del tenant de un operador comercial autorizado
       x-implementation-status: implemented-b04-pos
       x-v1-requirements: [RF-B04-004, RF-B04-006, RF-B04-007, RF-B04-009, RF-B04-014]
       security: [{ sessionCookie: [] }]
@@ -1477,6 +1477,110 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pos/sales/{saleId}/cancellations:
+    post:
+      tags: [inventory]
+      summary: Anula una venta completada de forma auditable; solo recompone stock si no salió físicamente
+      x-implementation-status: implemented-b04-returns
+      x-v1-requirements: [RF-B04-006, RF-B04-010, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ name: saleId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { $ref: '#/components/requestBodies/PosSaleCancellationRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/PosSaleCancellationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pos/sales/{saleId}/returns:
+    post:
+      tags: [inventory]
+      summary: Solicita una devolución física por línea y cantidad sin alterar existencias
+      x-implementation-status: implemented-b04-returns
+      x-v1-requirements: [RF-B04-006, RF-B04-010, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ name: saleId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { $ref: '#/components/requestBodies/PosReturnRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/PosReturnResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pos/returns:
+    get:
+      tags: [inventory]
+      summary: Lista devoluciones tenant-locales de un operador comercial autorizado
+      x-implementation-status: implemented-b04-returns
+      x-v1-requirements: [RF-B04-006, RF-B04-010, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: saleId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200': { $ref: '#/components/responses/PosReturnsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/pos/returns/{returnId}:
+    get:
+      tags: [inventory]
+      summary: Consulta una devolución física tenant-local
+      x-implementation-status: implemented-b04-returns
+      x-v1-requirements: [RF-B04-006, RF-B04-010, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: returnId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { $ref: '#/components/responses/PosReturnResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/pos/returns/{returnId}/receipts:
+    post:
+      tags: [inventory]
+      summary: Registra la recepción física sin reponer stock todavía
+      x-implementation-status: implemented-b04-returns
+      x-v1-requirements: [RF-B04-006, RF-B04-010, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ name: returnId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { $ref: '#/components/requestBodies/PosReturnReceiptRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/PosReturnResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pos/returns/{returnId}/inspections:
+    post:
+      tags: [inventory]
+      summary: Inspecciona una devolución y repone únicamente las unidades aptas una sola vez
+      x-implementation-status: implemented-b04-returns
+      x-v1-requirements: [RF-B04-002, RF-B04-005, RF-B04-006, RF-B04-010, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ name: returnId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { $ref: '#/components/requestBodies/PosReturnInspectionRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/PosReturnResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pos/returns/{returnId}/closures:
+    post:
+      tags: [inventory]
+      summary: Cierra una devolución ya inspeccionada y actualiza el estado histórico de la venta
+      x-implementation-status: implemented-b04-returns
+      x-v1-requirements: [RF-B04-006, RF-B04-010, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ name: returnId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { $ref: '#/components/responses/PosReturnResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 components:
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: AV_SESSION }
@@ -1530,6 +1634,10 @@ components:
     StockAdjustmentRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StockAdjustmentRequest' } } } }
     PosSaleRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PosSaleRequest' } } } }
     PosSaleConfirmationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PosSaleConfirmationRequest' } } } }
+    PosSaleCancellationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PosSaleCancellationRequest' } } } }
+    PosReturnRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PosReturnRequest' } } } }
+    PosReturnReceiptRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PosReturnReceiptRequest' } } } }
+    PosReturnInspectionRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PosReturnInspectionRequest' } } } }
   schemas:
     LoginRequest:
       type: object
@@ -2389,6 +2497,48 @@ components:
       properties:
         paymentMethod: { type: string, enum: [EFECTIVO, TRANSFERENCIA, OTRO] }
         declaredAmountPen: { type: number, minimum: 0, multipleOf: 0.01 }
+    PosSaleCancellationRequest:
+      type: object
+      required: [operationId, reason, itemsLeftPremises]
+      properties:
+        operationId: { type: string, format: uuid }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        itemsLeftPremises: { type: boolean, description: "Si las unidades salieron físicamente, la anulación no recompone stock." }
+    PosReturnRequest:
+      type: object
+      required: [operationId, reason, lines]
+      properties:
+        operationId: { type: string, format: uuid }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        lines: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/PosReturnLineRequest' } }
+    PosReturnLineRequest:
+      type: object
+      required: [saleLineId, quantity]
+      properties:
+        saleLineId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1, maximum: 1000000 }
+    PosReturnReceiptRequest:
+      type: object
+      required: [lines]
+      properties:
+        lines: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/PosReturnReceiptLineRequest' } }
+    PosReturnReceiptLineRequest:
+      type: object
+      required: [returnLineId, receivedQuantity]
+      properties:
+        returnLineId: { type: string, format: uuid }
+        receivedQuantity: { type: integer, minimum: 0, maximum: 1000000 }
+    PosReturnInspectionRequest:
+      type: object
+      required: [lines]
+      properties:
+        lines: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/PosReturnInspectionLineRequest' } }
+    PosReturnInspectionLineRequest:
+      type: object
+      required: [returnLineId, restockedQuantity]
+      properties:
+        returnLineId: { type: string, format: uuid }
+        restockedQuantity: { type: integer, minimum: 0, maximum: 1000000 }
     PosSaleLine:
       type: object
       required: [id, productId, productSkuSnapshot, productTitleSnapshot, inventoryManaged, quantity, unitPricePen, subtotalPen]
@@ -2426,6 +2576,51 @@ components:
         updatedAt: { type: string, format: date-time }
         lines: { type: array, items: { $ref: '#/components/schemas/PosSaleLine' } }
         payment: { anyOf: [{ $ref: '#/components/schemas/PosManualPayment' }, { type: 'null' }] }
+    PosSaleCancellation:
+      type: object
+      required: [id, saleId, operationId, reason, itemsLeftPremises, stockRestocked, cancelledByPrincipalId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        saleId: { type: string, format: uuid }
+        operationId: { type: string, format: uuid }
+        reason: { type: string }
+        itemsLeftPremises: { type: boolean }
+        stockRestocked: { type: boolean }
+        cancelledByPrincipalId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+    PosReturnLine:
+      type: object
+      required: [id, saleLineId, productId, productSkuSnapshot, productTitleSnapshot, requestedQuantity, receivedQuantity, restockedQuantity, inspectionResult]
+      properties:
+        id: { type: string, format: uuid }
+        saleLineId: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        productSkuSnapshot: { type: string }
+        productTitleSnapshot: { type: string }
+        requestedQuantity: { type: integer, minimum: 1 }
+        receivedQuantity: { type: integer, minimum: 0 }
+        restockedQuantity: { type: integer, minimum: 0 }
+        inspectionResult: { type: string, enum: [PENDIENTE, APTA, PARCIAL, NO_APTA] }
+    PosReturn:
+      type: object
+      required: [id, tenantId, saleId, operationId, status, reason, requestedByPrincipalId, createdAt, updatedAt, lines]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid, description: Tenant derived from the authenticated session. }
+        saleId: { type: string, format: uuid }
+        operationId: { type: string, format: uuid }
+        status: { type: string, enum: [SOLICITADA, RECIBIDA, INSPECCIONADA_APTA, INSPECCIONADA_NO_APTA, CERRADA] }
+        reason: { type: string }
+        requestedByPrincipalId: { type: string, format: uuid }
+        receivedByPrincipalId: { type: [string, 'null'], format: uuid }
+        inspectedByPrincipalId: { type: [string, 'null'], format: uuid }
+        closedByPrincipalId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        receivedAt: { type: [string, 'null'], format: date-time }
+        inspectedAt: { type: [string, 'null'], format: date-time }
+        closedAt: { type: [string, 'null'], format: date-time }
+        updatedAt: { type: string, format: date-time }
+        lines: { type: array, items: { $ref: '#/components/schemas/PosReturnLine' } }
     Data:
       type: object
       required: [data]
@@ -2549,8 +2744,17 @@ components:
       description: Venta interna tenant-local y su comprobante no tributario.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/PosSale' } } } } }
     PosSalesResponse:
-      description: Historial de ventas internas visibles solo para CAJERO del tenant.
+      description: Historial de ventas internas visible para CAJERO o administración del tenant.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/PosSale' } } } } } }
+    PosSaleCancellationResponse:
+      description: Anulación comercial tenant-local; no es un comprobante tributario ni un reembolso bancario.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/PosSaleCancellation' } } } } }
+    PosReturnResponse:
+      description: Devolución física tenant-local y su estado de recepción e inspección.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/PosReturn' } } } } }
+    PosReturnsResponse:
+      description: Devoluciones físicas visibles solo para CAJERO o administración del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/PosReturn' } } } } } }
     OwnerResponse:
       description: Propietario visible para el tenant autorizado.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/OwnerProfile' } } } } }

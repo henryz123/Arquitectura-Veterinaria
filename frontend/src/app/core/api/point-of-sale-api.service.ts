@@ -5,8 +5,14 @@ import {
   ApiEnvelope,
   PointOfSaleProduct,
   PosSale,
+  PosSaleCancellation,
+  PosSaleCancellationRequest,
   PosSaleConfirmationRequest,
   PosSaleRequest,
+  PosReturn,
+  PosReturnInspectionLineRequest,
+  PosReturnReceiptLineRequest,
+  PosReturnRequest,
 } from './api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -37,5 +43,39 @@ export class PointOfSaleApiService {
     return this.http.post<ApiEnvelope<PosSale>>(
       `/api/v1/pos/sales/${encodeURIComponent(saleId)}/confirmations`, request,
     );
+  }
+
+  cancelSale(saleId: string, request: PosSaleCancellationRequest): Observable<ApiEnvelope<PosSaleCancellation>> {
+    return this.http.post<ApiEnvelope<PosSaleCancellation>>(
+      `/api/v1/pos/sales/${encodeURIComponent(saleId)}/cancellations`, request,
+    );
+  }
+
+  listReturns(saleId?: string): Observable<ApiEnvelope<PosReturn[]>> {
+    let params = new HttpParams();
+    if (saleId) {
+      params = params.set('saleId', saleId);
+    }
+    return this.http.get<ApiEnvelope<PosReturn[]>>('/api/v1/pos/returns', { params });
+  }
+
+  findReturn(returnId: string): Observable<ApiEnvelope<PosReturn>> {
+    return this.http.get<ApiEnvelope<PosReturn>>(`/api/v1/pos/returns/${encodeURIComponent(returnId)}`);
+  }
+
+  requestReturn(saleId: string, request: PosReturnRequest): Observable<ApiEnvelope<PosReturn>> {
+    return this.http.post<ApiEnvelope<PosReturn>>(`/api/v1/pos/sales/${encodeURIComponent(saleId)}/returns`, request);
+  }
+
+  receiveReturn(returnId: string, lines: PosReturnReceiptLineRequest[]): Observable<ApiEnvelope<PosReturn>> {
+    return this.http.post<ApiEnvelope<PosReturn>>(`/api/v1/pos/returns/${encodeURIComponent(returnId)}/receipts`, { lines });
+  }
+
+  inspectReturn(returnId: string, lines: PosReturnInspectionLineRequest[]): Observable<ApiEnvelope<PosReturn>> {
+    return this.http.post<ApiEnvelope<PosReturn>>(`/api/v1/pos/returns/${encodeURIComponent(returnId)}/inspections`, { lines });
+  }
+
+  closeReturn(returnId: string): Observable<ApiEnvelope<PosReturn>> {
+    return this.http.post<ApiEnvelope<PosReturn>>(`/api/v1/pos/returns/${encodeURIComponent(returnId)}/closures`, {});
   }
 }

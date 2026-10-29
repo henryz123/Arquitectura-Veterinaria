@@ -11,6 +11,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.http.HttpStatus;
@@ -29,9 +30,16 @@ import pe.arquitecturaveterinaria.identityaccess.application.SessionPrincipal;
 import pe.arquitecturaveterinaria.inventorysales.application.PointOfSaleProduct;
 import pe.arquitecturaveterinaria.inventorysales.application.PointOfSaleService;
 import pe.arquitecturaveterinaria.inventorysales.application.PosSale;
+import pe.arquitecturaveterinaria.inventorysales.application.PosSaleCancellation;
+import pe.arquitecturaveterinaria.inventorysales.application.PosSaleCancellationDraft;
 import pe.arquitecturaveterinaria.inventorysales.application.PosSaleConfirmationDraft;
 import pe.arquitecturaveterinaria.inventorysales.application.PosSaleDraft;
 import pe.arquitecturaveterinaria.inventorysales.application.PosSaleLineDraft;
+import pe.arquitecturaveterinaria.inventorysales.application.PosReturn;
+import pe.arquitecturaveterinaria.inventorysales.application.PosReturnDraft;
+import pe.arquitecturaveterinaria.inventorysales.application.PosReturnInspectionLineDraft;
+import pe.arquitecturaveterinaria.inventorysales.application.PosReturnLineDraft;
+import pe.arquitecturaveterinaria.inventorysales.application.PosReturnReceiptLineDraft;
 import pe.arquitecturaveterinaria.shared.api.ApiEnvelope;
 
 /** Protected B04 in-person sales endpoints. Tenant and role come only from the session. */
@@ -78,6 +86,52 @@ public class PointOfSaleController {
 				new PosSaleConfirmationDraft(request.paymentMethod(), request.declaredAmountPen())));
 	}
 
+	@PostMapping("/sales/{saleId}/cancellations")
+	ApiEnvelope<PosSaleCancellation> cancelSale(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID saleId,
+			@Valid @RequestBody CancelSaleRequest request) {
+		return ApiEnvelope.of(service.cancelSale(principal, saleId,
+				new PosSaleCancellationDraft(request.operationId(), request.reason(), request.itemsLeftPremises())));
+	}
+
+	@GetMapping("/returns")
+	ApiEnvelope<List<PosReturn>> listReturns(@AuthenticationPrincipal SessionPrincipal principal,
+			@RequestParam(required = false) UUID saleId) {
+		return ApiEnvelope.of(service.listReturns(principal, saleId));
+	}
+
+	@GetMapping("/returns/{returnId}")
+	ApiEnvelope<PosReturn> findReturn(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID returnId) {
+		return ApiEnvelope.of(service.findReturn(principal, returnId));
+	}
+
+	@PostMapping("/sales/{saleId}/returns")
+	ResponseEntity<ApiEnvelope<PosReturn>> requestReturn(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID saleId,
+			@Valid @RequestBody CreateReturnRequest request) {
+		PosReturn posReturn = service.requestReturn(principal, saleId, new PosReturnDraft(request.operationId(), request.reason(),
+				request.lines().stream().map(line -> new PosReturnLineDraft(line.saleLineId(), line.quantity())).toList()));
+		return ResponseEntity.status(HttpStatus.CREATED).location(URI.create("/api/v1/pos/returns/" + posReturn.id()))
+				.body(ApiEnvelope.of(posReturn));
+	}
+
+	@PostMapping("/returns/{returnId}/receipts")
+	ApiEnvelope<PosReturn> receiveReturn(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID returnId,
+			@Valid @RequestBody ReturnReceiptRequest request) {
+		return ApiEnvelope.of(service.receiveReturn(principal, returnId,
+				request.lines().stream().map(line -> new PosReturnReceiptLineDraft(line.returnLineId(), line.receivedQuantity())).toList()));
+	}
+
+	@PostMapping("/returns/{returnId}/inspections")
+	ApiEnvelope<PosReturn> inspectReturn(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID returnId,
+			@Valid @RequestBody ReturnInspectionRequest request) {
+		return ApiEnvelope.of(service.inspectReturn(principal, returnId,
+				request.lines().stream().map(line -> new PosReturnInspectionLineDraft(line.returnLineId(), line.restockedQuantity())).toList()));
+	}
+
+	@PostMapping("/returns/{returnId}/closures")
+	ApiEnvelope<PosReturn> closeReturn(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID returnId) {
+		return ApiEnvelope.of(service.closeReturn(principal, returnId));
+	}
+
 	public record CreateSaleRequest(@NotNull UUID operationId, @NotEmpty @Size(max = 100) List<@Valid SaleLineRequest> lines) {
 	}
 
@@ -86,5 +140,28 @@ public class PointOfSaleController {
 
 	public record ConfirmSaleRequest(@NotBlank @Size(max = 16) String paymentMethod,
 			@NotNull @DecimalMin(value = "0.00") BigDecimal declaredAmountPen) {
+	}
+
+	public record CancelSaleRequest(@NotNull UUID operationId, @NotBlank @Size(min = 3, max = 500) String reason,
+			@NotNull Boolean itemsLeftPremises) {
+	}
+
+	public record CreateReturnRequest(@NotNull UUID operationId, @NotBlank @Size(min = 3, max = 500) String reason,
+			@NotEmpty @Size(max = 100) List<@Valid ReturnLineRequest> lines) {
+	}
+
+	public record ReturnLineRequest(@NotNull UUID saleLineId, @NotNull @Positive Integer quantity) {
+	}
+
+	public record ReturnReceiptRequest(@NotEmpty @Size(max = 100) List<@Valid ReturnReceiptLineRequest> lines) {
+	}
+
+	public record ReturnReceiptLineRequest(@NotNull UUID returnLineId, @NotNull @PositiveOrZero Integer receivedQuantity) {
+	}
+
+	public record ReturnInspectionRequest(@NotEmpty @Size(max = 100) List<@Valid ReturnInspectionLineRequest> lines) {
+	}
+
+	public record ReturnInspectionLineRequest(@NotNull UUID returnLineId, @NotNull @PositiveOrZero Integer restockedQuantity) {
 	}
 }

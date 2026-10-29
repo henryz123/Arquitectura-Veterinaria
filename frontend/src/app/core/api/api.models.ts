@@ -693,3 +693,72 @@ export interface PosSale {
   lines: PosSaleLine[];
   payment: PosManualPayment | null;
 }
+
+export interface PosSaleCancellationRequest {
+  operationId: string;
+  reason: string;
+  itemsLeftPremises: boolean;
+}
+
+export interface PosSaleCancellation {
+  id: string;
+  saleId: string;
+  operationId: string;
+  reason: string;
+  itemsLeftPremises: boolean;
+  stockRestocked: boolean;
+  cancelledByPrincipalId: string;
+  createdAt: string;
+}
+
+export interface PosReturnLineRequest {
+  saleLineId: string;
+  quantity: number;
+}
+
+export interface PosReturnRequest {
+  operationId: string;
+  reason: string;
+  lines: PosReturnLineRequest[];
+}
+
+export interface PosReturnReceiptLineRequest {
+  returnLineId: string;
+  receivedQuantity: number;
+}
+
+export interface PosReturnInspectionLineRequest {
+  returnLineId: string;
+  restockedQuantity: number;
+}
+
+export interface PosReturnLine {
+  id: string;
+  saleLineId: string;
+  productId: string;
+  productSkuSnapshot: string;
+  productTitleSnapshot: string;
+  requestedQuantity: number;
+  receivedQuantity: number;
+  restockedQuantity: number;
+  inspectionResult: 'PENDIENTE' | 'APTA' | 'PARCIAL' | 'NO_APTA';
+}
+
+export interface PosReturn {
+  id: string;
+  tenantId: string;
+  saleId: string;
+  operationId: string;
+  status: 'SOLICITADA' | 'RECIBIDA' | 'INSPECCIONADA_APTA' | 'INSPECCIONADA_NO_APTA' | 'CERRADA';
+  reason: string;
+  requestedByPrincipalId: string;
+  receivedByPrincipalId: string | null;
+  inspectedByPrincipalId: string | null;
+  closedByPrincipalId: string | null;
+  createdAt: string;
+  receivedAt: string | null;
+  inspectedAt: string | null;
+  closedAt: string | null;
+  updatedAt: string;
+  lines: PosReturnLine[];
+}
