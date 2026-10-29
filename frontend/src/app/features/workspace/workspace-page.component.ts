@@ -56,6 +56,10 @@ export class WorkspacePageComponent implements OnInit {
     return context?.accountType === 'STAFF'
       && (context.roles.includes('ADMIN_VETERINARIA') || context.roles.includes('RECEPCION'));
   });
+  readonly canUsePos = computed(() => {
+    const context = this.context();
+    return context?.accountType === 'STAFF' && context.roles.includes('CAJERO');
+  });
   readonly activeStaffCount = computed(() => this.staff().filter((member) => member.status === 'ACTIVA').length);
   readonly invitationForm = this.formBuilder.nonNullable.group({
     email: ['', { validators: [Validators.required, Validators.email], updateOn: 'blur' }],

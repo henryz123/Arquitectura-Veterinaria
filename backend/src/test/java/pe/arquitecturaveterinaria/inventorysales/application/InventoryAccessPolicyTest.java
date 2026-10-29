@@ -37,6 +37,13 @@ class InventoryAccessPolicyTest {
 				() -> policy.requireCatalogManager(principal(AccountType.STAFF, "SUSPENDIDO", List.of("ADMIN_VETERINARIA")))).code());
 	}
 
+	@Test
+	void cashierMustBeExplicitAndDoesNotComeFromAdministration() {
+		assertDoesNotThrow(() -> policy.requireCashier(principal(AccountType.STAFF, "ACTIVO", List.of("CAJERO"))));
+		assertEquals("B04_CASHIER_REQUIRED", assertThrows(ApiException.class,
+				() -> policy.requireCashier(principal(AccountType.STAFF, "ACTIVO", List.of("ADMIN_VETERINARIA")))).code());
+	}
+
 	private SessionPrincipal principal(AccountType accountType, String tenantStatus, List<String> roles) {
 		return new SessionPrincipal(new TenantSession(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "tenant-prueba",
 				"Veterinaria Prueba", tenantStatus, accountType, roles, "session-hash", Instant.now().plusSeconds(3600)));

@@ -615,7 +615,7 @@ export interface StockMovement {
   id: string;
   productId: string;
   productTitle: string;
-  movementType: 'ALTA_INICIAL' | 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO';
+  movementType: 'ALTA_INICIAL' | 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO' | 'VENTA_POS' | 'CONFIRMACION_ONLINE' | 'CANCELACION_ONLINE' | 'DEVOLUCION_APTA' | 'RECONCILIACION';
   quantityDelta: number;
   quantityBefore: number;
   quantityAfter: number;
@@ -633,4 +633,63 @@ export interface StockAdjustmentRequest {
 export interface StockAdjustment {
   balance: StockBalance;
   movement: StockMovement;
+}
+
+export interface PointOfSaleProduct {
+  id: string;
+  sku: string;
+  title: string;
+  salePricePen: number;
+  status: CatalogProductStatus;
+  inventoryManaged: boolean;
+  availableQuantity: number | null;
+}
+
+export interface PosSaleLineRequest {
+  productId: string;
+  quantity: number;
+}
+
+export interface PosSaleRequest {
+  operationId: string;
+  lines: PosSaleLineRequest[];
+}
+
+export interface PosSaleConfirmationRequest {
+  paymentMethod: 'EFECTIVO' | 'TRANSFERENCIA' | 'OTRO';
+  declaredAmountPen: number;
+}
+
+export interface PosSaleLine {
+  id: string;
+  productId: string;
+  productSkuSnapshot: string;
+  productTitleSnapshot: string;
+  inventoryManaged: boolean;
+  quantity: number;
+  unitPricePen: number;
+  subtotalPen: number;
+}
+
+export interface PosManualPayment {
+  id: string;
+  paymentMethod: 'EFECTIVO' | 'TRANSFERENCIA' | 'OTRO';
+  declaredAmountPen: number;
+  status: 'PENDIENTE_VALIDACION' | 'VALIDADO' | 'RECHAZADO';
+  declaredAt: string;
+  validatedAt: string | null;
+}
+
+export interface PosSale {
+  id: string;
+  tenantId: string;
+  cashierPrincipalId: string;
+  status: 'PREPARACION' | 'COMPLETADA' | 'ANULADA' | 'DEVOLUCION_PARCIAL' | 'DEVUELTA';
+  operationId: string;
+  totalAmountPen: number;
+  createdAt: string;
+  completedAt: string | null;
+  updatedAt: string;
+  lines: PosSaleLine[];
+  payment: PosManualPayment | null;
 }

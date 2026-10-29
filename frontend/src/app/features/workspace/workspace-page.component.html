@@ -13,6 +13,7 @@
       <a routerLink="/care">Propietarios y clínica</a>
       <a routerLink="/schedule" *ngIf="canManageSchedule()">Agenda</a>
       <a routerLink="/inventory" *ngIf="canManageStaff()">Inventario y catálogo</a>
+      <a routerLink="/pos" *ngIf="canUsePos()">Punto de venta</a>
       <a routerLink="/grooming" *ngIf="session.roles.includes('GROOMING')">Mis servicios grooming</a>
       <a href="#team" *ngIf="canManageStaff()">Equipo y roles</a>
       <a href="#invitation" *ngIf="canManageStaff()">Nueva invitación</a>

@@ -233,7 +233,11 @@ export class InventoryCatalogPageComponent implements OnInit {
   }
 
   movementLabel(type: StockMovement['movementType']): string {
-    return { ALTA_INICIAL: 'Saldo inicial', AJUSTE_POSITIVO: 'Ajuste positivo', AJUSTE_NEGATIVO: 'Ajuste negativo' }[type];
+    return {
+      ALTA_INICIAL: 'Saldo inicial', AJUSTE_POSITIVO: 'Ajuste positivo', AJUSTE_NEGATIVO: 'Ajuste negativo',
+      VENTA_POS: 'Venta presencial', CONFIRMACION_ONLINE: 'Confirmacion online', CANCELACION_ONLINE: 'Cancelacion online',
+      DEVOLUCION_APTA: 'Devolucion apta', RECONCILIACION: 'Reconciliacion',
+    }[type];
   }
 
   productStatusLabel(status: CatalogProductStatus): string {

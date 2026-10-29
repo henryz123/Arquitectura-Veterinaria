@@ -1,0 +1,41 @@
+<div class="pos-shell">
+  <a class="skip-link" href="#pos-main">Saltar al contenido</a>
+  <header class="pos-header">
+    <a class="back-link" routerLink="/workspace">← Espacio de trabajo</a>
+    <div><p class="eyebrow">Ventas · Punto de venta</p><h1>Caja presencial</h1><p>Las ventas usan el catalogo y el saldo real del tenant. Los comprobantes son internos y no representan facturacion SUNAT.</p></div>
+  </header>
+
+  <main id="pos-main" *ngIf="canUsePos(); else forbidden">
+    <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
+    <p class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</p>
+    <p class="loading" *ngIf="loading()">Cargando productos y ventas autorizadas…</p>
+
+    <section class="pos-grid" *ngIf="!loading()">
+      <section class="panel" aria-labelledby="products-title">
+        <div class="section-heading"><div><p class="eyebrow">Catalogo disponible</p><h2 id="products-title">Productos para caja</h2></div><span>{{ products().length }} visibles</span></div>
+        <form class="search-form" [formGroup]="searchForm" (ngSubmit)="reload()"><label for="pos-query">Buscar producto</label><input id="pos-query" formControlName="query" placeholder="SKU o nombre" /><button class="button button-secondary" type="submit">Buscar</button></form>
+        <div class="product-list" *ngIf="products().length; else noProducts">
+          <article class="product-row" *ngFor="let product of products(); trackBy: trackProduct" [attr.data-pos-product-id]="product.id">
+            <div><strong>{{ product.title }}</strong><span>{{ product.sku }} · {{ availability(product) }}</span></div>
+            <div class="product-action"><b>{{ product.salePricePen | currency:'PEN':'S/ ':'1.2-2' }}</b><button class="button button-secondary" type="button" (click)="addProduct(product)" [disabled]="!canAdd(product) || saving()">Agregar</button></div>
+          </article>
+        </div>
+        <ng-template #noProducts><p class="empty-state">No hay productos activos para caja con ese criterio.</p></ng-template>
+      </section>
+
+      <section class="panel cart-panel" aria-labelledby="cart-title">
+        <div class="section-heading"><div><p class="eyebrow">Venta actual</p><h2 id="cart-title">Detalle y confirmacion</h2></div><span>{{ cart().length }} lineas</span></div>
+        <div class="empty-state" *ngIf="cart().length === 0">Selecciona productos o servicios reales para preparar una venta.</div>
+        <div class="cart-lines" *ngIf="cart().length">
+          <div class="cart-line" *ngFor="let line of cart(); trackBy: trackLine"><div><strong>{{ line.product.title }}</strong><span>{{ line.product.sku }} · {{ line.product.salePricePen | currency:'PEN':'S/ ':'1.2-2' }}</span></div><label class="quantity-label">Cantidad<input type="number" min="1" step="1" [value]="line.quantity" (change)="setQuantity(line.product.id, $any($event.target).value)" /></label><b>{{ lineSubtotal(line) | currency:'PEN':'S/ ':'1.2-2' }}</b><button class="button button-quiet" type="button" (click)="removeProduct(line.product.id)">Quitar</button></div>
+        </div>
+        <div class="total-row"><span>Total exacto</span><strong>{{ total() | currency:'PEN':'S/ ':'1.2-2' }}</strong></div>
+        <form [formGroup]="paymentForm" (ngSubmit)="confirmSale()"><label for="payment-method">Pago manual validado</label><select id="payment-method" formControlName="paymentMethod"><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="OTRO">Otro</option></select><button class="button button-primary" type="submit" [disabled]="cart().length === 0 || saving()">{{ saving() ? 'Confirmando…' : 'Confirmar venta' }}</button></form>
+      </section>
+    </section>
+
+    <section class="panel receipt" *ngIf="receipt() as sale" aria-labelledby="receipt-title"><div class="section-heading"><div><p class="eyebrow">Comprobante interno</p><h2 id="receipt-title">Venta {{ sale.status === 'COMPLETADA' ? 'confirmada' : sale.status }}</h2></div><span>{{ sale.createdAt | date:'short' }}</span></div><dl><div><dt>Total</dt><dd>{{ sale.totalAmountPen | currency:'PEN':'S/ ':'1.2-2' }}</dd></div><div><dt>Pago</dt><dd>{{ sale.payment?.paymentMethod || 'Sin pago' }} · {{ sale.payment?.status || 'Pendiente' }}</dd></div></dl><div class="receipt-lines"><div *ngFor="let line of sale.lines"><span>{{ line.quantity }} × {{ line.productTitleSnapshot }}</span><b>{{ line.subtotalPen | currency:'PEN':'S/ ':'1.2-2' }}</b></div></div></section>
+    <section class="panel history" aria-labelledby="history-title"><div class="section-heading"><div><p class="eyebrow">Consulta persistente</p><h2 id="history-title">Historial de ventas</h2></div><button class="button button-secondary" type="button" (click)="reload()">Actualizar</button></div><div class="empty-state" *ngIf="sales().length === 0">Aun no hay ventas en este tenant.</div><div class="history-list" *ngIf="sales().length"><article *ngFor="let sale of sales(); trackBy: trackSale"><div><strong>{{ sale.totalAmountPen | currency:'PEN':'S/ ':'1.2-2' }}</strong><span>{{ sale.status }} · {{ sale.createdAt | date:'short' }}</span></div><button class="button button-secondary" type="button" (click)="openReceipt(sale.id)">Ver comprobante</button></article></div></section>
+  </main>
+  <ng-template #forbidden><main id="pos-main"><p class="feedback feedback-error" role="alert">{{ error() }}</p><a class="button button-secondary" routerLink="/workspace">Volver al espacio de trabajo</a></main></ng-template>
+</div>

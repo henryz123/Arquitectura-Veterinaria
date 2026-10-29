@@ -69,6 +69,12 @@ export const routes: Routes = [
     title: 'Inventario y catálogo | Arquitectura Veterinaria',
   },
   {
+    path: 'pos',
+    loadComponent: () => import('./features/pos/pos-page.component').then((module) => module.PosPageComponent),
+    canActivate: [sessionGuard],
+    title: 'Punto de venta | Arquitectura Veterinaria',
+  },
+  {
     path: 'saas/login',
     loadComponent: () => import('./features/saas/saas-login-page.component').then((module) => module.SaasLoginPageComponent),
     title: 'Administración SaaS | Arquitectura Veterinaria',

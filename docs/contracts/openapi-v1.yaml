@@ -1410,6 +1410,73 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pos/products:
+    get:
+      tags: [inventory]
+      summary: Lista productos activos disponibles para una sesion STAFF con CAJERO
+      x-implementation-status: implemented-b04-pos
+      x-v1-requirements: [RF-B04-001, RF-B04-002, RF-B04-007, RF-B04-008, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: query, in: query, schema: { type: string, maxLength: 160 } }
+      responses:
+        '200': { $ref: '#/components/responses/PointOfSaleProductsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/pos/sales:
+    get:
+      tags: [inventory]
+      summary: Lista ventas internas del tenant de la sesion CAJERO
+      x-implementation-status: implemented-b04-pos
+      x-v1-requirements: [RF-B04-004, RF-B04-006, RF-B04-007, RF-B04-009, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/PosSalesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [inventory]
+      summary: Prepara una venta idempotente con instantaneas de producto y precio
+      x-implementation-status: implemented-b04-pos
+      x-v1-requirements: [RF-B04-004, RF-B04-007, RF-B04-008, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      requestBody: { $ref: '#/components/requestBodies/PosSaleRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/PosSaleResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pos/sales/{saleId}:
+    get:
+      tags: [inventory]
+      summary: Consulta el comprobante interno de una venta tenant-local
+      x-implementation-status: implemented-b04-pos
+      x-v1-requirements: [RF-B04-004, RF-B04-006, RF-B04-007, RF-B04-014]
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: saleId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { $ref: '#/components/responses/PosSaleResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/pos/sales/{saleId}/confirmations:
+    post:
+      tags: [inventory]
+      summary: Confirma una venta y descuenta el stock una sola vez en una transaccion
+      x-implementation-status: implemented-b04-pos
+      x-v1-requirements: [RF-B04-002, RF-B04-004, RF-B04-005, RF-B04-006, RF-B04-007, RF-B04-008, RF-B04-009, RF-B04-014]
+      security: [{ sessionCookie: [], csrfToken: [] }]
+      parameters: [{ name: saleId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { $ref: '#/components/requestBodies/PosSaleConfirmationRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/PosSaleResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CsrfOrForbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 components:
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: AV_SESSION }
@@ -1461,6 +1528,8 @@ components:
     CatalogCategoryRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogCategoryRequest' } } } }
     CatalogProductRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogProductRequest' } } } }
     StockAdjustmentRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StockAdjustmentRequest' } } } }
+    PosSaleRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PosSaleRequest' } } } }
+    PosSaleConfirmationRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PosSaleConfirmationRequest' } } } }
   schemas:
     LoginRequest:
       type: object
@@ -2287,6 +2356,76 @@ components:
       properties:
         balance: { $ref: '#/components/schemas/StockBalance' }
         movement: { $ref: '#/components/schemas/StockMovement' }
+    PointOfSaleProduct:
+      type: object
+      required: [id, sku, title, salePricePen, status, inventoryManaged]
+      properties:
+        id: { type: string, format: uuid }
+        sku: { type: string }
+        title: { type: string }
+        salePricePen: { type: number, minimum: 0, multipleOf: 0.01 }
+        status: { type: string, enum: [ACTIVO_PUBLICADO, ACTIVO_NO_PUBLICADO] }
+        inventoryManaged: { type: boolean }
+        availableQuantity: { type: [integer, 'null'], minimum: 0 }
+    PosSaleRequest:
+      type: object
+      required: [operationId, lines]
+      properties:
+        operationId: { type: string, format: uuid }
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: '#/components/schemas/PosSaleLineRequest' }
+    PosSaleLineRequest:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1, maximum: 1000000 }
+    PosSaleConfirmationRequest:
+      type: object
+      required: [paymentMethod, declaredAmountPen]
+      properties:
+        paymentMethod: { type: string, enum: [EFECTIVO, TRANSFERENCIA, OTRO] }
+        declaredAmountPen: { type: number, minimum: 0, multipleOf: 0.01 }
+    PosSaleLine:
+      type: object
+      required: [id, productId, productSkuSnapshot, productTitleSnapshot, inventoryManaged, quantity, unitPricePen, subtotalPen]
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        productSkuSnapshot: { type: string }
+        productTitleSnapshot: { type: string }
+        inventoryManaged: { type: boolean }
+        quantity: { type: integer, minimum: 1 }
+        unitPricePen: { type: number, minimum: 0, multipleOf: 0.01 }
+        subtotalPen: { type: number, minimum: 0, multipleOf: 0.01 }
+    PosManualPayment:
+      type: object
+      required: [id, paymentMethod, declaredAmountPen, status, declaredAt]
+      properties:
+        id: { type: string, format: uuid }
+        paymentMethod: { type: string, enum: [EFECTIVO, TRANSFERENCIA, OTRO] }
+        declaredAmountPen: { type: number, minimum: 0, multipleOf: 0.01 }
+        status: { type: string, enum: [PENDIENTE_VALIDACION, VALIDADO, RECHAZADO] }
+        declaredAt: { type: string, format: date-time }
+        validatedAt: { type: [string, 'null'], format: date-time }
+    PosSale:
+      type: object
+      required: [id, tenantId, cashierPrincipalId, status, operationId, totalAmountPen, createdAt, updatedAt, lines]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid, description: Tenant derived from the authenticated session. }
+        cashierPrincipalId: { type: string, format: uuid }
+        status: { type: string, enum: [PREPARACION, COMPLETADA, ANULADA, DEVOLUCION_PARCIAL, DEVUELTA] }
+        operationId: { type: string, format: uuid }
+        totalAmountPen: { type: number, minimum: 0, multipleOf: 0.01 }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        updatedAt: { type: string, format: date-time }
+        lines: { type: array, items: { $ref: '#/components/schemas/PosSaleLine' } }
+        payment: { anyOf: [{ $ref: '#/components/schemas/PosManualPayment' }, { type: 'null' }] }
     Data:
       type: object
       required: [data]
@@ -2403,6 +2542,15 @@ components:
       description: Resultado de la alta inicial o ajuste idempotente, con saldo y ledger resultantes.
       headers: { Location: { description: URI del movimiento creado o recuperado por idempotencia., schema: { type: string } } }
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/StockAdjustment' } } } } }
+    PointOfSaleProductsResponse:
+      description: Productos activos del tenant para una sesion STAFF con el rol CAJERO.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/PointOfSaleProduct' } } } } } }
+    PosSaleResponse:
+      description: Venta interna tenant-local y su comprobante no tributario.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/PosSale' } } } } }
+    PosSalesResponse:
+      description: Historial de ventas internas visibles solo para CAJERO del tenant.
+      content: { application/json: { schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/PosSale' } } } } } }
     OwnerResponse:
       description: Propietario visible para el tenant autorizado.
       content: { application/json: { schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/OwnerProfile' } } } } }
