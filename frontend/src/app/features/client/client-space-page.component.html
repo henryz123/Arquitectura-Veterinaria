@@ -91,7 +91,7 @@
       <div class="schedule-list" *ngIf="scheduleRequests().length; else noScheduleRequests">
         <article *ngFor="let request of scheduleRequests()" [attr.data-request-id]="request.id">
           <strong>{{ serviceName(request.serviceId) }}</strong>
-          <span>{{ petName(request.petId) }} · {{ request.requestedStartsAt }}</span>
+          <span>{{ petName(request.petId) }} · {{ formatScheduleDateTime(request.requestedStartsAt) }}</span>
           <span>Estado: {{ scheduleStateLabel(request.status) }}</span>
           <ng-container *ngIf="proposalFor(request) as proposal">
             <span>Alternativa propuesta: {{ proposal.proposedStartsAt }} · {{ proposal.proposedDurationMinutes }} min</span>

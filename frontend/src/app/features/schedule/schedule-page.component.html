@@ -116,7 +116,7 @@
             <li *ngFor="let event of scheduleChangeEvents(); trackBy: trackById">
               <div>
                 <strong>{{ changeActionLabel(event.actionCode) }}</strong>
-                <span>Solicitud {{ event.requestId.slice(0, 8) }} · {{ requestDateTime(event.createdAt) }}</span>
+                <span>Solicitud registrada · {{ requestDateTime(event.createdAt) }}</span>
                 <span *ngIf="event.reason">{{ event.reason }}</span>
               </div>
               <span class="status-pill">{{ changeActionLabel(event.actionCode) }}</span>
@@ -178,7 +178,7 @@
           <p class="empty-state compact" *ngIf="professionalAvailability().length === 0">Aún no hay franjas personales. Las solicitudes podrán guardarse, pero una confirmación futura exigirá disponibilidad real.</p>
           <ul class="record-list" *ngIf="professionalAvailability().length > 0">
             <li *ngFor="let item of professionalAvailability(); trackBy: trackById">
-              <div><strong>{{ weekdayLabel(item.weekday) }} · {{ item.startsAtLocal }}–{{ item.endsAtLocal }}</strong><span>Profesional {{ item.professionalPrincipalId.slice(0, 8) }} · tenant actual</span></div>
+              <div><strong>{{ weekdayLabel(item.weekday) }} · {{ item.startsAtLocal }}–{{ item.endsAtLocal }}</strong><span>Profesional asignado · veterinaria actual</span></div>
               <span class="status-pill status-ok">Vigente</span>
             </li>
           </ul>
@@ -239,7 +239,7 @@
         <ol class="agenda-list" *ngIf="scheduleRequests().length > 0">
           <li *ngFor="let request of scheduleRequests(); trackBy: trackById" [attr.data-request-id]="request.id">
             <div class="agenda-time"><strong>{{ requestDateTime(request.requestedStartsAt) }}</strong><span>{{ request.requestedDurationMinutes }} min</span></div>
-            <div class="agenda-details"><strong>{{ serviceName(request.serviceId) }}</strong><span>Mascota registrada: {{ request.petId.slice(0, 8) }}</span><span *ngIf="request.observation">ObservaciÃ³n: {{ request.observation }}</span></div>
+            <div class="agenda-details"><strong>{{ serviceName(request.serviceId) }}</strong><span>Mascota asociada a la solicitud</span><span *ngIf="request.observation">ObservaciÃ³n: {{ request.observation }}</span></div>
             <div class="agenda-action">
               <span class="status-pill" [class.status-ok]="request.status === 'CONFIRMADA'">{{ scheduleStateLabel(request.status) }}</span>
               <button class="button button-primary" type="button" *ngIf="request.status === 'PENDIENTE' || request.status === 'PENDIENTE_REPROGRAMACION'" [disabled]="saving() || !selectedProfessionalId()" (click)="confirmRequest(request)">

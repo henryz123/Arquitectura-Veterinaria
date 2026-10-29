@@ -222,6 +222,11 @@ export class ClientSpacePageComponent implements OnInit {
 		} as Record<string, string>)[status] ?? 'Estado no disponible';
 	}
 
+	formatScheduleDateTime(value: string): string {
+		return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima' })
+			.format(new Date(value));
+	}
+
 	cancelScheduleRequest(request: ScheduleRequest): void {
 		if (this.actionPending() || !['PENDIENTE', 'PROPUESTA', 'CONFIRMADA', 'REPROGRAMACION_PROPUESTA', 'PENDIENTE_REPROGRAMACION'].includes(request.status)) {
 			return;
