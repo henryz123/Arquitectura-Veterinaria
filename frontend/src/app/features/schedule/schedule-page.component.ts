@@ -344,9 +344,15 @@ export class SchedulePageComponent implements OnInit {
 
   professionalLabel(professional: AssignableProfessional): string {
     const role = professional.roles.includes('VETERINARIO') && professional.roles.includes('GROOMING')
-      ? 'Veterinaria y grooming'
-      : professional.roles.includes('VETERINARIO') ? 'Atención veterinaria' : 'Grooming';
-    return `${role} · ${professional.principalId.slice(0, 8)}`;
+      ? 'Profesional clínico y de grooming'
+      : professional.roles.includes('VETERINARIO') ? 'Profesional clínico' : 'Profesional de grooming';
+    const ordinal = this.professionals().findIndex((item) => item.principalId === professional.principalId) + 1;
+    return ordinal > 0 ? `${role} ${ordinal}` : role;
+  }
+
+  professionalName(principalId: string): string {
+    const professional = this.professionals().find((item) => item.principalId === principalId);
+    return professional ? this.professionalLabel(professional) : 'Profesional autorizado';
   }
 
   roleSummary(professional: AssignableProfessional): string {
@@ -378,6 +384,24 @@ export class SchedulePageComponent implements OnInit {
 			SCHEDULE_BLOCKED: 'hay un bloqueo registrado',
 			PROFESSIONAL_INTERVAL_CONFLICT: 'existe otra reserva confirmada para ese profesional',
 		} as Record<string, string>)[reasonCode ?? ''] ?? 'el intervalo no puede confirmarse';
+	}
+
+	scheduleStateLabel(status: ScheduleRequest['status']): string {
+		return ({
+			PENDIENTE: 'Pendiente de confirmación',
+			PROPUESTA: 'Alternativa propuesta',
+			CONFIRMADA: 'Confirmada',
+			REPROGRAMACION_PROPUESTA: 'Reprogramación propuesta',
+			PENDIENTE_REPROGRAMACION: 'Pendiente de confirmar cambio',
+			CANCELACION_SOLICITADA: 'Cancelación solicitada',
+			CANCELADA: 'Cancelada',
+			COMPLETADA: 'Completada',
+			INASISTENCIA: 'Inasistencia',
+		} as Record<string, string>)[status] ?? 'Estado no disponible';
+	}
+
+	blockScopeLabel(scope: ScheduleBlock['blockScope']): string {
+		return scope === 'ORGANIZACION' ? 'Toda la veterinaria' : 'Profesional';
 	}
 
 	changeActionLabel(actionCode: string): string {

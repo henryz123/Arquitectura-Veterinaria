@@ -92,7 +92,7 @@
         <article *ngFor="let request of scheduleRequests()" [attr.data-request-id]="request.id">
           <strong>{{ serviceName(request.serviceId) }}</strong>
           <span>{{ petName(request.petId) }} · {{ request.requestedStartsAt }}</span>
-          <span>Estado: {{ request.status }}</span>
+          <span>Estado: {{ scheduleStateLabel(request.status) }}</span>
           <ng-container *ngIf="proposalFor(request) as proposal">
             <span>Alternativa propuesta: {{ proposal.proposedStartsAt }} · {{ proposal.proposedDurationMinutes }} min</span>
             <button type="button" [disabled]="actionPending()" (click)="decideScheduleProposal(proposal, 'ACEPTADA')">Aceptar alternativa</button>

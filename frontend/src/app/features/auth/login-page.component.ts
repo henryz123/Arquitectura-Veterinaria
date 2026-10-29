@@ -27,6 +27,10 @@ export class LoginPageComponent {
     this.route.data.pipe(map((data) => data['accountType'] === 'CLIENT' ? 'CLIENT' : 'STAFF')),
     { initialValue: 'STAFF' },
   );
+  readonly sessionExpired = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('reason') === 'session-expired')),
+    { initialValue: false },
+  );
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
   readonly tenantLabel = computed(() => this.tenantSlug().replaceAll('-', ' '));

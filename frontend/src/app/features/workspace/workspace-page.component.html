@@ -9,12 +9,12 @@
       </div>
     </div>
     <nav>
-      <a routerLink="/workspace" fragment="summary" aria-current="page">Inicio</a>
-      <a routerLink="/care">Clientes y mascotas</a>
-      <a routerLink="/schedule" *ngIf="canManageSchedule()">Agenda</a>
-      <a routerLink="/inventory" *ngIf="canManageStaff()">Inventario y catálogo</a>
-      <a routerLink="/pos" *ngIf="canUsePos()">Punto de venta</a>
-      <a routerLink="/grooming" *ngIf="session.roles.includes('GROOMING')">Mis servicios grooming</a>
+      <a routerLink="/workspace" fragment="summary" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">Inicio</a>
+      <a routerLink="/care" routerLinkActive="is-active">Clientes y mascotas</a>
+      <a routerLink="/schedule" routerLinkActive="is-active" *ngIf="canManageSchedule()">Citas y agenda</a>
+      <a routerLink="/inventory" routerLinkActive="is-active" *ngIf="canManageStaff()">Productos e inventario</a>
+      <a routerLink="/pos" routerLinkActive="is-active" *ngIf="canUsePos()">Punto de venta</a>
+      <a routerLink="/grooming" routerLinkActive="is-active" *ngIf="session.roles.includes('GROOMING')">Peluquería y baño</a>
       <a routerLink="/workspace" fragment="team" *ngIf="canManageStaff()">Equipo y roles</a>
       <a routerLink="/workspace" fragment="invitation" *ngIf="canManageStaff()">Nueva invitación</a>
       <a routerLink="/workspace" fragment="organization">Organización</a>
@@ -68,6 +68,22 @@
         <p>Esta cuenta puede consultar la veterinaria, pero no gestionar el equipo ni los permisos del personal.</p>
       </section>
 
+      <section class="panel organization-panel" id="organization" *ngIf="profile() as tenant">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Organización</p>
+            <h2>Información de la veterinaria</h2>
+          </div>
+        </div>
+        <dl class="details-list">
+          <div><dt>Nombre comercial</dt><dd>{{ tenant.commercialName }}</dd></div>
+          <div><dt>Sesión</dt><dd>Veterinaria actual</dd></div>
+          <div><dt>Estado</dt><dd>{{ statusLabel(tenant.status) }}</dd></div>
+          <div><dt>Contexto</dt><dd>Una veterinaria por sesión</dd></div>
+        </dl>
+        <p class="panel-note">Esta vista muestra solo la veterinaria de la sesión actual. No permite consultar otras organizaciones.</p>
+      </section>
+
       <section class="management-grid" *ngIf="canManageStaff()">
         <article class="panel" id="invitation">
           <div class="panel-heading">
@@ -100,21 +116,6 @@
           </form>
         </article>
 
-        <article class="panel" id="organization" *ngIf="profile() as tenant">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">Organización</p>
-              <h2>Información de la veterinaria</h2>
-            </div>
-          </div>
-          <dl class="details-list">
-            <div><dt>Nombre comercial</dt><dd>{{ tenant.commercialName }}</dd></div>
-            <div><dt>Sesión</dt><dd>Veterinaria actual</dd></div>
-            <div><dt>Estado</dt><dd>{{ statusLabel(tenant.status) }}</dd></div>
-            <div><dt>Contexto</dt><dd>Una veterinaria por sesión</dd></div>
-          </dl>
-          <p class="panel-note">Esta vista muestra solo la veterinaria de la sesión actual. No permite consultar otras organizaciones.</p>
-        </article>
       </section>
 
       <section class="panel staff-panel" id="team" *ngIf="canManageStaff()">

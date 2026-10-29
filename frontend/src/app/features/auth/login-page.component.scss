@@ -32,6 +32,15 @@ h1 {
   color: var(--ink-muted);
   margin-bottom: 1.75rem;
 }
+.session-notice {
+  margin: -0.75rem 0 1.25rem;
+  padding: 0.75rem;
+  border: 1px solid #9cd8cf;
+  border-radius: 0.35rem;
+  color: var(--accent-teal-dark);
+  background: var(--accent-teal-soft);
+  line-height: 1.45;
+}
 form {
   display: grid;
   gap: 0.55rem;

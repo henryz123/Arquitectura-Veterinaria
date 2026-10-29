@@ -35,11 +35,13 @@ try {
   const clientContext = await browser.newContext();
   const clientPage = await clientContext.newPage();
 	await clientPage.addInitScript(() => {
-		const ids = ['00000000-0000-4000-8000-000000000301', '00000000-0000-4000-8000-000000000302'];
+		const ids = ['00000000-0000-4000-8000-000000000303', '00000000-0000-4000-8000-000000000304'];
 		const fallback = crypto.randomUUID.bind(crypto);
 		crypto.randomUUID = () => ids.shift() ?? fallback();
 	});
   await loginClient(clientPage);
+  await clientPage.getByRole('button', { name: 'Solicitar cita' }).click();
+  await clientPage.getByRole('heading', { name: 'Solicitar cita' }).waitFor();
   const pets = await browserFetch(clientPage, '/api/v1/client/pets');
   const pet = pets.body?.data?.find((item) => item.status === 'ACTIVA');
   assert.ok(pet?.id, 'the synthetic client must have an approved current pet before requesting a visit');
@@ -59,6 +61,8 @@ try {
   const firstRequest = (await firstCreated.json()).data;
   assert.ok(['PENDIENTE', 'CONFIRMADA'].includes(firstRequest.status), 'the idempotent client request must retain a valid schedule state');
 
+  await clientPage.getByRole('button', { name: 'Solicitar cita' }).click();
+  await clientPage.getByRole('heading', { name: 'Solicitar cita' }).waitFor();
   const secondStartsAt = firstStartsAt;
   const secondResponse = clientPage.waitForResponse((response) => response.request().method() === 'POST'
     && new URL(response.url()).pathname === '/api/v1/client/schedule/requests');
@@ -116,7 +120,7 @@ try {
 }
 
 function farFutureMonday(minuteOffset) {
-  const date = new Date(2031, 0, 6, 9, minuteOffset, 0, 0);
+  const date = new Date(2031, 0, 13, 9, minuteOffset, 0, 0);
   while (date.getDay() !== 1) date.setDate(date.getDate() + 1);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }

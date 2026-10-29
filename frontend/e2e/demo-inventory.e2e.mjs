@@ -29,7 +29,7 @@ try {
   const context = await browser.newContext();
   const page = await context.newPage();
   await loginStaff(page);
-  await page.getByRole('link', { name: 'Inventario y catálogo' }).click();
+  await page.getByRole('link', { name: 'Productos e inventario' }).click();
   await page.waitForURL(`${baseUrl}/inventory`);
   await page.getByRole('heading', { name: 'Productos de la veterinaria' }).waitFor();
 

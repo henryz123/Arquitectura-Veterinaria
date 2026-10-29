@@ -208,6 +208,20 @@ export class ClientSpacePageComponent implements OnInit {
 		return this.scheduleServices().find((service) => service.id === serviceId)?.name ?? 'Servicio no disponible';
 	}
 
+	scheduleStateLabel(status: ScheduleRequest['status']): string {
+		return ({
+			PENDIENTE: 'Pendiente de confirmación',
+			PROPUESTA: 'Alternativa propuesta',
+			CONFIRMADA: 'Confirmada',
+			REPROGRAMACION_PROPUESTA: 'Reprogramación propuesta',
+			PENDIENTE_REPROGRAMACION: 'Pendiente de confirmar cambio',
+			CANCELACION_SOLICITADA: 'Cancelación solicitada',
+			CANCELADA: 'Cancelada',
+			COMPLETADA: 'Completada',
+			INASISTENCIA: 'Inasistencia',
+		} as Record<string, string>)[status] ?? 'Estado no disponible';
+	}
+
 	cancelScheduleRequest(request: ScheduleRequest): void {
 		if (this.actionPending() || !['PENDIENTE', 'PROPUESTA', 'CONFIRMADA', 'REPROGRAMACION_PROPUESTA', 'PENDIENTE_REPROGRAMACION'].includes(request.status)) {
 			return;

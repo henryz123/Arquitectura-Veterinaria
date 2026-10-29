@@ -107,6 +107,46 @@ La estabilización local ejecutó correctamente:
 
 Las pruebas usan datos sintéticos y no sustituyen una auditoría de producción. Las advertencias actuales de presupuesto CSS son visuales y no bloquean el build: `client-space-page.component.scss` (4.88 kB frente a 4 kB) e `inventory-catalog-page.component.scss` (4.46 kB frente a 4 kB).
 
+## Recorrido prioritario actualizado (5–7 minutos)
+
+Mantenga abiertas las dos ventanas de PowerShell descritas en **Preparación**. El servidor conserva sesiones locales válidas hasta ocho horas; navegar, recargar o abrir otra sección no cierra una sesión válida.
+
+### 1. CLIENT solicita una cita — 2 minutos
+
+1. Abra `http://127.0.0.1:4200/client/login/veterinaria-aurora`.
+2. Inicie sesión con `AV_DEMO_CLIENT_AURORA_EMAIL` y `AV_DEMO_CLIENT_AURORA_PASSWORD` de `.env.local`.
+3. Seleccione **Solicitar cita**, elija una mascota propia, un servicio publicado y una fecha futura.
+4. Pulse **Enviar solicitud**. Debe aparecer la confirmación y la solicitud debe quedar visible en **Mis citas** como **Pendiente de confirmación**.
+5. Recargue la página: la sesión y la solicitud permanecen disponibles.
+
+### 2. ADMIN gestiona la agenda — 1 a 2 minutos
+
+1. Cierre CLIENT e ingrese a `http://127.0.0.1:4200/login/veterinaria-aurora` con el correo sintético `administracion@demo.invalid` y la contraseña indicada por `AV_DEMO_AURORA_PASSWORD`.
+2. El menú lateral muestra **Citas y agenda** y **Productos e inventario** porque esta cuenta tiene el rol `ADMIN_VETERINARIA`.
+3. Abra **Citas y agenda**, seleccione el profesional autorizado y ubique la solicitud creada por CLIENT.
+4. Pulse **Comprobar y confirmar**. El sistema vuelve a validar disponibilidad antes de confirmar y muestra una etiqueta comprensible de estado.
+5. Cierre sesión, vuelva a CLIENT y abra **Mis citas** para comprobar el estado actualizado.
+
+### 3. Inventario real — 1 a 2 minutos
+
+1. Vuelva a iniciar sesión con ADMIN Aurora y abra **Productos e inventario** desde el menú lateral.
+2. Registre un producto sintético con SKU único y active el control de existencias.
+3. En **Stock y movimientos**, seleccione el producto, registre una entrada de `15` unidades y escriba un motivo breve.
+4. Compruebe el saldo y el movimiento; después recargue la página. Ambos deben mantenerse porque provienen de PostgreSQL.
+
+### 4. Roles, organización y cierre — 1 minuto
+
+1. Abra **Organización**: muestra únicamente la veterinaria de la sesión actual. Con ADMIN también permanecen disponibles las operaciones de equipo e invitaciones ya existentes.
+2. Para mostrar separación de funciones, cambie a `AV_DEMO_VETERINARIO_AURORA_EMAIL` con `AV_DEMO_VETERINARIO_AURORA_PASSWORD`. Esta cuenta puede abrir **Organización** y **Clientes y mascotas**, pero no recibe **Citas y agenda** ni **Productos e inventario**.
+3. Pulse **Cerrar sesión**. Si una sesión expira o deja de ser válida, al volver a una ruta protegida se muestra el aviso **«Tu sesión venció o dejó de ser válida. Inicia sesión nuevamente para continuar.»** y se regresa al inicio de sesión correspondiente.
+
+## Evidencia de estabilización del recorrido actualizado
+
+- Chromium: CLIENT y STAFF conservaron la sesión durante 125 segundos tras recarga, realizaron consultas autorizadas y el cierre revocó ambas sesiones.
+- Chromium: CLIENT creó una solicitud, ADMIN Aurora la confirmó y CLIENT observó el estado actualizado; Bosque no recibió la solicitud de Aurora.
+- Chromium: ADMIN Aurora abrió Productos e inventario, registró un producto y una entrada, recargó y verificó saldo y movimiento persistentes.
+- Chromium: Organización funcionó para ADMIN y VETERINARIO; este último no recibió accesos de agenda ni inventario.
+
 ## Cierre seguro
 
 Pulse `Ctrl+C` una vez en cada ventana de Angular y Spring Boot. No detenga PostgreSQL ni ejecute Flyway para cerrar la demostración.

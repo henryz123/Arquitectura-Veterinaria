@@ -57,7 +57,7 @@ input {
   .brand span, .sidebar-note { color: #b8d8d4; font-size: 0.85rem; }
   .sidebar nav { display: grid; gap: 0.35rem; margin-top: 2.5rem; }
   .sidebar nav a { padding: 0.75rem; border-radius: 0.45rem; color: inherit; font-weight: 650; text-decoration: none; }
-  .sidebar nav a:hover, .sidebar nav a:focus-visible, .sidebar nav a[aria-current='page'] { color: var(--ink-strong); background: var(--accent-teal-soft); }
+  .sidebar nav a:hover, .sidebar nav a:focus-visible, .sidebar nav a[aria-current='page'], .sidebar nav a.is-active { color: var(--ink-strong); background: var(--accent-teal-soft); }
   .sidebar-note { margin-top: auto; padding: 0.75rem; line-height: 1.5; }
   .workspace-body, .grooming-body { min-width: 0; }
   .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem clamp(1.25rem, 5vw, 5rem); border-bottom: 1px solid var(--border-subtle); background: var(--surface-raised); }
@@ -76,6 +76,7 @@ input {
   .summary-card p, .summary-card span { display: block; margin: 0; color: var(--ink-muted); font-size: 0.9rem; }
   .summary-card strong { display: block; margin: 0.55rem 0; font-size: 1.2rem; overflow-wrap: anywhere; }
   .panel { padding: clamp(1.25rem, 3vw, 1.75rem); }
+  .organization-panel { margin-top: 1rem; }
   .staff-panel { margin-top: 1rem; }
   .panel-heading h2 { font-size: 1.3rem; }
   .panel-caption { color: var(--ink-muted); font-size: 0.85rem; }

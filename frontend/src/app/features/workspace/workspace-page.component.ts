@@ -1,7 +1,7 @@
 import { NgFor, NgIf } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { finalize, forkJoin, of } from 'rxjs';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
@@ -19,7 +19,7 @@ type TenantScopedSession = SessionContext & { tenant: TenantProfile };
 
 @Component({
   selector: 'app-workspace-page',
-  imports: [NgFor, NgIf, ReactiveFormsModule, RouterLink],
+  imports: [NgFor, NgIf, ReactiveFormsModule, RouterLink, RouterLinkActive],
   templateUrl: './workspace-page.component.html',
   styleUrl: './workspace-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

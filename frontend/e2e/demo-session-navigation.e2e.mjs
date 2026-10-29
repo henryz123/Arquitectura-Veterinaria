@@ -5,6 +5,8 @@ const required = [
   'AV_DEMO_AURORA_PASSWORD',
   'AV_DEMO_CLIENT_AURORA_EMAIL',
   'AV_DEMO_CLIENT_AURORA_PASSWORD',
+  'AV_DEMO_VETERINARIO_AURORA_EMAIL',
+  'AV_DEMO_VETERINARIO_AURORA_PASSWORD',
   'AV_E2E_CHROME_PATH',
 ];
 for (const key of required) {
@@ -44,7 +46,7 @@ try {
   assert.equal(ownTenant.status, 200, 'the STAFF session must read only its own tenant profile');
   const staffAccounts = await browserFetch(staffPage, '/api/v1/staff-accounts');
   assert.equal(staffAccounts.status, 200, 'the administrator must read the tenant-local staff list');
-  await staffPage.getByRole('link', { name: 'Inventario y catálogo' }).waitFor();
+  await staffPage.getByRole('link', { name: 'Productos e inventario' }).waitFor();
   await staffPage.getByRole('heading', { name: 'Información de la veterinaria' }).waitFor();
   await staffPage.getByRole('link', { name: 'Organización' }).click();
   await staffPage.waitForURL(`${baseUrl}/workspace#organization`);
@@ -54,8 +56,21 @@ try {
 
   await staffPage.reload({ waitUntil: 'networkidle' });
   await staffPage.waitForURL(`${baseUrl}/workspace#organization`);
-  await staffPage.getByRole('link', { name: 'Inventario y catálogo' }).waitFor();
+  await staffPage.getByRole('link', { name: 'Productos e inventario' }).waitFor();
   await staffContext.close();
+
+  const veterinarianContext = await browser.newContext();
+  const veterinarianPage = await veterinarianContext.newPage();
+  await loginStaff(veterinarianPage, process.env.AV_DEMO_VETERINARIO_AURORA_EMAIL,
+    process.env.AV_DEMO_VETERINARIO_AURORA_PASSWORD);
+  await veterinarianPage.getByRole('link', { name: 'Organización' }).click();
+  await veterinarianPage.locator('#organization').waitFor();
+  await veterinarianPage.getByRole('heading', { name: 'Información de la veterinaria' }).waitFor();
+  assert.equal(await veterinarianPage.getByRole('link', { name: 'Citas y agenda' }).count(), 0,
+    'a VETERINARIO must not receive scheduling management access through navigation');
+  assert.equal(await veterinarianPage.getByRole('link', { name: 'Productos e inventario' }).count(), 0,
+    'a VETERINARIO must not receive catalog administration access through navigation');
+  await veterinarianContext.close();
 
   process.stdout.write('DEMO_SESSION_NAVIGATION_BROWSER_E2E=PASS\n');
 } finally {
@@ -70,10 +85,10 @@ async function loginClient(page) {
   await page.waitForURL(`${baseUrl}/client-space`);
 }
 
-async function loginStaff(page) {
+async function loginStaff(page, email = staffEmail, password = process.env.AV_DEMO_AURORA_PASSWORD) {
   await page.goto(`${baseUrl}/login/veterinaria-aurora`, { waitUntil: 'networkidle' });
-  await page.getByLabel('Correo institucional').fill(staffEmail);
-  await page.getByLabel(/Contrase/).fill(process.env.AV_DEMO_AURORA_PASSWORD);
+  await page.getByLabel('Correo institucional').fill(email);
+  await page.getByLabel(/Contrase/).fill(password);
   await page.getByRole('button', { name: 'Ingresar' }).click();
   await page.waitForURL(`${baseUrl}/workspace`);
 }

@@ -11,6 +11,10 @@ export const sessionGuard: CanActivateFn = () => {
     return context?.accountType === 'STAFF' && context.tenant !== null;
   };
   const staffLogin = () => router.createUrlTree(['/login', auth.context()?.tenant?.slug ?? 'veterinaria-aurora']);
+  const expiredStaffLogin = () => router.createUrlTree(
+    ['/login', auth.context()?.tenant?.slug ?? 'veterinaria-aurora'],
+    { queryParams: { reason: 'session-expired' } },
+  );
   if (auth.context()) {
     return isAuthorized() ? true : staffLogin();
   }
@@ -18,7 +22,7 @@ export const sessionGuard: CanActivateFn = () => {
     map(() => isAuthorized() ? true : staffLogin()),
     catchError(() => {
       auth.clear();
-      return of(staffLogin());
+      return of(expiredStaffLogin());
     }),
   );
 };
@@ -37,7 +41,7 @@ export const saasSessionGuard: CanActivateFn = () => {
     map(() => isAuthorized() ? true : router.createUrlTree(['/saas/login'])),
     catchError(() => {
       auth.clear();
-      return of(router.createUrlTree(['/saas/login']));
+      return of(router.createUrlTree(['/saas/login'], { queryParams: { reason: 'session-expired' } }));
     }),
   );
 };
@@ -53,7 +57,7 @@ export const clientSessionGuard: CanActivateFn = () => {
     map(() => isAuthorized() ? true : router.createUrlTree(['/client/login/veterinaria-aurora'])),
     catchError(() => {
       auth.clear();
-      return of(router.createUrlTree(['/client/login/veterinaria-aurora']));
+      return of(router.createUrlTree(['/client/login/veterinaria-aurora'], { queryParams: { reason: 'session-expired' } }));
     }),
   );
 };

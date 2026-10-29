@@ -5,6 +5,9 @@
     <p class="context">
       Contexto solicitado: <strong>{{ tenantLabel() }}</strong>
     </p>
+    <p class="session-notice" role="status" *ngIf="sessionExpired()">
+      Tu sesión venció o dejó de ser válida. Inicia sesión nuevamente para continuar.
+    </p>
 
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <label for="email">{{ isClient() ? 'Correo de cliente' : 'Correo institucional' }}</label>
