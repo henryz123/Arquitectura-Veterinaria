@@ -6,14 +6,19 @@ import { AuthStateService } from './auth-state.service';
 export const sessionGuard: CanActivateFn = () => {
   const auth = inject(AuthStateService);
   const router = inject(Router);
+  const isAuthorized = () => {
+    const context = auth.context();
+    return context?.accountType === 'STAFF' && context.tenant !== null;
+  };
+  const staffLogin = () => router.createUrlTree(['/login', auth.context()?.tenant?.slug ?? 'veterinaria-aurora']);
   if (auth.context()) {
-    return true;
+    return isAuthorized() ? true : staffLogin();
   }
   return auth.restoreContext().pipe(
-    map(() => true),
+    map(() => isAuthorized() ? true : staffLogin()),
     catchError(() => {
       auth.clear();
-      return of(router.createUrlTree(['/login/veterinaria-aurora']));
+      return of(staffLogin());
     }),
   );
 };

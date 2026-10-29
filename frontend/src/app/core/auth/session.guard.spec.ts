@@ -4,7 +4,7 @@ import { provideRouter, UrlTree } from '@angular/router';
 import { of } from 'rxjs';
 import { AuthStateService } from './auth-state.service';
 import { SessionContext } from '../api/api.models';
-import { clientSessionGuard, saasSessionGuard } from './session.guard';
+import { clientSessionGuard, saasSessionGuard, sessionGuard } from './session.guard';
 
 describe('saasSessionGuard', () => {
   const context = signal<SessionContext | null>(null);
@@ -42,5 +42,30 @@ describe('saasSessionGuard', () => {
     const denied = TestBed.runInInjectionContext(() => clientSessionGuard({} as never, {} as never));
     expect(denied).toBeInstanceOf(UrlTree);
     expect((denied as UrlTree).toString()).toBe('/client/login/veterinaria-aurora');
+  });
+
+  it('redirects a CLIENT session away from the STAFF workspace', () => {
+    context.set({
+      accountType: 'CLIENT',
+      tenant: { slug: 'veterinaria-aurora', commercialName: 'Aurora', status: 'ACTIVO' },
+      roles: [],
+    });
+
+    const denied = TestBed.runInInjectionContext(() => sessionGuard({} as never, {} as never));
+
+    expect(denied).toBeInstanceOf(UrlTree);
+    expect((denied as UrlTree).toString()).toBe('/login/veterinaria-aurora');
+  });
+
+  it('allows an authenticated STAFF session into the workspace', () => {
+    context.set({
+      accountType: 'STAFF',
+      tenant: { slug: 'veterinaria-aurora', commercialName: 'Aurora', status: 'ACTIVO' },
+      roles: ['ADMIN_VETERINARIA'],
+    });
+
+    const allowed = TestBed.runInInjectionContext(() => sessionGuard({} as never, {} as never));
+
+    expect(allowed).toBe(true);
   });
 });

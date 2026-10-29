@@ -4,11 +4,20 @@
     <button type="button" (click)="logout()">Cerrar sesion</button>
   </header>
 
+  <nav class="client-nav" aria-label="Navegación del espacio cliente">
+    <button type="button" [class.is-active]="activeSection() === 'home'" (click)="showSection('home')">Inicio</button>
+    <button type="button" [class.is-active]="activeSection() === 'pets'" (click)="showSection('pets')">Mis mascotas</button>
+    <button type="button" [class.is-active]="activeSection() === 'register-pet'" (click)="showSection('register-pet')">Registrar mascota</button>
+    <button type="button" [class.is-active]="activeSection() === 'appointments'" (click)="showSection('appointments')">Mis citas</button>
+    <button type="button" [class.is-active]="activeSection() === 'request-appointment'" (click)="showSection('request-appointment')">Solicitar cita</button>
+    <button type="button" [class.is-active]="activeSection() === 'profile'" (click)="showSection('profile')">Mis datos</button>
+  </nav>
+
   <section *ngIf="loading()" aria-live="polite">Cargando tu informacion autorizada...</section>
   <section class="feedback" role="alert" *ngIf="error()">{{ error() }}</section>
   <section class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</section>
 
-  <section class="client-panel" *ngIf="space() as clientSpace">
+  <section class="client-panel" id="client-home" *ngIf="space() as clientSpace">
     <p class="eyebrow">Espacio privado</p>
     <h1 id="client-space-title">{{ clientSpace.commercialName }}</h1>
     <p>{{ clientSpace.message }}</p>
@@ -17,7 +26,7 @@
       <div><dt>Acceso actual</dt><dd>Solo informacion propia autorizada</dd></div>
     </dl>
 
-    <section class="link-panel" *ngIf="linkStatus() as link">
+    <section class="link-panel" *ngIf="isSection('home') && linkStatus() as link">
       <h2>Vincular registros presenciales</h2>
       <p *ngIf="link.status === 'SIN_SOLICITUD'">Solicita una revision manual si ya tenias registros en esta veterinaria. No se mostraran coincidencias ni datos de terceros.</p>
       <p *ngIf="link.status === 'PENDIENTE'">Tu solicitud <strong>{{ link.requestReference }}</strong> esta pendiente de revision. La verificacion se realiza con personal autorizado.</p>
@@ -28,10 +37,22 @@
       </button>
     </section>
 
-    <section class="pet-panel" aria-labelledby="client-pets-title">
+    <section class="home-actions" *ngIf="isSection('home')">
+      <div>
+        <p class="eyebrow">Accesos rápidos</p>
+        <h2>¿Qué deseas hacer?</h2>
+        <p>Elige una opción para consultar o actualizar tu información autorizada.</p>
+      </div>
+      <div class="home-action-buttons">
+        <button class="link-action" type="button" (click)="showSection('pets')">Ver mis mascotas</button>
+        <button class="link-action link-action-secondary" type="button" (click)="showSection('register-pet')">Registrar mascota</button>
+      </div>
+    </section>
+
+    <section class="pet-panel" id="client-pets" *ngIf="isSection('pets')" aria-labelledby="client-pets-title">
       <div>
         <p class="eyebrow">Mis mascotas</p>
-        <h2 id="client-pets-title">Fichas basicas autorizadas</h2>
+        <h2 id="client-pets-title">Mis mascotas</h2>
       </div>
       <div class="pet-cards" *ngIf="pets().length; else noPets">
         <article *ngFor="let pet of pets()">
@@ -44,11 +65,11 @@
       <ng-template #noPets><p class="notice">No tienes fichas de mascotas vigentes autorizadas todavia. El portal no muestra historia clinica, diagnosticos ni prescripciones.</p></ng-template>
     </section>
 
-    <section class="schedule-panel" *ngIf="linkStatus()?.status === 'APROBADA'" aria-labelledby="client-schedule-title">
-      <p class="eyebrow">Solicitar cita o grooming</p>
-      <h2 id="client-schedule-title">Proponer un horario</h2>
+    <section class="schedule-panel" id="client-appointments" *ngIf="linkStatus()?.status === 'APROBADA' && isSection('appointments', 'request-appointment')" aria-labelledby="client-schedule-title">
+      <p class="eyebrow">Citas</p>
+      <h2 id="client-schedule-title">{{ activeSection() === 'request-appointment' ? 'Solicitar cita' : 'Mis citas y solicitudes' }}</h2>
       <p>La solicitud no reserva un cupo. Recepcion o administracion la revisara, asignara al profesional disponible y confirmara el resultado.</p>
-      <form #scheduleForm="ngForm" (ngSubmit)="createScheduleRequest()">
+      <form id="client-appointment-request" *ngIf="isSection('request-appointment')" #scheduleForm="ngForm" (ngSubmit)="createScheduleRequest()">
         <label>Mascota
           <select name="schedulePet" [(ngModel)]="scheduleDraft.petId" required>
             <option value="" disabled>Selecciona una mascota</option>
@@ -65,7 +86,8 @@
         <label>Observacion general (opcional)<input name="scheduleObservation" [(ngModel)]="scheduleDraft.observation" maxlength="1000"></label>
         <button class="link-action" type="submit" [disabled]="scheduleForm.invalid || actionPending() || !pets().length || !scheduleServices().length">Enviar solicitud</button>
       </form>
-      <p class="notice" *ngIf="!pets().length || !scheduleServices().length">Necesitas una mascota vigente y un servicio publicado para enviar una solicitud.</p>
+      <p class="notice" *ngIf="isSection('request-appointment') && (!pets().length || !scheduleServices().length)">Necesitas una mascota vigente y un servicio publicado para enviar una solicitud.</p>
+      <ng-container *ngIf="isSection('appointments')">
       <div class="schedule-list" *ngIf="scheduleRequests().length; else noScheduleRequests">
         <article *ngFor="let request of scheduleRequests()" [attr.data-request-id]="request.id">
           <strong>{{ serviceName(request.serviceId) }}</strong>
@@ -81,11 +103,12 @@
         </article>
       </div>
       <ng-template #noScheduleRequests><p class="notice">Aun no has enviado solicitudes de cita o grooming.</p></ng-template>
+      </ng-container>
     </section>
 
-    <section class="profile-panel" *ngIf="linkStatus()?.status === 'APROBADA' && ownerProfile()" aria-labelledby="client-profile-title">
+    <section class="profile-panel" id="client-profile" *ngIf="isSection('profile') && linkStatus()?.status === 'APROBADA' && ownerProfile()" aria-labelledby="client-profile-title">
       <p class="eyebrow">Datos propios</p>
-      <h2 id="client-profile-title">Ficha basica autorizada</h2>
+      <h2 id="client-profile-title">Mis datos</h2>
       <p>Actualiza solo tus datos de contacto. El correo usado para iniciar sesion se gestiona por separado.</p>
       <form #ownerForm="ngForm" (ngSubmit)="saveOwnerProfile()">
         <label>Nombres<input name="givenNames" [(ngModel)]="ownerDraft.givenNames" required maxlength="120"></label>
@@ -97,9 +120,9 @@
       </form>
     </section>
 
-    <section class="profile-panel" *ngIf="linkStatus()?.status === 'APROBADA'" aria-labelledby="client-create-pet-title">
+    <section class="profile-panel" id="client-register-pet" *ngIf="isSection('register-pet') && linkStatus()?.status === 'APROBADA'" aria-labelledby="client-create-pet-title">
       <p class="eyebrow">Nueva mascota</p>
-      <h2 id="client-create-pet-title">Registrar ficha basica</h2>
+      <h2 id="client-create-pet-title">Registrar mascota</h2>
       <p>La mascota quedara asociada a tu responsabilidad vigente. No se crean ni exponen registros clinicos desde este formulario.</p>
       <form #newPetForm="ngForm" (ngSubmit)="createPet()">
         <label>Nombre<input name="newPetName" [(ngModel)]="newPetDraft.name" required maxlength="120"></label>
@@ -113,7 +136,7 @@
       </form>
     </section>
 
-    <section class="profile-panel" *ngIf="editingPet() as pet" aria-labelledby="client-edit-pet-title">
+    <section class="profile-panel" *ngIf="isSection('pets') && editingPet() as pet" aria-labelledby="client-edit-pet-title">
       <p class="eyebrow">Editar ficha propia</p>
       <h2 id="client-edit-pet-title">{{ pet.name }}</h2>
       <p>Solo se modifican datos basicos. La responsabilidad vigente y la informacion clinica no cambian aqui.</p>

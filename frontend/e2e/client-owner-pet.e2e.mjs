@@ -87,7 +87,8 @@ try {
     && new URL(response.url()).pathname === '/api/v1/session-context');
   await auroraPage.reload({ waitUntil: 'networkidle' });
   assert.equal((await restoredContext).status(), 200, 'the client session must recover after a browser reload');
-  await auroraPage.getByRole('heading', { name: 'Ficha basica autorizada' }).waitFor();
+  await auroraPage.getByRole('button', { name: 'Mis datos' }).click();
+  await auroraPage.getByRole('heading', { name: 'Mis datos' }).waitFor();
 
   const ownerProfile = await browserFetch(auroraPage, '/api/v1/client/owner-profile');
   assert.equal(ownerProfile.status, 200, 'an approved client must read only its own basic profile');
@@ -102,6 +103,7 @@ try {
 
   let editablePet = await findClientPet(auroraPage, editablePetFixture.name);
   if (!editablePet) {
+    await auroraPage.getByRole('button', { name: 'Registrar mascota' }).click();
     const petCreated = auroraPage.waitForResponse((response) => response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/v1/client/pets');
     await auroraPage.locator('input[name="newPetName"]').fill(editablePetFixture.name);
@@ -110,12 +112,13 @@ try {
     await auroraPage.locator('select[name="newPetSex"]').selectOption(editablePetFixture.sex);
     await auroraPage.locator('input[name="newPetEstimatedAge"]').fill(String(editablePetFixture.estimatedAgeMonths));
     await auroraPage.locator('input[name="newPetMarks"]').fill(editablePetFixture.distinguishingMarks);
-    await auroraPage.getByRole('button', { name: 'Registrar mascota' }).click();
+    await auroraPage.locator('#client-register-pet').getByRole('button', { name: 'Registrar mascota' }).click();
     assert.equal((await petCreated).status(), 201, 'the client UI must persist a basic pet under its current responsibility');
     editablePet = await findClientPet(auroraPage, editablePetFixture.name);
   }
   assert.ok(editablePet?.id, 'the editable pet fixture must be tenant-local and visible to its client');
 
+  await auroraPage.getByRole('button', { name: 'Mis mascotas' }).click();
   const editableCard = auroraPage.locator('.pet-cards article').filter({ hasText: editablePetFixture.name });
   await editableCard.getByRole('button', { name: 'Editar ficha basica' }).click();
   const petSaved = auroraPage.waitForResponse((response) => response.request().method() === 'PUT'
@@ -187,7 +190,7 @@ async function loginStaffCare(page) {
   await page.getByRole('button', { name: 'Ingresar' }).click();
   await page.waitForURL(`${baseUrl}/workspace`);
   await page.goto(`${baseUrl}/care`, { waitUntil: 'networkidle' });
-  await page.getByRole('heading', { name: 'Registrar y atender' }).waitFor();
+  await page.getByRole('heading', { name: 'Clientes y mascotas' }).waitFor();
 }
 
 async function clientLinkStatus(page) {

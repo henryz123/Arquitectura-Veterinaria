@@ -29,11 +29,12 @@ try {
   await page.getByLabel('Contraseña').fill(process.env.AV_DEMO_CLIENT_AURORA_PASSWORD);
   await page.getByRole('button', { name: 'Ingresar' }).click();
   await page.waitForURL(`${baseUrl}/client-space`);
-  await page.getByRole('heading', { name: 'Registrar ficha basica' }).waitFor();
+  await page.getByRole('button', { name: 'Registrar mascota' }).click();
+  await page.getByRole('heading', { name: 'Registrar mascota' }).waitFor();
 
   await page.locator('input[name="newPetName"]').fill(petName);
   await page.locator('input[name="newPetSpecies"]').fill('Canino');
-  await page.getByRole('button', { name: 'Registrar mascota' }).click();
+  await page.locator('#client-register-pet').getByRole('button', { name: 'Registrar mascota' }).click();
   await page.getByRole('alert').filter({ hasText: 'Indica una fecha de nacimiento o una edad estimada' }).waitFor();
 
   await page.locator('input[name="newPetBreed"]').fill('Mestizo');
@@ -41,7 +42,7 @@ try {
   await page.locator('input[name="newPetEstimatedAge"]').fill('24');
   const created = page.waitForResponse((response) => response.request().method() === 'POST'
     && new URL(response.url()).pathname === '/api/v1/client/pets');
-  await page.getByRole('button', { name: 'Registrar mascota' }).click();
+  await page.locator('#client-register-pet').getByRole('button', { name: 'Registrar mascota' }).click();
   const createResponse = await created;
   assert.equal(createResponse.status(), 201, 'the client pet form must persist the new authorized pet');
   const pet = (await createResponse.json()).data;
@@ -53,6 +54,7 @@ try {
     && new URL(response.url()).pathname === '/api/v1/client/pets');
   await page.reload({ waitUntil: 'networkidle' });
   assert.equal((await reloadedPets).status(), 200, 'the client pet list must reload from the authenticated API');
+  await page.getByRole('button', { name: 'Mis mascotas', exact: true }).click();
   await page.locator('.pet-cards article').filter({ hasText: petName }).waitFor();
   const persisted = await browserFetch(page, `/api/v1/client/pets/${pet.id}`);
   assert.equal(persisted.status, 200, 'the persisted pet must be readable after a full page reload');

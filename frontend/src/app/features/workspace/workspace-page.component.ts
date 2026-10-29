@@ -180,6 +180,25 @@ export class WorkspacePageComponent implements OnInit {
     return STAFF_ROLE_OPTIONS.find((option) => option.code === role)?.label ?? role;
   }
 
+  sessionRoleLabel(roles: string[]): string {
+    if (roles.includes('ADMIN_VETERINARIA')) {
+      return 'Administrador';
+    }
+    if (roles.includes('VETERINARIO')) {
+      return 'Veterinario';
+    }
+    if (roles.includes('RECEPCION')) {
+      return 'Recepción';
+    }
+    if (roles.includes('CAJERO')) {
+      return 'Caja';
+    }
+    if (roles.includes('GROOMING')) {
+      return 'Grooming';
+    }
+    return 'Personal autorizado';
+  }
+
   statusLabel(status: StaffAccount['status'] | TenantProfile['status']): string {
     return status === 'ACTIVA' || status === 'ACTIVO' ? 'Activo' : status === 'INVITADA' ? 'Invitada' : 'Desactivado';
   }

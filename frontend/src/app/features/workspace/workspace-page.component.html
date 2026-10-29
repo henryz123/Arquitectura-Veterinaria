@@ -9,17 +9,17 @@
       </div>
     </div>
     <nav>
-      <a href="#summary" aria-current="page">Resumen</a>
-      <a routerLink="/care">Propietarios y clínica</a>
+      <a routerLink="/workspace" fragment="summary" aria-current="page">Inicio</a>
+      <a routerLink="/care">Clientes y mascotas</a>
       <a routerLink="/schedule" *ngIf="canManageSchedule()">Agenda</a>
       <a routerLink="/inventory" *ngIf="canManageStaff()">Inventario y catálogo</a>
       <a routerLink="/pos" *ngIf="canUsePos()">Punto de venta</a>
       <a routerLink="/grooming" *ngIf="session.roles.includes('GROOMING')">Mis servicios grooming</a>
-      <a href="#team" *ngIf="canManageStaff()">Equipo y roles</a>
-      <a href="#invitation" *ngIf="canManageStaff()">Nueva invitación</a>
-      <a href="#organization">Organización</a>
+      <a routerLink="/workspace" fragment="team" *ngIf="canManageStaff()">Equipo y roles</a>
+      <a routerLink="/workspace" fragment="invitation" *ngIf="canManageStaff()">Nueva invitación</a>
+      <a routerLink="/workspace" fragment="organization">Organización</a>
     </nav>
-    <p class="sidebar-note">Sesión STAFF protegida por tenant.</p>
+    <p class="sidebar-note">Acceso restringido a esta veterinaria.</p>
   </aside>
 
   <div class="workspace-body">
@@ -35,8 +35,8 @@
       <div class="page-heading" id="summary">
         <div>
           <p class="eyebrow">Espacio autorizado</p>
-          <h1 id="workspace-title">Operación y equipo</h1>
-          <p>Gestiona la organización y sus cuentas laborales desde datos reales del tenant actual.</p>
+          <h1 id="workspace-title">Inicio</h1>
+          <p>Consulta la información de la veterinaria y accede a las funciones disponibles para tu cuenta.</p>
         </div>
         <span class="status-pill" [class.status-ok]="tenantStatus() === 'ACTIVO'">{{ statusLabel(tenantStatus()) }}</span>
       </div>
@@ -49,7 +49,7 @@
         <article class="summary-card">
           <p>Veterinaria autorizada</p>
           <strong>{{ tenant.commercialName }}</strong>
-          <span>{{ tenant.slug }}</span>
+          <span>Sesión actual</span>
         </article>
         <article class="summary-card" *ngIf="canManageStaff()">
           <p>Equipo activo</p>
@@ -58,14 +58,14 @@
         </article>
         <article class="summary-card">
           <p>Rol efectivo</p>
-          <strong>{{ session.roles.includes('ADMIN_VETERINARIA') ? 'Administrador' : 'Colaborador' }}</strong>
-          <span>permisos confirmados por el servidor</span>
+          <strong>{{ sessionRoleLabel(session.roles) }}</strong>
+          <span>permisos confirmados por el sistema</span>
         </article>
       </section>
 
       <section class="access-notice" *ngIf="!canManageStaff() && !loading()">
-        <h2>Vista limitada por rol</h2>
-        <p>Tu sesión puede consultar la organización, pero no tiene autorización para gestionar trabajadores o roles.</p>
+        <h2>Opciones disponibles para tu cuenta</h2>
+        <p>Esta cuenta puede consultar la veterinaria, pero no gestionar el equipo ni los permisos del personal.</p>
       </section>
 
       <section class="management-grid" *ngIf="canManageStaff()">
@@ -104,16 +104,16 @@
           <div class="panel-heading">
             <div>
               <p class="eyebrow">Organización</p>
-              <h2>Información del tenant</h2>
+              <h2>Información de la veterinaria</h2>
             </div>
           </div>
           <dl class="details-list">
             <div><dt>Nombre comercial</dt><dd>{{ tenant.commercialName }}</dd></div>
-            <div><dt>Identificador</dt><dd>{{ tenant.slug }}</dd></div>
+            <div><dt>Sesión</dt><dd>Veterinaria actual</dd></div>
             <div><dt>Estado</dt><dd>{{ statusLabel(tenant.status) }}</dd></div>
             <div><dt>Contexto</dt><dd>Una veterinaria por sesión</dd></div>
           </dl>
-          <p class="panel-note">La API solo devuelve el perfil del tenant de la sesión. No se pueden consultar otras organizaciones desde esta vista.</p>
+          <p class="panel-note">Esta vista muestra solo la veterinaria de la sesión actual. No permite consultar otras organizaciones.</p>
         </article>
       </section>
 

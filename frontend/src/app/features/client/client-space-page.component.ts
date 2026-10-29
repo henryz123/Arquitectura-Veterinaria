@@ -8,6 +8,8 @@ import { ClientOwnerLinkStatus, ClientPetProfile, ClientScheduleProposal, Client
 import { ScheduleApiService } from '../../core/api/schedule-api.service';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 
+type ClientSection = 'home' | 'pets' | 'register-pet' | 'appointments' | 'request-appointment' | 'profile';
+
 @Component({
   selector: 'app-client-space-page',
   imports: [FormsModule, NgFor, NgIf, RouterLink],
@@ -28,6 +30,7 @@ export class ClientSpacePageComponent implements OnInit {
   readonly scheduleProposals = signal<ClientScheduleProposal[]>([]);
   readonly ownerProfile = signal<OwnerProfile | null>(null);
   readonly editingPet = signal<ClientPetProfile | null>(null);
+  readonly activeSection = signal<ClientSection>('home');
   readonly loading = signal(true);
   readonly actionPending = signal(false);
   readonly error = signal<string | null>(null);
@@ -68,6 +71,14 @@ export class ClientSpacePageComponent implements OnInit {
   canRequestLink(): boolean {
     const status = this.linkStatus()?.status ?? 'SIN_SOLICITUD';
     return status === 'SIN_SOLICITUD' || status === 'RECHAZADA';
+  }
+
+  showSection(section: ClientSection): void {
+    this.activeSection.set(section);
+  }
+
+  isSection(...sections: ClientSection[]): boolean {
+    return sections.includes(this.activeSection());
   }
 
   requestOwnerLink(): void {
@@ -114,6 +125,7 @@ export class ClientSpacePageComponent implements OnInit {
       next: (response) => {
         this.pets.update((pets) => [...pets, response.data].sort((left, right) => left.name.localeCompare(right.name)));
         Object.assign(this.newPetDraft, this.emptyPetDraft());
+        this.activeSection.set('pets');
         this.notice.set('La ficha basica de tu mascota fue registrada. La historia clinica sigue siendo privada.');
       },
       error: () => this.error.set('No fue posible registrar la mascota. Verifica los datos basicos e intentalo nuevamente.'),
@@ -121,6 +133,7 @@ export class ClientSpacePageComponent implements OnInit {
   }
 
   beginPetEdit(pet: ClientPetProfile): void {
+    this.activeSection.set('pets');
     this.editingPet.set(pet);
     Object.assign(this.petEditDraft, {
       name: pet.name,
@@ -184,6 +197,7 @@ export class ClientSpacePageComponent implements OnInit {
 				this.scheduleRequests.update((requests) => [...requests, response.data]
 					.sort((left, right) => left.requestedStartsAt.localeCompare(right.requestedStartsAt)));
 				Object.assign(this.scheduleDraft, { petId: '', serviceId: '', requestedStartsAt: '', observation: '' });
+				this.activeSection.set('appointments');
 				this.notice.set('Tu solicitud quedÃ³ registrada. AÃºn no reserva un cupo: recepciÃ³n o administraciÃ³n confirmarÃ¡ la disponibilidad.');
 			},
 			error: () => this.error.set('No fue posible registrar la solicitud. Verifica que tu vinculaciÃ³n y la mascota sigan vigentes.'),
