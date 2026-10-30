@@ -1,6 +1,6 @@
 import { DecimalPipe, NgFor, NgIf } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import {
@@ -14,6 +14,7 @@ import {
 } from '../../core/api/api.models';
 import { ScheduleApiService } from '../../core/api/schedule-api.service';
 import { AuthStateService } from '../../core/auth/auth-state.service';
+import { NotificationService } from '../../core/notifications/notification.service';
 
 @Component({
   selector: 'app-schedule-page',
@@ -27,6 +28,7 @@ export class SchedulePageComponent implements OnInit {
   private readonly auth = inject(AuthStateService);
   private readonly router = inject(Router);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly notifications = inject(NotificationService);
 
   readonly context = this.auth.context;
   readonly professionals = signal<AssignableProfessional[]>([]);
@@ -45,6 +47,14 @@ export class SchedulePageComponent implements OnInit {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
+  private lastNotice: string | null = null;
+  private readonly announceNotice = effect(() => {
+    const message = this.notice();
+    if (message && message !== this.lastNotice) {
+      this.notifications.success(message);
+    }
+    this.lastNotice = message;
+  });
   readonly weekdays = [
     { value: 1, label: 'Lunes' },
     { value: 2, label: 'Martes' },
@@ -197,6 +207,7 @@ export class SchedulePageComponent implements OnInit {
 		if (this.scheduleBlockForm.invalid) {
 			this.scheduleBlockForm.markAllAsTouched();
 			this.error.set('Completa el alcance, intervalo y motivo del bloqueo antes de guardarlo.');
+			this.notifications.warning('Completa el alcance, intervalo y motivo del bloqueo antes de guardarlo.');
 			return;
 		}
 		const value = this.scheduleBlockForm.getRawValue();
@@ -204,10 +215,12 @@ export class SchedulePageComponent implements OnInit {
 		const endsAt = new Date(value.endsAt);
 		if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) {
 			this.error.set('El final del bloqueo debe ser posterior a su inicio.');
+			this.notifications.warning('El final del bloqueo debe ser posterior a su inicio.');
 			return;
 		}
 		if (value.blockScope === 'PROFESIONAL' && !value.professionalPrincipalId) {
 			this.error.set('Selecciona un profesional vigente para registrar su ausencia.');
+			this.notifications.warning('Selecciona un profesional vigente para registrar su ausencia.');
 			return;
 		}
 		this.saving.set(true);
@@ -442,6 +455,7 @@ export class SchedulePageComponent implements OnInit {
     if (form.invalid) {
       form.markAllAsTouched();
       this.error.set(message);
+      this.notifications.warning(message);
       return false;
     }
     return true;
@@ -450,7 +464,9 @@ export class SchedulePageComponent implements OnInit {
   private validateTimeForm(form: typeof this.operatingHoursForm | typeof this.professionalAvailabilityForm, message: string): boolean {
     if (form.invalid || form.controls.endsAtLocal.value <= form.controls.startsAtLocal.value) {
       form.markAllAsTouched();
-      this.error.set(form.invalid ? message : 'La hora final debe ser posterior a la hora inicial.');
+      const validationMessage = form.invalid ? message : 'La hora final debe ser posterior a la hora inicial.';
+      this.error.set(validationMessage);
+      this.notifications.warning(validationMessage);
       return false;
     }
     return true;
@@ -465,5 +481,14 @@ export class SchedulePageComponent implements OnInit {
   private failSave(message: string): void {
     this.saving.set(false);
     this.error.set(message);
+  }
+
+  isInvalid(control: AbstractControl): boolean {
+    return control.invalid && control.touched;
+  }
+
+  timeRangeInvalid(form: typeof this.operatingHoursForm | typeof this.professionalAvailabilityForm): boolean {
+    return (form.controls.startsAtLocal.touched || form.controls.endsAtLocal.touched)
+      && form.controls.endsAtLocal.value <= form.controls.startsAtLocal.value;
   }
 }

@@ -43,7 +43,6 @@
 
       <p class="loading" *ngIf="loading()">Cargando datos autorizados…</p>
       <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
-      <p class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</p>
 
       <section class="summary-grid" *ngIf="profile() as tenant">
         <article class="summary-card">
@@ -97,19 +96,19 @@
             <div class="field-group">
               <label for="invite-email">Correo institucional</label>
               <input id="invite-email" type="email" autocomplete="email" formControlName="email"
-                [attr.aria-invalid]="inviteSubmitted() && invitationForm.controls.email.invalid"
-                [attr.aria-describedby]="inviteSubmitted() && invitationForm.controls.email.invalid ? 'invite-email-error' : null" />
-              <p class="field-error" id="invite-email-error" role="alert" *ngIf="inviteSubmitted() && invitationForm.controls.email.invalid">
+                [attr.aria-invalid]="invitationFieldInvalid(invitationForm.controls.email) ? 'true' : null"
+                [attr.aria-describedby]="invitationFieldInvalid(invitationForm.controls.email) ? 'invite-email-error' : null" />
+              <p class="field-error" id="invite-email-error" role="alert" *ngIf="invitationFieldInvalid(invitationForm.controls.email)">
                 Ingresa un correo válido para la cuenta laboral.
               </p>
             </div>
             <div class="field-group">
               <label for="invite-roles">Roles iniciales</label>
-              <select id="invite-roles" formControlName="roles" multiple size="5" aria-describedby="invite-roles-help" [attr.aria-invalid]="inviteSubmitted() && invitationForm.controls.roles.invalid">
+              <select id="invite-roles" formControlName="roles" multiple size="5" [attr.aria-describedby]="invitationFieldInvalid(invitationForm.controls.roles) ? 'invite-roles-help invite-roles-error' : 'invite-roles-help'" [attr.aria-invalid]="invitationFieldInvalid(invitationForm.controls.roles) ? 'true' : null">
                 <option *ngFor="let role of roleOptions" [ngValue]="role.code">{{ role.label }}</option>
               </select>
               <p id="invite-roles-help" class="helper">Usa Ctrl o Cmd para seleccionar más de un rol.</p>
-              <p class="field-error" role="alert" *ngIf="inviteSubmitted() && invitationForm.controls.roles.invalid">Selecciona al menos un rol.</p>
+              <p id="invite-roles-error" class="field-error" role="alert" *ngIf="invitationFieldInvalid(invitationForm.controls.roles)">Selecciona al menos un rol.</p>
             </div>
             <button class="button button-primary" type="submit" [disabled]="actionPending()">
               {{ actionPending() ? 'Registrando invitación…' : 'Registrar invitación' }}

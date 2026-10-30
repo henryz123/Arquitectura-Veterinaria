@@ -37,7 +37,6 @@
 
       <p class="loading" *ngIf="loading()">Consultando agenda y permisos autorizados…</p>
       <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
-      <p class="feedback feedback-success" role="status" *ngIf="notice()">{{ notice() }}</p>
 
       <section class="overview-grid" *ngIf="!loading() && canManageSchedule()">
         <article class="panel summary-card">
@@ -79,16 +78,19 @@
                 </select>
               </label>
               <label class="field-group" for="service-name">Nombre
-                <input id="service-name" type="text" formControlName="name" maxlength="160" autocomplete="off" />
+                <input id="service-name" type="text" formControlName="name" maxlength="160" autocomplete="off" [attr.aria-invalid]="isInvalid(serviceForm.controls.name) ? 'true' : null" [attr.aria-describedby]="isInvalid(serviceForm.controls.name) ? 'service-name-error' : null" />
+                <span id="service-name-error" class="field-error" role="alert" *ngIf="isInvalid(serviceForm.controls.name)">Indica el nombre del servicio.</span>
               </label>
               <label class="field-group full" for="service-description">Descripción pública <span class="optional">Opcional</span>
                 <textarea id="service-description" formControlName="publicDescription" maxlength="1000" rows="3"></textarea>
               </label>
               <label class="field-group" for="service-duration">Duración (minutos)
-                <input id="service-duration" type="number" min="15" max="480" step="15" formControlName="durationMinutes" />
+                <input id="service-duration" type="number" min="15" max="480" step="15" formControlName="durationMinutes" [attr.aria-invalid]="isInvalid(serviceForm.controls.durationMinutes) ? 'true' : null" [attr.aria-describedby]="isInvalid(serviceForm.controls.durationMinutes) ? 'service-duration-error' : null" />
+                <span id="service-duration-error" class="field-error" role="alert" *ngIf="isInvalid(serviceForm.controls.durationMinutes)">Usa entre 15 y 480 minutos.</span>
               </label>
               <label class="field-group" for="service-price">Precio referencial (S/)
-                <input id="service-price" type="number" min="0" step="0.01" formControlName="referencePrice" />
+                <input id="service-price" type="number" min="0" step="0.01" formControlName="referencePrice" [attr.aria-invalid]="isInvalid(serviceForm.controls.referencePrice) ? 'true' : null" [attr.aria-describedby]="isInvalid(serviceForm.controls.referencePrice) ? 'service-price-error' : null" />
+                <span id="service-price-error" class="field-error" role="alert" *ngIf="isInvalid(serviceForm.controls.referencePrice)">Indica un precio no negativo.</span>
               </label>
               <label class="checkbox-field full" for="service-published">
                 <input id="service-published" type="checkbox" formControlName="published" />
@@ -137,10 +139,11 @@
                 <select id="operating-weekday" formControlName="weekday"><option *ngFor="let weekday of weekdays" [value]="weekday.value">{{ weekday.label }}</option></select>
               </label>
               <label class="field-group" for="operating-start">Inicio
-                <input id="operating-start" type="time" formControlName="startsAtLocal" />
+                <input id="operating-start" type="time" formControlName="startsAtLocal" [attr.aria-invalid]="timeRangeInvalid(operatingHoursForm) ? 'true' : null" [attr.aria-describedby]="timeRangeInvalid(operatingHoursForm) ? 'operating-hours-error' : null" />
               </label>
               <label class="field-group" for="operating-end">Fin
-                <input id="operating-end" type="time" formControlName="endsAtLocal" />
+                <input id="operating-end" type="time" formControlName="endsAtLocal" [attr.aria-invalid]="timeRangeInvalid(operatingHoursForm) ? 'true' : null" [attr.aria-describedby]="timeRangeInvalid(operatingHoursForm) ? 'operating-hours-error' : null" />
+                <span id="operating-hours-error" class="field-error" role="alert" *ngIf="timeRangeInvalid(operatingHoursForm)">La hora final debe ser posterior a la hora inicial.</span>
               </label>
             </div>
             <p class="helper">Las horas se interpretan en America/Lima.</p>
@@ -165,10 +168,11 @@
                 <select id="professional-weekday" formControlName="weekday"><option *ngFor="let weekday of weekdays" [value]="weekday.value">{{ weekday.label }}</option></select>
               </label>
               <label class="field-group" for="professional-start">Inicio
-                <input id="professional-start" type="time" formControlName="startsAtLocal" />
+                <input id="professional-start" type="time" formControlName="startsAtLocal" [attr.aria-invalid]="timeRangeInvalid(professionalAvailabilityForm) ? 'true' : null" [attr.aria-describedby]="timeRangeInvalid(professionalAvailabilityForm) ? 'professional-hours-error' : null" />
               </label>
               <label class="field-group" for="professional-end">Fin
-                <input id="professional-end" type="time" formControlName="endsAtLocal" />
+                <input id="professional-end" type="time" formControlName="endsAtLocal" [attr.aria-invalid]="timeRangeInvalid(professionalAvailabilityForm) ? 'true' : null" [attr.aria-describedby]="timeRangeInvalid(professionalAvailabilityForm) ? 'professional-hours-error' : null" />
+                <span id="professional-hours-error" class="field-error" role="alert" *ngIf="timeRangeInvalid(professionalAvailabilityForm)">La hora final debe ser posterior a la hora inicial.</span>
               </label>
             </div>
             <p class="helper" *ngIf="selectedProfessional() as professional">Roles vigentes: {{ roleSummary(professional) }}. La validación se repite en el servidor.</p>

@@ -1,5 +1,5 @@
 import { NgFor, NgIf } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive } from '@angular/router';
@@ -7,6 +7,7 @@ import { finalize, forkJoin, of } from 'rxjs';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
 import { SessionContext, StaffAccount, StaffRole, TenantProfile } from '../../core/api/api.models';
+import { NotificationService } from '../../core/notifications/notification.service';
 
 const STAFF_ROLE_OPTIONS: ReadonlyArray<{ code: StaffRole; label: string }> = [
   { code: 'ADMIN_VETERINARIA', label: 'Administración de veterinaria' },
@@ -32,11 +33,20 @@ export class WorkspacePageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly notifications = inject(NotificationService);
   readonly profile = signal<TenantProfile | null>(null);
   readonly staff = signal<StaffAccount[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
+  private lastNotice: string | null = null;
+  private readonly announceNotice = effect(() => {
+    const message = this.notice();
+    if (message && message !== this.lastNotice) {
+      this.notifications.success(message);
+    }
+    this.lastNotice = message;
+  });
   readonly actionPending = signal(false);
   readonly inviteSubmitted = signal(false);
   readonly rolesSubmitted = signal(false);
@@ -110,6 +120,9 @@ export class WorkspacePageComponent implements OnInit {
     this.inviteSubmitted.set(true);
     if (this.invitationForm.invalid || this.actionPending()) {
       this.invitationForm.markAllAsTouched();
+      if (!this.actionPending()) {
+        this.notifications.warning('Completa el correo y al menos un rol antes de registrar la invitación.');
+      }
       return;
     }
     this.error.set(null);
@@ -145,6 +158,9 @@ export class WorkspacePageComponent implements OnInit {
     this.rolesSubmitted.set(true);
     if (!member || this.rolesForm.controls.roles.value.length === 0 || this.actionPending()) {
       this.rolesForm.markAllAsTouched();
+      if (member && !this.actionPending()) {
+        this.notifications.warning('Selecciona al menos un rol antes de guardar los cambios.');
+      }
       return;
     }
     this.error.set(null);
@@ -220,6 +236,10 @@ export class WorkspacePageComponent implements OnInit {
 
   trackStaff(_: number, member: StaffAccount): string {
     return member.principalId;
+  }
+
+  invitationFieldInvalid(control: { invalid: boolean; touched: boolean }): boolean {
+    return control.invalid && (this.inviteSubmitted() || control.touched);
   }
 
   private reloadStaff(): void {

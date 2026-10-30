@@ -15,7 +15,6 @@
 
   <section *ngIf="loading()" aria-live="polite">Cargando tu informacion autorizada...</section>
   <section class="feedback" role="alert" *ngIf="error()">{{ error() }}</section>
-  <section class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</section>
 
   <section class="client-panel" id="client-home" *ngIf="space() as clientSpace">
     <p class="eyebrow">Espacio privado</p>
@@ -71,18 +70,18 @@
       <p>La solicitud no reserva un cupo. Recepcion o administracion la revisara, asignara al profesional disponible y confirmara el resultado.</p>
       <form id="client-appointment-request" *ngIf="isSection('request-appointment')" #scheduleForm="ngForm" (ngSubmit)="createScheduleRequest(scheduleForm)">
         <label>Mascota
-          <select name="schedulePet" [(ngModel)]="scheduleDraft.petId" required [class.input-invalid]="scheduleForm.submitted && scheduleForm.controls['schedulePet']?.invalid">
+          <select name="schedulePet" [(ngModel)]="scheduleDraft.petId" required [class.input-invalid]="fieldInvalid(scheduleForm, 'schedulePet')" [attr.aria-invalid]="fieldInvalid(scheduleForm, 'schedulePet') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(scheduleForm, 'schedulePet') ? 'schedule-pet-error' : null">
             <option value="" disabled>Selecciona una mascota</option>
             <option *ngFor="let pet of pets()" [value]="pet.id">{{ pet.name }} · {{ pet.species }}</option>
-          </select><span class="field-error" *ngIf="scheduleForm.submitted && scheduleForm.controls['schedulePet']?.invalid">Selecciona una mascota.</span>
+          </select><span id="schedule-pet-error" class="field-error" role="alert" *ngIf="fieldInvalid(scheduleForm, 'schedulePet')">Selecciona una mascota.</span>
         </label>
         <label>Servicio
-          <select name="scheduleService" [(ngModel)]="scheduleDraft.serviceId" required [class.input-invalid]="scheduleForm.submitted && scheduleForm.controls['scheduleService']?.invalid">
+          <select name="scheduleService" [(ngModel)]="scheduleDraft.serviceId" required [class.input-invalid]="fieldInvalid(scheduleForm, 'scheduleService')" [attr.aria-invalid]="fieldInvalid(scheduleForm, 'scheduleService') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(scheduleForm, 'scheduleService') ? 'schedule-service-error' : null">
             <option value="" disabled>Selecciona un servicio publicado</option>
             <option *ngFor="let service of scheduleServices()" [value]="service.id">{{ service.name }} · {{ service.durationMinutes }} min</option>
-          </select><span class="field-error" *ngIf="scheduleForm.submitted && scheduleForm.controls['scheduleService']?.invalid">Selecciona un servicio.</span>
+          </select><span id="schedule-service-error" class="field-error" role="alert" *ngIf="fieldInvalid(scheduleForm, 'scheduleService')">Selecciona un servicio.</span>
         </label>
-        <label>Fecha y hora propuestas<input name="scheduleDateTime" [(ngModel)]="scheduleDraft.requestedStartsAt" type="datetime-local" required [class.input-invalid]="scheduleForm.submitted && scheduleDateValidationMessage()"><span class="field-error" *ngIf="scheduleForm.submitted && scheduleDateValidationMessage() as dateMessage">{{ dateMessage }}</span></label>
+        <label>Fecha y hora propuestas<input name="scheduleDateTime" [(ngModel)]="scheduleDraft.requestedStartsAt" type="datetime-local" required [class.input-invalid]="scheduleDateInvalid(scheduleForm)" [attr.aria-invalid]="scheduleDateInvalid(scheduleForm) ? 'true' : null" [attr.aria-describedby]="scheduleDateInvalid(scheduleForm) ? 'schedule-date-error' : null"><span id="schedule-date-error" class="field-error" role="alert" *ngIf="scheduleDateInvalid(scheduleForm) && scheduleDateValidationMessage() as dateMessage">{{ dateMessage }}</span></label>
         <label>Observacion general (opcional)<input name="scheduleObservation" [(ngModel)]="scheduleDraft.observation" maxlength="1000"></label>
         <button class="link-action" type="submit" [disabled]="actionPending() || !pets().length || !scheduleServices().length">Enviar solicitud</button>
       </form>
@@ -111,10 +110,10 @@
       <h2 id="client-profile-title">Mis datos</h2>
       <p>Actualiza solo tus datos de contacto. El correo usado para iniciar sesion se gestiona por separado.</p>
       <form #ownerForm="ngForm" (ngSubmit)="saveOwnerProfile(ownerForm)">
-        <label>Nombres<input name="givenNames" [(ngModel)]="ownerDraft.givenNames" required maxlength="120" [class.input-invalid]="ownerForm.submitted && ownerForm.controls['givenNames']?.invalid"><span class="field-error" *ngIf="ownerForm.submitted && ownerForm.controls['givenNames']?.invalid">Indica tus nombres.</span></label>
-        <label>Apellidos<input name="familyNames" [(ngModel)]="ownerDraft.familyNames" required maxlength="120" [class.input-invalid]="ownerForm.submitted && ownerForm.controls['familyNames']?.invalid"><span class="field-error" *ngIf="ownerForm.submitted && ownerForm.controls['familyNames']?.invalid">Indica tus apellidos.</span></label>
-        <label>Teléfono<input name="phone" [(ngModel)]="ownerDraft.phone" type="tel" inputmode="tel" pattern="[0-9+() -]*" maxlength="40" [class.input-invalid]="ownerForm.submitted && ownerForm.controls['phone']?.invalid"><span class="field-error" *ngIf="ownerForm.submitted && ownerForm.controls['phone']?.invalid">Usa solo números, espacios, guiones, paréntesis o el signo +.</span></label>
-        <label>Correo de contacto<input name="email" [(ngModel)]="ownerDraft.email" type="email" maxlength="254" [class.input-invalid]="ownerForm.submitted && ownerForm.controls['email']?.invalid"><span class="field-error" *ngIf="ownerForm.submitted && ownerForm.controls['email']?.invalid">Ingresa un correo con formato válido.</span></label>
+        <label>Nombres<input name="givenNames" [(ngModel)]="ownerDraft.givenNames" required maxlength="120" [class.input-invalid]="fieldInvalid(ownerForm, 'givenNames')" [attr.aria-invalid]="fieldInvalid(ownerForm, 'givenNames') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(ownerForm, 'givenNames') ? 'client-given-names-error' : null"><span id="client-given-names-error" class="field-error" role="alert" *ngIf="fieldInvalid(ownerForm, 'givenNames')">Indica tus nombres.</span></label>
+        <label>Apellidos<input name="familyNames" [(ngModel)]="ownerDraft.familyNames" required maxlength="120" [class.input-invalid]="fieldInvalid(ownerForm, 'familyNames')" [attr.aria-invalid]="fieldInvalid(ownerForm, 'familyNames') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(ownerForm, 'familyNames') ? 'client-family-names-error' : null"><span id="client-family-names-error" class="field-error" role="alert" *ngIf="fieldInvalid(ownerForm, 'familyNames')">Indica tus apellidos.</span></label>
+        <label>Teléfono<input name="phone" [(ngModel)]="ownerDraft.phone" type="tel" inputmode="tel" pattern="[0-9+() -]*" minlength="5" maxlength="40" [class.input-invalid]="fieldInvalid(ownerForm, 'phone')" [attr.aria-invalid]="fieldInvalid(ownerForm, 'phone') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(ownerForm, 'phone') ? 'client-phone-error' : null"><span id="client-phone-error" class="field-error" role="alert" *ngIf="fieldInvalid(ownerForm, 'phone')">Usa entre 5 y 40 caracteres: números, espacios, guiones, paréntesis o el signo +.</span></label>
+        <label>Correo de contacto<input name="email" [(ngModel)]="ownerDraft.email" type="email" maxlength="254" [class.input-invalid]="fieldInvalid(ownerForm, 'email')" [attr.aria-invalid]="fieldInvalid(ownerForm, 'email') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(ownerForm, 'email') ? 'client-email-error' : null"><span id="client-email-error" class="field-error" role="alert" *ngIf="fieldInvalid(ownerForm, 'email')">Ingresa un correo con formato válido.</span></label>
         <label>Direccion<input name="address" [(ngModel)]="ownerDraft.address" maxlength="240"></label>
         <button class="link-action" type="submit" [disabled]="actionPending()">Guardar datos basicos</button>
       </form>
@@ -125,12 +124,13 @@
       <h2 id="client-create-pet-title">Registrar mascota</h2>
       <p>La mascota quedara asociada a tu responsabilidad vigente. No se crean ni exponen registros clinicos desde este formulario.</p>
       <form #newPetForm="ngForm" (ngSubmit)="createPet(newPetForm)">
-        <label>Nombre<input name="newPetName" [(ngModel)]="newPetDraft.name" required maxlength="120" [class.input-invalid]="newPetForm.submitted && newPetForm.controls['newPetName']?.invalid"><span class="field-error" *ngIf="newPetForm.submitted && newPetForm.controls['newPetName']?.invalid">Indica el nombre de la mascota.</span></label>
-        <label>Especie<input name="newPetSpecies" [(ngModel)]="newPetDraft.species" required maxlength="80" [class.input-invalid]="newPetForm.submitted && newPetForm.controls['newPetSpecies']?.invalid"><span class="field-error" *ngIf="newPetForm.submitted && newPetForm.controls['newPetSpecies']?.invalid">Indica la especie.</span></label>
+        <label>Nombre<input name="newPetName" [(ngModel)]="newPetDraft.name" required maxlength="120" [class.input-invalid]="fieldInvalid(newPetForm, 'newPetName')" [attr.aria-invalid]="fieldInvalid(newPetForm, 'newPetName') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(newPetForm, 'newPetName') ? 'new-pet-name-error' : null"><span id="new-pet-name-error" class="field-error" role="alert" *ngIf="fieldInvalid(newPetForm, 'newPetName')">Indica el nombre de la mascota.</span></label>
+        <label>Especie<input name="newPetSpecies" [(ngModel)]="newPetDraft.species" required maxlength="80" [class.input-invalid]="fieldInvalid(newPetForm, 'newPetSpecies')" [attr.aria-invalid]="fieldInvalid(newPetForm, 'newPetSpecies') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(newPetForm, 'newPetSpecies') ? 'new-pet-species-error' : null"><span id="new-pet-species-error" class="field-error" role="alert" *ngIf="fieldInvalid(newPetForm, 'newPetSpecies')">Indica la especie.</span></label>
         <label>Raza (opcional)<input name="newPetBreed" [(ngModel)]="newPetDraft.breed" maxlength="120"></label>
         <label>Sexo<select name="newPetSex" [(ngModel)]="newPetDraft.sex"><option value="DESCONOCIDO">No especificado</option><option value="HEMBRA">Hembra</option><option value="MACHO">Macho</option></select></label>
-        <label>Fecha de nacimiento<input name="newPetBirthDate" [(ngModel)]="newPetDraft.birthDate" type="date" [class.input-invalid]="newPetForm.submitted && petAgeValidationMessage(newPetDraft)"></label>
-        <label>Edad estimada en meses<input name="newPetEstimatedAge" [(ngModel)]="newPetDraft.estimatedAgeMonths" type="number" min="0" max="480" step="1" [class.input-invalid]="newPetForm.submitted && petAgeValidationMessage(newPetDraft)"><span class="field-error" *ngIf="newPetForm.submitted && petAgeValidationMessage(newPetDraft) as ageMessage">{{ ageMessage }}</span></label>
+        <label>Fecha de nacimiento<input name="newPetBirthDate" [(ngModel)]="newPetDraft.birthDate" type="date" [class.input-invalid]="petAgeInvalid(newPetForm, newPetDraft)" [attr.aria-invalid]="petAgeInvalid(newPetForm, newPetDraft) ? 'true' : null" [attr.aria-describedby]="petAgeInvalid(newPetForm, newPetDraft) ? 'new-pet-age-error' : null"></label>
+        <label>Edad estimada en meses<input name="newPetEstimatedAge" [(ngModel)]="newPetDraft.estimatedAgeMonths" type="number" min="0" max="480" step="1" [class.input-invalid]="petAgeInvalid(newPetForm, newPetDraft)" [attr.aria-invalid]="petAgeInvalid(newPetForm, newPetDraft) ? 'true' : null" [attr.aria-describedby]="petAgeInvalid(newPetForm, newPetDraft) ? 'new-pet-age-error' : null"></label>
+        <p id="new-pet-age-error" class="field-error" role="alert" *ngIf="petAgeInvalid(newPetForm, newPetDraft) && petAgeValidationMessage(newPetDraft) as ageMessage">{{ ageMessage }}</p>
         <label>Señas particulares (opcional)<input name="newPetMarks" [(ngModel)]="newPetDraft.distinguishingMarks" maxlength="500"></label>
         <button class="link-action" type="submit" [disabled]="actionPending()">Registrar mascota</button>
       </form>
@@ -141,12 +141,13 @@
       <h2 id="client-edit-pet-title">{{ pet.name }}</h2>
       <p>Solo se modifican datos basicos. La responsabilidad vigente y la informacion clinica no cambian aqui.</p>
       <form #editPetForm="ngForm" (ngSubmit)="savePet(editPetForm)">
-        <label>Nombre<input name="editPetName" [(ngModel)]="petEditDraft.name" required maxlength="120"></label>
-        <label>Especie<input name="editPetSpecies" [(ngModel)]="petEditDraft.species" required maxlength="80"></label>
+        <label>Nombre<input name="editPetName" [(ngModel)]="petEditDraft.name" required maxlength="120" [class.input-invalid]="fieldInvalid(editPetForm, 'editPetName')" [attr.aria-invalid]="fieldInvalid(editPetForm, 'editPetName') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(editPetForm, 'editPetName') ? 'edit-pet-name-error' : null"><span id="edit-pet-name-error" class="field-error" role="alert" *ngIf="fieldInvalid(editPetForm, 'editPetName')">Indica el nombre de la mascota.</span></label>
+        <label>Especie<input name="editPetSpecies" [(ngModel)]="petEditDraft.species" required maxlength="80" [class.input-invalid]="fieldInvalid(editPetForm, 'editPetSpecies')" [attr.aria-invalid]="fieldInvalid(editPetForm, 'editPetSpecies') ? 'true' : null" [attr.aria-describedby]="fieldInvalid(editPetForm, 'editPetSpecies') ? 'edit-pet-species-error' : null"><span id="edit-pet-species-error" class="field-error" role="alert" *ngIf="fieldInvalid(editPetForm, 'editPetSpecies')">Indica la especie.</span></label>
         <label>Raza (opcional)<input name="editPetBreed" [(ngModel)]="petEditDraft.breed" maxlength="120"></label>
         <label>Sexo<select name="editPetSex" [(ngModel)]="petEditDraft.sex"><option value="DESCONOCIDO">No especificado</option><option value="HEMBRA">Hembra</option><option value="MACHO">Macho</option></select></label>
-        <label>Fecha de nacimiento<input name="editPetBirthDate" [(ngModel)]="petEditDraft.birthDate" type="date" [class.input-invalid]="editPetForm.submitted && petAgeValidationMessage(petEditDraft)"></label>
-        <label>Edad estimada en meses<input name="editPetEstimatedAge" [(ngModel)]="petEditDraft.estimatedAgeMonths" type="number" min="0" max="480" step="1" [class.input-invalid]="editPetForm.submitted && petAgeValidationMessage(petEditDraft)"><span class="field-error" *ngIf="editPetForm.submitted && petAgeValidationMessage(petEditDraft) as ageMessage">{{ ageMessage }}</span></label>
+        <label>Fecha de nacimiento<input name="editPetBirthDate" [(ngModel)]="petEditDraft.birthDate" type="date" [class.input-invalid]="petAgeInvalid(editPetForm, petEditDraft)" [attr.aria-invalid]="petAgeInvalid(editPetForm, petEditDraft) ? 'true' : null" [attr.aria-describedby]="petAgeInvalid(editPetForm, petEditDraft) ? 'edit-pet-age-error' : null"></label>
+        <label>Edad estimada en meses<input name="editPetEstimatedAge" [(ngModel)]="petEditDraft.estimatedAgeMonths" type="number" min="0" max="480" step="1" [class.input-invalid]="petAgeInvalid(editPetForm, petEditDraft)" [attr.aria-invalid]="petAgeInvalid(editPetForm, petEditDraft) ? 'true' : null" [attr.aria-describedby]="petAgeInvalid(editPetForm, petEditDraft) ? 'edit-pet-age-error' : null"></label>
+        <p id="edit-pet-age-error" class="field-error" role="alert" *ngIf="petAgeInvalid(editPetForm, petEditDraft) && petAgeValidationMessage(petEditDraft) as ageMessage">{{ ageMessage }}</p>
         <label>Señas particulares (opcional)<input name="editPetMarks" [(ngModel)]="petEditDraft.distinguishingMarks" maxlength="500"></label>
         <div class="form-actions"><button class="link-action" type="submit" [disabled]="actionPending()">Guardar ficha</button><button type="button" (click)="cancelPetEdit()">Cancelar</button></div>
       </form>

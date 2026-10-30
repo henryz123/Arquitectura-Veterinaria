@@ -1,5 +1,5 @@
 import { NgFor, NgIf } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, effect, inject, signal } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize, forkJoin } from 'rxjs';
@@ -7,6 +7,7 @@ import { AdministrationApiService } from '../../core/api/administration-api.serv
 import { ClientOwnerLinkStatus, ClientPetProfile, ClientScheduleProposal, ClientSpace, OfferedService, OwnerProfile, OwnerRequest, PetRequest, ScheduleRequest } from '../../core/api/api.models';
 import { ScheduleApiService } from '../../core/api/schedule-api.service';
 import { AuthStateService } from '../../core/auth/auth-state.service';
+import { NotificationService } from '../../core/notifications/notification.service';
 
 type ClientSection = 'home' | 'pets' | 'register-pet' | 'appointments' | 'request-appointment' | 'profile';
 
@@ -22,6 +23,7 @@ export class ClientSpacePageComponent implements OnInit {
   private readonly scheduleApi = inject(ScheduleApiService);
   private readonly auth = inject(AuthStateService);
   private readonly router = inject(Router);
+  private readonly notifications = inject(NotificationService);
   readonly space = signal<ClientSpace | null>(null);
   readonly linkStatus = signal<ClientOwnerLinkStatus | null>(null);
   readonly pets = signal<ClientPetProfile[]>([]);
@@ -35,6 +37,14 @@ export class ClientSpacePageComponent implements OnInit {
   readonly actionPending = signal(false);
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
+  private lastNotice: string | null = null;
+  private readonly announceNotice = effect(() => {
+    const message = this.notice();
+    if (message && message !== this.lastNotice) {
+      this.notifications.success(message);
+    }
+    this.lastNotice = message;
+  });
   readonly ownerDraft: OwnerRequest = { givenNames: '', familyNames: '', phone: null, email: null, address: null };
   readonly newPetDraft: PetRequest = this.emptyPetDraft();
   readonly petEditDraft: PetRequest = this.emptyPetDraft();
@@ -99,17 +109,22 @@ export class ClientSpacePageComponent implements OnInit {
 
   saveOwnerProfile(form: NgForm): void {
     if (form.invalid || this.actionPending()) {
+      form.control.markAllAsTouched();
+      if (!this.actionPending()) {
+        this.notifications.warning('Completa los campos indicados antes de guardar tus datos.');
+      }
       return;
     }
     const phoneMessage = this.phoneValidationMessage(this.ownerDraft.phone);
     if (phoneMessage) {
       this.error.set(phoneMessage);
+      this.notifications.warning(phoneMessage);
       return;
     }
     this.error.set(null);
     this.notice.set(null);
     this.actionPending.set(true);
-    this.administrationApi.updateClientOwnerProfile({ ...this.ownerDraft }).pipe(finalize(() => this.actionPending.set(false))).subscribe({
+    this.administrationApi.updateClientOwnerProfile(this.normalizedOwnerDraft()).pipe(finalize(() => this.actionPending.set(false))).subscribe({
       next: (response) => {
         this.applyOwnerProfile(response.data);
         this.notice.set('Tus datos basicos fueron actualizados. El correo de acceso no se modifica desde esta pantalla.');
@@ -120,6 +135,10 @@ export class ClientSpacePageComponent implements OnInit {
 
   createPet(form: NgForm): void {
     if (form.invalid || this.actionPending()) {
+      form.control.markAllAsTouched();
+      if (!this.actionPending()) {
+        this.notifications.warning('Completa los campos indicados antes de registrar la mascota.');
+      }
       return;
     }
     const request = this.validPetRequest(this.newPetDraft);
@@ -162,6 +181,10 @@ export class ClientSpacePageComponent implements OnInit {
   savePet(form: NgForm): void {
     const pet = this.editingPet();
     if (!pet || form.invalid || this.actionPending()) {
+      form.control.markAllAsTouched();
+      if (pet && !this.actionPending()) {
+        this.notifications.warning('Completa los campos indicados antes de guardar la ficha.');
+      }
       return;
     }
     const request = this.validPetRequest(this.petEditDraft);
@@ -183,16 +206,22 @@ export class ClientSpacePageComponent implements OnInit {
 
 	createScheduleRequest(form: NgForm): void {
 		if (form.invalid || this.actionPending()) {
+			form.control.markAllAsTouched();
+			if (!this.actionPending()) {
+				this.notifications.warning('Completa mascota, servicio y fecha antes de enviar la solicitud.');
+			}
 			return;
 		}
 		if (!this.scheduleDraft.petId || !this.scheduleDraft.serviceId || !this.scheduleDraft.requestedStartsAt) {
 			this.error.set('Selecciona una mascota, un servicio y una fecha futura para enviar la solicitud.');
+			this.notifications.warning('Selecciona una mascota, un servicio y una fecha futura para enviar la solicitud.');
 			return;
 		}
 		const requestedStartsAt = new Date(this.scheduleDraft.requestedStartsAt);
 		const dateMessage = this.scheduleDateValidationMessage();
 		if (dateMessage) {
 			this.error.set(dateMessage);
+			this.notifications.warning(dateMessage);
 			return;
 		}
 		this.error.set(null);
@@ -316,6 +345,7 @@ export class ClientSpacePageComponent implements OnInit {
     const ageMessage = this.petAgeValidationMessage(draft);
     if (ageMessage) {
       this.error.set(ageMessage);
+      this.notifications.warning(ageMessage);
       return null;
     }
     return { ...draft, birthDate: draft.birthDate || null };
@@ -326,6 +356,21 @@ export class ClientSpacePageComponent implements OnInit {
       return null;
     }
     return 'El teléfono solo puede contener números, espacios, guiones, paréntesis o el signo +.';
+  }
+
+  private normalizedOwnerDraft(): OwnerRequest {
+    return {
+      givenNames: this.ownerDraft.givenNames.trim(),
+      familyNames: this.ownerDraft.familyNames.trim(),
+      phone: this.trimToNull(this.ownerDraft.phone),
+      email: this.trimToNull(this.ownerDraft.email),
+      address: this.trimToNull(this.ownerDraft.address),
+    };
+  }
+
+  private trimToNull(value: string | null): string | null {
+    const normalized = value?.trim() ?? '';
+    return normalized || null;
   }
 
   petAgeValidationMessage(draft: PetRequest): string | null {
@@ -342,6 +387,23 @@ export class ClientSpacePageComponent implements OnInit {
       return 'La edad estimada debe ser un número entero entre 0 y 480 meses.';
     }
     return null;
+  }
+
+  fieldInvalid(form: NgForm, controlName: string): boolean {
+    const control = form.controls[controlName];
+    return Boolean(control?.invalid && (form.submitted || control.touched));
+  }
+
+  petAgeInvalid(form: NgForm, draft: PetRequest): boolean {
+    const hasInteracted = form.submitted
+      || form.controls['newPetBirthDate']?.touched || form.controls['newPetEstimatedAge']?.touched
+      || form.controls['editPetBirthDate']?.touched || form.controls['editPetEstimatedAge']?.touched;
+    return Boolean(hasInteracted && this.petAgeValidationMessage(draft));
+  }
+
+  scheduleDateInvalid(form: NgForm): boolean {
+    return Boolean(this.scheduleDateValidationMessage()
+      && (form.submitted || form.controls['scheduleDateTime']?.touched));
   }
 
   scheduleDateValidationMessage(): string | null {

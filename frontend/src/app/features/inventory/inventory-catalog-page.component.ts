@@ -1,6 +1,6 @@
 import { CurrencyPipe, NgFor, NgIf } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { finalize, forkJoin } from 'rxjs';
 import {
@@ -13,6 +13,7 @@ import {
 } from '../../core/api/api.models';
 import { CatalogApiService } from '../../core/api/catalog-api.service';
 import { AuthStateService } from '../../core/auth/auth-state.service';
+import { NotificationService } from '../../core/notifications/notification.service';
 
 const PRODUCT_STATUS_LABELS: Record<CatalogProductStatus, string> = {
   ACTIVO_PUBLICADO: 'Activo y publicado',
@@ -31,6 +32,7 @@ export class InventoryCatalogPageComponent implements OnInit {
   private readonly api = inject(CatalogApiService);
   private readonly auth = inject(AuthStateService);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly notifications = inject(NotificationService);
 
   readonly context = this.auth.context;
   readonly categories = signal<CatalogCategory[]>([]);
@@ -43,6 +45,14 @@ export class InventoryCatalogPageComponent implements OnInit {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
+  private lastNotice: string | null = null;
+  private readonly announceNotice = effect(() => {
+    const message = this.notice();
+    if (message && message !== this.lastNotice) {
+      this.notifications.success(message);
+    }
+    this.lastNotice = message;
+  });
   readonly categorySubmitted = signal(false);
   readonly productSubmitted = signal(false);
   readonly stockSubmitted = signal(false);
@@ -126,6 +136,9 @@ export class InventoryCatalogPageComponent implements OnInit {
     this.categorySubmitted.set(true);
     if (this.categoryForm.invalid || this.saving()) {
       this.categoryForm.markAllAsTouched();
+      if (!this.saving()) {
+        this.notifications.warning('Completa los campos indicados antes de guardar la categoría.');
+      }
       return;
     }
     this.beginSave();
@@ -146,11 +159,15 @@ export class InventoryCatalogPageComponent implements OnInit {
     this.productSubmitted.set(true);
     if (this.productForm.invalid || this.saving()) {
       this.productForm.markAllAsTouched();
+      if (!this.saving()) {
+        this.notifications.warning('Completa los campos indicados antes de guardar el producto.');
+      }
       return;
     }
     const raw = this.productForm.getRawValue();
     if (!Number.isFinite(raw.salePricePen) || Math.round(raw.salePricePen * 100) !== raw.salePricePen * 100) {
       this.error.set('El precio debe ser un importe PEN no negativo con hasta dos decimales.');
+      this.notifications.warning('Indica un precio no negativo con hasta dos decimales.');
       return;
     }
     this.beginSave();
@@ -209,11 +226,15 @@ export class InventoryCatalogPageComponent implements OnInit {
     this.stockSubmitted.set(true);
     if (this.stockForm.invalid || this.saving()) {
       this.stockForm.markAllAsTouched();
+      if (!this.saving()) {
+        this.notifications.warning('Completa producto, cantidad y motivo antes de registrar el movimiento.');
+      }
       return;
     }
     const raw = this.stockForm.getRawValue();
     if (raw.quantityDelta === 0 || !Number.isInteger(raw.quantityDelta)) {
       this.error.set('La cantidad debe ser una unidad entera distinta de cero.');
+      this.notifications.warning('La cantidad debe ser una unidad entera distinta de cero.');
       return;
     }
     this.beginSave();
@@ -250,6 +271,10 @@ export class InventoryCatalogPageComponent implements OnInit {
 
   trackById(_: number, entity: { id: string }): string {
     return entity.id;
+  }
+
+  isInvalid(control: AbstractControl, submitted: boolean): boolean {
+    return control.invalid && (submitted || control.touched);
   }
 
   private beginSave(): void {

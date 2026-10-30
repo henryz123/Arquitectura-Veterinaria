@@ -1,6 +1,6 @@
 import { DatePipe, NgFor, NgIf } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize, forkJoin, of, switchMap } from 'rxjs';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
@@ -19,6 +19,7 @@ import {
   VaccinationRecord,
 } from '../../core/api/api.models';
 import { AuthStateService } from '../../core/auth/auth-state.service';
+import { NotificationService } from '../../core/notifications/notification.service';
 
 @Component({
   selector: 'app-owner-pet-care-page',
@@ -32,6 +33,7 @@ export class OwnerPetCarePageComponent implements OnInit {
   private readonly auth = inject(AuthStateService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly notifications = inject(NotificationService);
 
   readonly context = this.auth.context;
   readonly owners = signal<OwnerProfile[]>([]);
@@ -56,6 +58,14 @@ export class OwnerPetCarePageComponent implements OnInit {
   readonly actionPending = signal(false);
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
+  private lastNotice: string | null = null;
+  private readonly announceNotice = effect(() => {
+    const message = this.notice();
+    if (message && message !== this.lastNotice) {
+      this.notifications.success(message);
+    }
+    this.lastNotice = message;
+  });
   readonly ownerSubmitted = signal(false);
   readonly ownerEditMode = signal(false);
   readonly petSubmitted = signal(false);
@@ -374,6 +384,9 @@ export class OwnerPetCarePageComponent implements OnInit {
     this.ownerSubmitted.set(true);
     if (!this.canManageRegistry() || this.ownerForm.invalid || this.actionPending()) {
       this.ownerForm.markAllAsTouched();
+      if (!this.actionPending()) {
+        this.notifications.warning('Completa los campos indicados antes de guardar el propietario.');
+      }
       return;
     }
     this.clearFeedback();
@@ -441,6 +454,9 @@ export class OwnerPetCarePageComponent implements OnInit {
     this.ownerSubmitted.set(true);
     if (!owner || !this.canManageRegistry() || this.ownerForm.invalid || this.actionPending()) {
       this.ownerForm.markAllAsTouched();
+      if (owner && !this.actionPending()) {
+        this.notifications.warning('Completa los campos indicados antes de guardar el propietario.');
+      }
       return;
     }
     this.clearFeedback();
@@ -495,6 +511,9 @@ export class OwnerPetCarePageComponent implements OnInit {
     this.petSubmitted.set(true);
     if (!owner || !this.canManageRegistry() || this.petForm.invalid || this.actionPending()) {
       this.petForm.markAllAsTouched();
+      if (owner && !this.actionPending()) {
+        this.notifications.warning('Completa los campos indicados antes de guardar la mascota.');
+      }
       return;
     }
     const value = this.petForm.getRawValue();
@@ -575,6 +594,9 @@ export class OwnerPetCarePageComponent implements OnInit {
     this.petSubmitted.set(true);
     if (!pet || !this.canManageRegistry() || this.petForm.invalid || this.actionPending()) {
       this.petForm.markAllAsTouched();
+      if (pet && !this.actionPending()) {
+        this.notifications.warning('Completa los campos indicados antes de guardar la mascota.');
+      }
       return;
     }
     const value = this.petForm.getRawValue();
@@ -820,8 +842,32 @@ export class OwnerPetCarePageComponent implements OnInit {
     return `${owner.familyNames}, ${owner.givenNames}`;
   }
 
+  isInvalid(control: AbstractControl, submitted: boolean): boolean {
+    return control.invalid && (submitted || control.touched);
+  }
+
   petAge(pet: PetProfile): string {
     return pet.birthDate ? `Nacimiento: ${pet.birthDate}` : `Edad estimada: ${pet.estimatedAgeMonths ?? 0} meses`;
+  }
+
+  petAgeValidationMessage(): string | null {
+    const value = this.petForm.getRawValue();
+    const hasBirthDate = Boolean(this.optional(value.birthDate));
+    const hasEstimatedAge = String(value.estimatedAgeMonths ?? '').trim().length > 0;
+    if (hasBirthDate && hasEstimatedAge) {
+      return 'Indica una fecha de nacimiento o una edad estimada, pero no ambas.';
+    }
+    if (!hasBirthDate && !hasEstimatedAge) {
+      return 'Indica una fecha de nacimiento o una edad estimada para la mascota.';
+    }
+    return hasEstimatedAge && this.ageInMonths(value.estimatedAgeMonths) === null
+      ? 'La edad estimada debe ser un numero entero entre 0 y 480 meses.'
+      : null;
+  }
+
+  showPetAgeError(): boolean {
+    return Boolean(this.petAgeValidationMessage())
+      && (this.petSubmitted() || this.petForm.controls.birthDate.touched || this.petForm.controls.estimatedAgeMonths.touched);
   }
 
   ownerPeriodLabel(period: OwnershipPeriod): string {

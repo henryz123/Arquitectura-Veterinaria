@@ -32,7 +32,6 @@
 
       <p class="loading" *ngIf="loading()">Cargando propietarios autorizados…</p>
       <p class="feedback feedback-error" role="alert" *ngIf="error()">{{ error() }}</p>
-      <p class="feedback feedback-success" aria-live="polite" *ngIf="notice()">{{ notice() }}</p>
 
       <section class="access-notice" *ngIf="!canManageRegistry()">
         <h2>Registro limitado por rol</h2>
@@ -48,12 +47,12 @@
           <form [formGroup]="ownerForm" (ngSubmit)="saveOwner()" novalidate *ngIf="canManageRegistry()">
             <p class="panel-note" *ngIf="ownerEditMode()">Editando la ficha seleccionada. Esta operación no cambia mascotas, períodos de responsabilidad ni historia clínica.</p>
             <div class="two-columns">
-              <div class="field-group"><label for="owner-given-names">Nombres</label><input id="owner-given-names" formControlName="givenNames" autocomplete="given-name" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.givenNames.invalid">Ingresa los nombres.</p></div>
-              <div class="field-group"><label for="owner-family-names">Apellidos</label><input id="owner-family-names" formControlName="familyNames" autocomplete="family-name" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.familyNames.invalid">Ingresa los apellidos.</p></div>
+              <div class="field-group"><label for="owner-given-names">Nombres</label><input id="owner-given-names" formControlName="givenNames" autocomplete="given-name" [attr.aria-invalid]="ownerForm.controls.givenNames.invalid && (ownerSubmitted() || ownerForm.controls.givenNames.touched) ? 'true' : null" [attr.aria-describedby]="ownerForm.controls.givenNames.invalid && (ownerSubmitted() || ownerForm.controls.givenNames.touched) ? 'owner-given-names-error' : null" /><p id="owner-given-names-error" class="field-error" role="alert" *ngIf="ownerForm.controls.givenNames.invalid && (ownerSubmitted() || ownerForm.controls.givenNames.touched)">Ingresa los nombres.</p></div>
+              <div class="field-group"><label for="owner-family-names">Apellidos</label><input id="owner-family-names" formControlName="familyNames" autocomplete="family-name" [attr.aria-invalid]="ownerForm.controls.familyNames.invalid && (ownerSubmitted() || ownerForm.controls.familyNames.touched) ? 'true' : null" [attr.aria-describedby]="ownerForm.controls.familyNames.invalid && (ownerSubmitted() || ownerForm.controls.familyNames.touched) ? 'owner-family-names-error' : null" /><p id="owner-family-names-error" class="field-error" role="alert" *ngIf="ownerForm.controls.familyNames.invalid && (ownerSubmitted() || ownerForm.controls.familyNames.touched)">Ingresa los apellidos.</p></div>
             </div>
             <div class="two-columns">
-              <div class="field-group"><label for="owner-phone">Teléfono</label><input id="owner-phone" type="tel" inputmode="tel" formControlName="phone" autocomplete="tel" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.phone.invalid">Usa solo números, espacios, guiones, paréntesis o el signo +.</p></div>
-              <div class="field-group"><label for="owner-email">Correo</label><input id="owner-email" type="email" formControlName="email" autocomplete="email" /><p class="field-error" *ngIf="ownerSubmitted() && ownerForm.controls.email.invalid">Ingresa un correo válido o déjalo vacío.</p></div>
+              <div class="field-group"><label for="owner-phone">Teléfono</label><input id="owner-phone" type="tel" inputmode="tel" formControlName="phone" autocomplete="tel" [attr.aria-invalid]="isInvalid(ownerForm.controls.phone, ownerSubmitted()) ? 'true' : null" [attr.aria-describedby]="isInvalid(ownerForm.controls.phone, ownerSubmitted()) ? 'owner-phone-error' : null" /><p id="owner-phone-error" class="field-error" role="alert" *ngIf="isInvalid(ownerForm.controls.phone, ownerSubmitted())">Usa solo números, espacios, guiones, paréntesis o el signo +.</p></div>
+              <div class="field-group"><label for="owner-email">Correo</label><input id="owner-email" type="email" formControlName="email" autocomplete="email" [attr.aria-invalid]="isInvalid(ownerForm.controls.email, ownerSubmitted()) ? 'true' : null" [attr.aria-describedby]="isInvalid(ownerForm.controls.email, ownerSubmitted()) ? 'owner-email-error' : null" /><p id="owner-email-error" class="field-error" role="alert" *ngIf="isInvalid(ownerForm.controls.email, ownerSubmitted())">Ingresa un correo válido o déjalo vacío.</p></div>
             </div>
             <div class="field-group"><label for="owner-address">Dirección</label><input id="owner-address" formControlName="address" autocomplete="street-address" /></div>
             <button class="button button-primary" type="submit" [disabled]="actionPending()">{{ ownerEditMode() ? 'Guardar cambios del propietario' : 'Registrar propietario' }}</button>
@@ -81,9 +80,10 @@
               <div class="field-group"><label for="pet-sex">Sexo</label><select id="pet-sex" formControlName="sex"><option value="DESCONOCIDO">No especificado</option><option value="HEMBRA">Hembra</option><option value="MACHO">Macho</option></select></div>
             </div>
             <div class="two-columns">
-              <div class="field-group"><label for="pet-birth-date">Fecha de nacimiento</label><input id="pet-birth-date" type="date" formControlName="birthDate" /></div>
-              <div class="field-group"><label for="pet-age">o edad estimada (meses)</label><input id="pet-age" type="number" min="0" max="480" formControlName="estimatedAgeMonths" /><p class="helper">Registra solo uno de estos dos datos.</p></div>
+              <div class="field-group"><label for="pet-birth-date">Fecha de nacimiento</label><input id="pet-birth-date" type="date" formControlName="birthDate" [attr.aria-invalid]="showPetAgeError() ? 'true' : null" [attr.aria-describedby]="showPetAgeError() ? 'pet-age-error' : null" /></div>
+              <div class="field-group"><label for="pet-age">o edad estimada (meses)</label><input id="pet-age" type="number" min="0" max="480" formControlName="estimatedAgeMonths" [attr.aria-invalid]="showPetAgeError() ? 'true' : null" [attr.aria-describedby]="showPetAgeError() ? 'pet-age-error' : null" /><p class="helper">Registra solo uno de estos dos datos.</p></div>
             </div>
+            <p id="pet-age-error" class="field-error" role="alert" *ngIf="showPetAgeError()">{{ petAgeValidationMessage() }}</p>
             <div class="field-group"><label for="pet-marks">Señas particulares</label><input id="pet-marks" formControlName="distinguishingMarks" /></div>
             <button class="button button-primary" type="submit" [disabled]="actionPending()">{{ petEditMode() ? 'Guardar cambios de mascota' : 'Crear ficha de mascota' }}</button>
             <button class="button button-secondary" type="button" (click)="cancelPetEdit()" [disabled]="actionPending()" *ngIf="petEditMode()">Cancelar edición</button>
