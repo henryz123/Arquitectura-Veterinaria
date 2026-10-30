@@ -17,7 +17,10 @@
   <div class="schedule-body">
     <header class="topbar">
       <div><p class="eyebrow">Agenda</p><p class="topbar-title">Servicios y disponibilidad</p></div>
-      <a class="button button-quiet topbar-link" routerLink="/workspace">Volver al espacio</a>
+      <div class="topbar-actions">
+        <a class="button button-quiet topbar-link" routerLink="/workspace">Volver al espacio</a>
+        <button class="button button-quiet" type="button" (click)="logout()">Cerrar sesión</button>
+      </div>
     </header>
 
     <main id="schedule-main" class="schedule-content" aria-labelledby="schedule-title">
@@ -108,7 +111,7 @@
           </ul>
         </article>
 
-        <article class="panel list-panel" aria-labelledby="schedule-history-title">
+        <article class="panel list-panel history-panel" aria-labelledby="schedule-history-title">
           <div class="panel-heading"><div><p class="eyebrow">Agenda</p><h2 id="schedule-history-title">Historial de cambios</h2></div><span class="panel-caption">{{ scheduleChangeEvents().length }} eventos</span></div>
           <p class="helper">Esta vista administrativa muestra el cambio y su motivo sin exponer cuentas internas ni datos clínicos.</p>
           <p class="empty-state compact" *ngIf="scheduleChangeEvents().length === 0">Aún no hay cambios de agenda registrados para esta veterinaria.</p>
@@ -222,7 +225,7 @@
           <p class="empty-state compact" *ngIf="scheduleBlocks().length === 0">No hay bloqueos excepcionales registrados para esta veterinaria.</p>
           <ul class="record-list" *ngIf="scheduleBlocks().length > 0">
             <li *ngFor="let block of scheduleBlocks(); trackBy: trackById">
-              <div><strong>{{ block.blockScope === 'ORGANIZACION' ? 'Cierre de veterinaria' : 'Ausencia de profesional' }}</strong><span>{{ requestDateTime(block.startsAt) }} â€“ {{ requestDateTime(block.endsAt) }} Â· {{ block.reason }}</span></div>
+              <div><strong>{{ block.blockScope === 'ORGANIZACION' ? 'Cierre de veterinaria' : 'Ausencia de profesional' }}</strong><span>{{ requestDateTime(block.startsAt) }} – {{ requestDateTime(block.endsAt) }} · {{ block.reason }}</span></div>
               <span class="status-pill">{{ blockScopeLabel(block.blockScope) }}</span>
             </li>
           </ul>
@@ -234,12 +237,12 @@
           <div><p class="eyebrow">Agenda consolidada</p><h2 id="agenda-requests-title">Solicitudes y confirmaciones</h2></div>
           <span class="panel-caption">{{ scheduleRequests().length }} registros</span>
         </div>
-        <p class="helper" *ngIf="selectedProfessional() as professional">ConfirmarÃ¡s con: {{ professionalLabel(professional) }}. Antes de guardar, el servidor vuelve a comprobar rol, horario, disponibilidad, bloqueos y traslapes.</p>
-        <p class="empty-state" *ngIf="scheduleRequests().length === 0">AÃºn no hay solicitudes de CLIENT. Las solicitudes pendientes no consumen cupos hasta la confirmaciÃ³n manual.</p>
+        <p class="helper" *ngIf="selectedProfessional() as professional">Confirmarás con: {{ professionalLabel(professional) }}. Antes de guardar, el servidor vuelve a comprobar rol, horario, disponibilidad, bloqueos y traslapes.</p>
+        <p class="empty-state" *ngIf="scheduleRequests().length === 0">Aún no hay solicitudes de CLIENT. Las solicitudes pendientes no consumen cupos hasta la confirmación manual.</p>
         <ol class="agenda-list" *ngIf="scheduleRequests().length > 0">
           <li *ngFor="let request of scheduleRequests(); trackBy: trackById" [attr.data-request-id]="request.id">
             <div class="agenda-time"><strong>{{ requestDateTime(request.requestedStartsAt) }}</strong><span>{{ request.requestedDurationMinutes }} min</span></div>
-            <div class="agenda-details"><strong>{{ serviceName(request.serviceId) }}</strong><span>Mascota asociada a la solicitud</span><span *ngIf="request.observation">ObservaciÃ³n: {{ request.observation }}</span></div>
+            <div class="agenda-details"><strong>{{ serviceName(request.serviceId) }}</strong><span>Mascota asociada a la solicitud</span><span *ngIf="request.observation">Observación: {{ request.observation }}</span></div>
             <div class="agenda-action">
               <span class="status-pill" [class.status-ok]="request.status === 'CONFIRMADA'">{{ scheduleStateLabel(request.status) }}</span>
               <button class="button button-primary" type="button" *ngIf="request.status === 'PENDIENTE' || request.status === 'PENDIENTE_REPROGRAMACION'" [disabled]="saving() || !selectedProfessionalId()" (click)="confirmRequest(request)">

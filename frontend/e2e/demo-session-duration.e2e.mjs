@@ -15,6 +15,10 @@ for (const key of required) {
 
 const baseUrl = (process.env.AV_E2E_BASE_URL ?? 'http://127.0.0.1:4200').replace(/\/$/, '');
 const staffEmail = process.env.AV_E2E_AURORA_EMAIL ?? 'administracion@demo.invalid';
+const inactivityMs = Number(process.env.AV_E2E_SESSION_INACTIVITY_MS ?? 720_000);
+if (!Number.isInteger(inactivityMs) || inactivityMs < 720_000 || inactivityMs > 900_000) {
+  throw new Error('AV_E2E_SESSION_INACTIVITY_MS must stay between 12 and 15 real minutes.');
+}
 const browser = await chromium.launch({ executablePath: process.env.AV_E2E_CHROME_PATH, headless: true });
 
 try {
@@ -29,7 +33,7 @@ try {
     staffPage.reload({ waitUntil: 'networkidle' }),
   ]);
 
-  await Promise.all([clientPage.waitForTimeout(125_000), staffPage.waitForTimeout(125_000)]);
+  await Promise.all([clientPage.waitForTimeout(inactivityMs), staffPage.waitForTimeout(inactivityMs)]);
 
   const [clientSession, staffSession] = await Promise.all([
     browserFetch(clientPage, '/api/v1/session-context'),
@@ -46,6 +50,25 @@ try {
   ]);
   assert.equal(clientPets.status, 200, 'CLIENT must complete an authorized read after the wait');
   assert.equal(staffInventory.status, 200, 'STAFF must complete an authorized read after the wait');
+
+  await clientPage.getByRole('button', { name: 'Mis datos' }).click();
+  const clientProfile = clientPage.locator('#client-profile form');
+  await clientProfile.getByRole('button', { name: 'Guardar datos basicos' }).click();
+  await clientPage.getByText(/Tus datos basicos fueron actualizados/).waitFor();
+  await staffPage.getByRole('link', { name: 'Citas y agenda' }).click();
+  await staffPage.waitForURL(`${baseUrl}/schedule`);
+  await staffPage.getByRole('heading', { name: 'Preparar horarios reales' }).waitFor();
+
+  await Promise.all([
+    clientPage.reload({ waitUntil: 'networkidle' }),
+    staffPage.reload({ waitUntil: 'networkidle' }),
+  ]);
+  const [clientAfterReload, staffAfterReload] = await Promise.all([
+    browserFetch(clientPage, '/api/v1/session-context'),
+    browserFetch(staffPage, '/api/v1/session-context'),
+  ]);
+  assert.equal(clientAfterReload.status, 200, 'CLIENT must remain authenticated after its authorized write and reload');
+  assert.equal(staffAfterReload.status, 200, 'STAFF must remain authenticated after navigation and reload');
 
   await clientPage.getByRole('button', { name: /Cerrar sesi/i }).click();
   await clientPage.waitForURL(`${baseUrl}/client/login/veterinaria-aurora`);
@@ -66,7 +89,7 @@ try {
   await staffPage.getByText('Tu sesión venció o dejó de ser válida. Inicia sesión nuevamente para continuar.').waitFor();
 
   await Promise.all([clientContext.close(), staffContext.close()]);
-  process.stdout.write('DEMO_SESSION_DURATION_BROWSER_E2E=PASS\n');
+  process.stdout.write(`DEMO_SESSION_DURATION_BROWSER_E2E=PASS inactivityMs=${inactivityMs}\n`);
 } finally {
   await browser.close();
 }

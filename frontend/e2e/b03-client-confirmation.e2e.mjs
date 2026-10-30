@@ -54,7 +54,7 @@ try {
   await clientPage.locator('select[name="schedulePet"]').selectOption(pet.id);
   await clientPage.locator('select[name="scheduleService"]').selectOption(service.id);
   await clientPage.locator('input[name="scheduleDateTime"]').fill(firstStartsAt);
-  await clientPage.locator('input[name="scheduleObservation"]').fill('Solicitud B03 sintÃ©tica desde navegador');
+  await clientPage.locator('input[name="scheduleObservation"]').fill('Solicitud B03 sintética desde navegador');
   await clientPage.getByRole('button', { name: 'Enviar solicitud' }).click();
   const firstCreated = await firstResponse;
   assert.equal(firstCreated.status(), 201, 'a CLIENT request must persist through the visible form');

@@ -136,13 +136,24 @@ Mantenga abiertas las dos ventanas de PowerShell descritas en **Preparación**. 
 
 ### 4. Roles, organización y cierre — 1 minuto
 
-1. Abra **Organización**: muestra únicamente la veterinaria de la sesión actual. Con ADMIN también permanecen disponibles las operaciones de equipo e invitaciones ya existentes.
-2. Para mostrar separación de funciones, cambie a `AV_DEMO_VETERINARIO_AURORA_EMAIL` con `AV_DEMO_VETERINARIO_AURORA_PASSWORD`. Esta cuenta puede abrir **Organización** y **Clientes y mascotas**, pero no recibe **Citas y agenda** ni **Productos e inventario**.
-3. Pulse **Cerrar sesión**. Si una sesión expira o deja de ser válida, al volver a una ruta protegida se muestra el aviso **«Tu sesión venció o dejó de ser válida. Inicia sesión nuevamente para continuar.»** y se regresa al inicio de sesión correspondiente.
+1. Abra **Equipo y roles**: desplaza directamente a la tabla de trabajadores y deja esa opción resaltada. Use **Nueva invitación** para llegar al formulario existente; un correo inválido o ningún rol seleccionado se señala junto al campo, sin enviar datos.
+2. Abra **Organización**: desplaza directamente a la información de Veterinaria Aurora y marca la sección activa. Muestra únicamente la veterinaria de la sesión actual.
+3. Para mostrar separación de funciones, cambie a `AV_DEMO_VETERINARIO_AURORA_EMAIL` con `AV_DEMO_VETERINARIO_AURORA_PASSWORD`. Esta cuenta puede abrir **Organización** y **Clientes y mascotas**, pero no recibe **Citas y agenda** ni **Productos e inventario**.
+4. Pulse **Cerrar sesión**. Si una sesión expira o deja de ser válida, al volver a una ruta protegida se muestra el aviso **«Tu sesión venció o dejó de ser válida. Inicia sesión nuevamente para continuar.»** y se regresa al inicio de sesión correspondiente.
+
+## Validaciones que se pueden mostrar sin guardar datos
+
+- En **Clientes y mascotas**, escriba letras en el teléfono de un propietario y pulse guardar: el campo indica que solo admite números, espacios, guiones, paréntesis o `+`.
+- En CLIENT, abra **Registrar mascota** y pulse **Registrar mascota** sin completar el formulario: se señalan nombre, especie y el requisito de indicar exactamente una fecha de nacimiento o una edad estimada.
+- En CLIENT, abra **Mis datos**, escriba letras en teléfono y pulse guardar: el valor se mantiene en el navegador, se muestra el aviso junto al campo y no se envía una actualización.
+- En **Productos e inventario**, los formularios muestran el motivo de un SKU, nombre, precio, producto o cantidad inválidos junto al control correspondiente. La cantidad de stock debe ser un entero diferente de cero y el motivo es obligatorio.
 
 ## Evidencia de estabilización del recorrido actualizado
 
-- Chromium: CLIENT y STAFF conservaron la sesión durante 125 segundos tras recarga, realizaron consultas autorizadas y el cierre revocó ambas sesiones.
+- Chromium: CLIENT y ADMIN Aurora conservaron sesiones independientes durante 720 000 ms (12 minutos reales) tras recarga e inactividad; después realizaron una consulta autorizada, una actualización sintética de datos CLIENT, navegación STAFF y otra recarga. El cierre voluntario desde CLIENT y desde Agenda revocó ambas sesiones (HTTP 401 al volver a consultar el contexto).
+- Chromium: Agenda de ADMIN Aurora carga sus paneles de datos, conserva el diseño STAFF después de recargar y no usa enlaces ni controles con estilos predeterminados del navegador.
+- Chromium: Equipo y roles, Nueva invitación y Organización dirigen a su sección existente y resaltan el acceso seleccionado.
+- Chromium: los formularios CLIENT muestran validaciones junto a los campos sin persistir datos inválidos.
 - Chromium: CLIENT creó una solicitud, ADMIN Aurora la confirmó y CLIENT observó el estado actualizado; Bosque no recibió la solicitud de Aurora.
 - Chromium: ADMIN Aurora abrió Productos e inventario, registró un producto y una entrada, recargó y verificó saldo y movimiento persistentes.
 - Chromium: Organización funcionó para ADMIN y VETERINARIO; este último no recibió accesos de agenda ni inventario.

@@ -75,7 +75,7 @@ export class OwnerPetCarePageComponent implements OnInit {
   readonly ownerForm = this.formBuilder.nonNullable.group({
     givenNames: ['', [Validators.required, Validators.maxLength(120)]],
     familyNames: ['', [Validators.required, Validators.maxLength(120)]],
-    phone: ['', Validators.maxLength(40)],
+    phone: ['', [Validators.maxLength(40), Validators.pattern(/^[0-9+() -]*$/)]],
     email: ['', [Validators.email, Validators.maxLength(254)]],
     address: ['', Validators.maxLength(240)],
   });

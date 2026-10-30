@@ -1,6 +1,6 @@
 import { NgFor, NgIf } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgForm } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize, forkJoin } from 'rxjs';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
@@ -97,8 +97,13 @@ export class ClientSpacePageComponent implements OnInit {
     });
   }
 
-  saveOwnerProfile(): void {
-    if (this.actionPending()) {
+  saveOwnerProfile(form: NgForm): void {
+    if (form.invalid || this.actionPending()) {
+      return;
+    }
+    const phoneMessage = this.phoneValidationMessage(this.ownerDraft.phone);
+    if (phoneMessage) {
+      this.error.set(phoneMessage);
       return;
     }
     this.error.set(null);
@@ -113,9 +118,12 @@ export class ClientSpacePageComponent implements OnInit {
     });
   }
 
-  createPet(): void {
+  createPet(form: NgForm): void {
+    if (form.invalid || this.actionPending()) {
+      return;
+    }
     const request = this.validPetRequest(this.newPetDraft);
-    if (!request || this.actionPending()) {
+    if (!request) {
       return;
     }
     this.error.set(null);
@@ -151,10 +159,13 @@ export class ClientSpacePageComponent implements OnInit {
     Object.assign(this.petEditDraft, this.emptyPetDraft());
   }
 
-  savePet(): void {
+  savePet(form: NgForm): void {
     const pet = this.editingPet();
+    if (!pet || form.invalid || this.actionPending()) {
+      return;
+    }
     const request = this.validPetRequest(this.petEditDraft);
-    if (!pet || !request || this.actionPending()) {
+    if (!request) {
       return;
     }
     this.error.set(null);
@@ -170,8 +181,8 @@ export class ClientSpacePageComponent implements OnInit {
     });
   }
 
-	createScheduleRequest(): void {
-		if (this.actionPending()) {
+	createScheduleRequest(form: NgForm): void {
+		if (form.invalid || this.actionPending()) {
 			return;
 		}
 		if (!this.scheduleDraft.petId || !this.scheduleDraft.serviceId || !this.scheduleDraft.requestedStartsAt) {
@@ -179,8 +190,9 @@ export class ClientSpacePageComponent implements OnInit {
 			return;
 		}
 		const requestedStartsAt = new Date(this.scheduleDraft.requestedStartsAt);
-		if (Number.isNaN(requestedStartsAt.getTime()) || requestedStartsAt.getTime() <= Date.now()) {
-			this.error.set('La solicitud debe proponer una fecha futura. La veterinaria confirmarÃ¡ manualmente la disponibilidad.');
+		const dateMessage = this.scheduleDateValidationMessage();
+		if (dateMessage) {
+			this.error.set(dateMessage);
 			return;
 		}
 		this.error.set(null);
@@ -198,9 +210,9 @@ export class ClientSpacePageComponent implements OnInit {
 					.sort((left, right) => left.requestedStartsAt.localeCompare(right.requestedStartsAt)));
 				Object.assign(this.scheduleDraft, { petId: '', serviceId: '', requestedStartsAt: '', observation: '' });
 				this.activeSection.set('appointments');
-				this.notice.set('Tu solicitud quedÃ³ registrada. AÃºn no reserva un cupo: recepciÃ³n o administraciÃ³n confirmarÃ¡ la disponibilidad.');
+				this.notice.set('Tu solicitud quedó registrada. Aún no reserva un cupo: recepción o administración confirmará la disponibilidad.');
 			},
-			error: () => this.error.set('No fue posible registrar la solicitud. Verifica que tu vinculaciÃ³n y la mascota sigan vigentes.'),
+			error: () => this.error.set('No fue posible registrar la solicitud. Verifica que tu vinculación y la mascota sigan vigentes.'),
 		});
 	}
 
@@ -301,15 +313,42 @@ export class ClientSpacePageComponent implements OnInit {
   }
 
   private validPetRequest(draft: PetRequest): PetRequest | null {
-    if (draft.birthDate && draft.estimatedAgeMonths !== null) {
-      this.error.set('Indica una fecha de nacimiento o una edad estimada, pero no ambas.');
-      return null;
-    }
-    if (!draft.birthDate && draft.estimatedAgeMonths === null) {
-      this.error.set('Indica una fecha de nacimiento o una edad estimada para la mascota.');
+    const ageMessage = this.petAgeValidationMessage(draft);
+    if (ageMessage) {
+      this.error.set(ageMessage);
       return null;
     }
     return { ...draft, birthDate: draft.birthDate || null };
+  }
+
+  phoneValidationMessage(phone: string | null): string | null {
+    if (!phone?.trim() || /^[0-9+() -]{5,40}$/.test(phone.trim())) {
+      return null;
+    }
+    return 'El teléfono solo puede contener números, espacios, guiones, paréntesis o el signo +.';
+  }
+
+  petAgeValidationMessage(draft: PetRequest): string | null {
+    const hasBirthDate = Boolean(draft.birthDate);
+    const hasEstimatedAge = draft.estimatedAgeMonths !== null && String(draft.estimatedAgeMonths).trim().length > 0;
+    if (hasBirthDate && hasEstimatedAge) {
+      return 'Indica una fecha de nacimiento o una edad estimada, pero no ambas.';
+    }
+    if (!hasBirthDate && !hasEstimatedAge) {
+      return 'Indica una fecha de nacimiento o una edad estimada para la mascota.';
+    }
+    const estimatedAge = Number(draft.estimatedAgeMonths);
+    if (hasEstimatedAge && (!Number.isInteger(estimatedAge) || estimatedAge < 0 || estimatedAge > 480)) {
+      return 'La edad estimada debe ser un número entero entre 0 y 480 meses.';
+    }
+    return null;
+  }
+
+  scheduleDateValidationMessage(): string | null {
+    const requestedStartsAt = new Date(this.scheduleDraft.requestedStartsAt);
+    return Number.isNaN(requestedStartsAt.getTime()) || requestedStartsAt.getTime() <= Date.now()
+      ? 'La solicitud debe proponer una fecha futura. La veterinaria confirmará manualmente la disponibilidad.'
+      : null;
   }
 
   private emptyPetDraft(): PetRequest {

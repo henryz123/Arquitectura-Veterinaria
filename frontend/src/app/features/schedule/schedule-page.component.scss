@@ -1,14 +1,17 @@
 :host { display: block; }
 
 .schedule-shell { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); min-height: 100vh; }
-.schedule-body { min-width: 0; background: var(--surface-base); }
+.schedule-body { min-width: 0; background: var(--surface-canvas); }
 .schedule-content { max-width: 82rem; margin: 0 auto; padding: 2rem; }
+.topbar-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .65rem; }
 .topbar-link { display: inline-flex; align-items: center; text-decoration: none; }
 .overview-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0; }
 .summary-card { display: grid; gap: .25rem; min-height: 8.5rem; align-content: center; }
 .summary-card strong { color: var(--ink-strong); font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .summary-card span, .record-list span, .compact-record-list { color: var(--ink-muted); }
 .schedule-grid { display: grid; grid-template-columns: minmax(18rem, .95fr) minmax(22rem, 1.05fr); gap: 1rem; margin-top: 1rem; align-items: start; }
+.history-panel { grid-column: 1 / -1; }
+.history-panel .record-list { max-block-size: 26rem; overflow-y: auto; padding-inline-end: .45rem; }
 .availability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .availability-list { grid-column: 1 / -1; }
 .form-panel form { display: grid; gap: 1rem; }

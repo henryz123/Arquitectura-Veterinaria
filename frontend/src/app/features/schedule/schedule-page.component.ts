@@ -1,7 +1,7 @@
 import { DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import {
   AssignableProfessional,
@@ -25,6 +25,7 @@ import { AuthStateService } from '../../core/auth/auth-state.service';
 export class SchedulePageComponent implements OnInit {
   private readonly scheduleApi = inject(ScheduleApiService);
   private readonly auth = inject(AuthStateService);
+  private readonly router = inject(Router);
   private readonly formBuilder = inject(FormBuilder);
 
   readonly context = this.auth.context;
@@ -133,6 +134,13 @@ export class SchedulePageComponent implements OnInit {
         this.loading.set(false);
         this.error.set('No fue posible cargar la agenda. Actualiza la vista para revalidar permisos y estado de profesionales.');
       },
+    });
+  }
+
+  logout(): void {
+    this.auth.logout().subscribe({
+      next: () => void this.router.navigateByUrl('/login/veterinaria-aurora'),
+      error: () => void this.router.navigateByUrl('/login/veterinaria-aurora'),
     });
   }
 
@@ -245,8 +253,8 @@ export class SchedulePageComponent implements OnInit {
 					return;
 				}
 				this.scheduleApi.confirmScheduleRequest(request.id, professionalPrincipalId).subscribe({
-					next: () => this.finishSave('La cita fue confirmada con el profesional seleccionado. El servidor revalidÃ³ el intervalo dentro de la transacciÃ³n.'),
-					error: () => this.failSave('No fue posible confirmar la cita. La disponibilidad pudo cambiar mientras se realizaba la operaciÃ³n.'),
+				next: () => this.finishSave('La cita fue confirmada con el profesional seleccionado. El servidor revalidó el intervalo dentro de la transacción.'),
+				error: () => this.failSave('No fue posible confirmar la cita. La disponibilidad pudo cambiar mientras se realizaba la operación.'),
 				});
 			},
 			error: () => this.failSave('No fue posible consultar la disponibilidad actual del profesional.'),

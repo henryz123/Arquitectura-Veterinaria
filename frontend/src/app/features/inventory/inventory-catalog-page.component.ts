@@ -82,7 +82,7 @@ export class InventoryCatalogPageComponent implements OnInit {
   });
   readonly stockForm = this.formBuilder.nonNullable.group({
     productId: ['', Validators.required],
-    quantityDelta: [0, [Validators.required, Validators.pattern(/^-?\d+$/), Validators.min(-1000000), Validators.max(1000000)]],
+    quantityDelta: [0, [Validators.required, Validators.pattern(/^-?[1-9]\d*$/), Validators.min(-1000000), Validators.max(1000000)]],
     reason: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(500)]],
   });
 

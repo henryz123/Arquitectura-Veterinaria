@@ -1,7 +1,8 @@
 import { NgFor, NgIf } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { finalize, forkJoin, of } from 'rxjs';
 import { AuthStateService } from '../../core/auth/auth-state.service';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
@@ -29,6 +30,8 @@ export class WorkspacePageComponent implements OnInit {
   private readonly administrationApi = inject(AdministrationApiService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   readonly profile = signal<TenantProfile | null>(null);
   readonly staff = signal<StaffAccount[]>([]);
   readonly loading = signal(true);
@@ -61,9 +64,10 @@ export class WorkspacePageComponent implements OnInit {
     return context?.accountType === 'STAFF' && context.roles.includes('CAJERO');
   });
   readonly activeStaffCount = computed(() => this.staff().filter((member) => member.status === 'ACTIVA').length);
+  readonly activeSection = signal<WorkspaceSection>('summary');
   readonly invitationForm = this.formBuilder.nonNullable.group({
     email: ['', { validators: [Validators.required, Validators.email], updateOn: 'blur' }],
-    roles: this.formBuilder.nonNullable.control<StaffRole[]>(['RECEPCION']),
+    roles: this.formBuilder.nonNullable.control<StaffRole[]>(['RECEPCION'], Validators.minLength(1)),
   });
   readonly rolesForm = this.formBuilder.nonNullable.group({
     roles: this.formBuilder.nonNullable.control<StaffRole[]>(['RECEPCION']),
@@ -89,6 +93,17 @@ export class WorkspacePageComponent implements OnInit {
         this.loading.set(false);
       },
     });
+
+    this.route.fragment.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((fragment) => {
+      const section = isWorkspaceSection(fragment) ? fragment : 'summary';
+      this.activeSection.set(section);
+      queueMicrotask(() => this.scrollToSection(section));
+    });
+  }
+
+  navigateToSection(section: WorkspaceSection): void {
+    this.activeSection.set(section);
+    queueMicrotask(() => this.scrollToSection(section));
   }
 
   inviteStaff(): void {
@@ -220,4 +235,14 @@ export class WorkspacePageComponent implements OnInit {
       error: () => void this.router.navigateByUrl('/login/veterinaria-aurora'),
     });
   }
+
+  private scrollToSection(section: WorkspaceSection): void {
+    document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+type WorkspaceSection = 'summary' | 'team' | 'invitation' | 'organization';
+
+function isWorkspaceSection(value: string | null): value is WorkspaceSection {
+  return value === 'summary' || value === 'team' || value === 'invitation' || value === 'organization';
 }
