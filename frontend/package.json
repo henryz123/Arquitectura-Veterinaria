@@ -16,6 +16,7 @@
     "test:e2e:demo-session-navigation": "node e2e/demo-session-navigation.e2e.mjs",
     "test:e2e:demo-session-duration": "node e2e/demo-session-duration.e2e.mjs",
     "test:e2e:form-feedback": "node e2e/form-feedback.e2e.mjs",
+    "test:e2e:access-redesign": "node e2e/access-redesign.e2e.mjs",
     "test:e2e:demo-veterinarian-care": "node e2e/demo-veterinarian-care.e2e.mjs",
     "test:e2e:b03-assignable-professionals": "node e2e/b03-assignable-professionals.e2e.mjs",
     "test:e2e:b03-services-availability": "node e2e/b03-services-availability.e2e.mjs",

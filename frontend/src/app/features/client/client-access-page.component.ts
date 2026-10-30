@@ -5,6 +5,8 @@ import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Va
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AdministrationApiService } from '../../core/api/administration-api.service';
+import { AccessBrandPanelComponent } from '../access/access-brand-panel.component';
+import { resolveAccessTenant } from '../access/access-tenant';
 
 type ClientAccessMode = 'REGISTER' | 'VERIFY' | 'RECOVER' | 'RESET';
 
@@ -23,7 +25,7 @@ function matchingPasswords(control: AbstractControl): ValidationErrors | null {
 
 @Component({
   selector: 'app-client-access-page',
-  imports: [NgIf, ReactiveFormsModule, RouterLink],
+  imports: [NgIf, ReactiveFormsModule, RouterLink, AccessBrandPanelComponent],
   templateUrl: './client-access-page.component.html',
   styleUrl: './client-access-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -48,6 +50,9 @@ export class ClientAccessPageComponent {
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
   readonly success = signal<string | null>(null);
+  readonly tenant = computed(() => resolveAccessTenant(this.tenantSlug()));
+  readonly showRegistrationPassword = signal(false);
+  readonly showResetPassword = signal(false);
   readonly pageTitle = computed(() => ({
     REGISTER: 'Crear tu cuenta de cliente',
     VERIFY: 'Verifica tu correo',
@@ -81,6 +86,14 @@ export class ClientAccessPageComponent {
     }
   });
 
+  toggleRegistrationPassword(): void {
+    this.showRegistrationPassword.update((visible) => !visible);
+  }
+
+  toggleResetPassword(): void {
+    this.showResetPassword.update((visible) => !visible);
+  }
+
   register(): void {
     if (!this.ensureValid(this.registrationForm)) {
       return;
@@ -88,7 +101,7 @@ export class ClientAccessPageComponent {
     const value = this.registrationForm.getRawValue();
     this.begin();
     this.administrationApi.registerClient(this.tenantSlug(), value.email, value.password).subscribe({
-      next: () => this.finish('Solicitud registrada. Revisa el enlace de verificación entregado por el correo local de demostración.'),
+      next: () => this.finish('Solicitud registrada. La cuenta quedará pendiente hasta usar un enlace de verificación válido.'),
       error: () => this.fail('No fue posible registrar la cuenta para esta veterinaria. Revisa los datos o usa otro correo.'),
     });
   }

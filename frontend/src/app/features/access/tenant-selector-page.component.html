@@ -1,0 +1,24 @@
+<main class="tenant-selector-page" aria-labelledby="tenant-selector-title">
+  <section class="tenant-selector-card">
+    <header class="tenant-selector-header">
+      <p class="access-overline">Arquitectura - Veterinaria</p>
+      <h1 id="tenant-selector-title">Selecciona tu veterinaria</h1>
+      <p>Cada veterinaria tiene un espacio independiente y protegido para su equipo y sus clientes.</p>
+    </header>
+
+    <div class="tenant-option-grid">
+      @for (tenant of tenants; track tenant.slug) {
+        <a class="tenant-option" [class.access-theme-aurora]="tenant.slug === 'veterinaria-aurora'"
+          [class.access-theme-bosque]="tenant.slug === 'veterinaria-bosque'" [routerLink]="['/login', tenant.slug]">
+          <img [src]="tenant.imagePath" alt="" aria-hidden="true" />
+          <span class="tenant-option-overlay" aria-hidden="true"></span>
+          <span class="tenant-option-content">
+            <span class="tenant-option-name">{{ tenant.name }}</span>
+            <span class="tenant-option-tagline">{{ tenant.tagline }}</span>
+            <span class="tenant-option-action">Continuar <span aria-hidden="true">→</span></span>
+          </span>
+        </a>
+      }
+    </div>
+  </section>
+</main>

@@ -3,6 +3,11 @@ import { clientSessionGuard, saasSessionGuard, sessionGuard } from './core/auth/
 
 export const routes: Routes = [
   {
+    path: 'seleccionar-veterinaria',
+    loadComponent: () => import('./features/access/tenant-selector-page.component').then((module) => module.TenantSelectorPageComponent),
+    title: 'Selecciona tu veterinaria | Arquitectura Veterinaria',
+  },
+  {
     path: 'login/:tenantSlug',
     loadComponent: () => import('./features/auth/login-page.component').then((module) => module.LoginPageComponent),
     data: { accountType: 'STAFF' },

@@ -1,0 +1,23 @@
+<aside class="access-brand-panel" [class.access-theme-aurora]="tenant().slug === 'veterinaria-aurora'"
+  [class.access-theme-bosque]="tenant().slug === 'veterinaria-bosque'" aria-label="Identidad de {{ tenant().name }}">
+  <img class="access-brand-photo" [src]="tenant().imagePath" alt="" aria-hidden="true" />
+  <div class="access-brand-overlay" aria-hidden="true"></div>
+  <div class="access-brand-content">
+    <div class="access-brand-lockup">
+      <svg class="access-brand-symbol" viewBox="0 0 64 64" aria-hidden="true">
+        @if (tenant().slug === 'veterinaria-aurora') {
+          <path d="M13 39c7-10 14-15 20-15 8 0 13 7 18 15" />
+          <path d="M31 12v8M19 18l5 6M44 18l-5 6" />
+          <path d="M12 45h40" />
+        } @else {
+          <path d="M32 9 17 32h9L15 51h34L38 32h9L32 9Z" />
+          <path d="M32 21v30" />
+          <path d="M23 38h18" />
+        }
+      </svg>
+      <span>{{ tenant().name }}</span>
+    </div>
+    <p class="access-brand-tagline">{{ tenant().tagline }}</p>
+    <p class="access-brand-message">{{ tenant().accessMessage }}</p>
+  </div>
+</aside>

@@ -1,0 +1,42 @@
+.tenant-selector-page {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: radial-gradient(circle at 15% 10%, #d8f4ef 0, transparent 31rem), #f2f8f7;
+  color: var(--ink-strong);
+}
+
+.tenant-selector-card {
+  width: min(100%, 68rem);
+  padding: clamp(1.5rem, 4vw, 3.25rem);
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 1.5rem;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 24px 60px rgb(16 75 77 / 14%);
+}
+
+.tenant-selector-header { max-width: 43rem; }
+.access-overline { margin: 0; color: var(--accent-teal); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+h1 { margin: 0.45rem 0 0.65rem; font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.04; letter-spacing: -0.035em; }
+.tenant-selector-header > p:last-child { margin: 0; color: var(--ink-muted); line-height: 1.6; }
+
+.tenant-option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1rem, 2vw, 1.5rem); margin-top: clamp(1.75rem, 4vw, 2.75rem); }
+.tenant-option { position: relative; display: block; min-height: 18rem; overflow: hidden; border-radius: 1rem; color: #fff; box-shadow: 0 12px 26px rgb(15 60 63 / 16%); text-decoration: none; transition: transform 180ms ease, box-shadow 180ms ease; }
+.tenant-option img, .tenant-option-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tenant-option img { object-fit: cover; object-position: center; transition: transform 280ms ease; }
+.tenant-option-overlay { background: linear-gradient(135deg, rgb(5 75 73 / 90%), rgb(5 61 69 / 42%) 55%, rgb(5 55 61 / 78%)); }
+.tenant-option.access-theme-bosque .tenant-option-overlay { background: linear-gradient(135deg, rgb(15 84 58 / 90%), rgb(23 102 74 / 44%) 55%, rgb(8 57 42 / 82%)); }
+.tenant-option-content { position: relative; z-index: 1; display: flex; height: 100%; flex-direction: column; align-items: flex-start; padding: 1.5rem; }
+.tenant-option-name { max-width: 12ch; font-size: 1.35rem; font-weight: 800; line-height: 1.08; }
+.tenant-option-tagline { max-width: 14ch; margin-top: 0.5rem; color: rgb(255 255 255 / 92%); font-size: 0.98rem; line-height: 1.35; }
+.tenant-option-action { display: inline-flex; gap: 0.55rem; margin-top: auto; padding: 0.6rem 0.85rem; border-radius: 999px; background: rgb(255 255 255 / 18%); font-size: 0.92rem; font-weight: 800; }
+.tenant-option:hover { box-shadow: 0 18px 32px rgb(15 60 63 / 24%); transform: translateY(-2px); }
+.tenant-option:hover img { transform: scale(1.035); }
+.tenant-option:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 4px; }
+
+@media (max-width: 42rem) {
+  .tenant-selector-card { padding: 1.25rem; }
+  .tenant-option-grid { grid-template-columns: 1fr; }
+  .tenant-option { min-height: 14.5rem; }
+}

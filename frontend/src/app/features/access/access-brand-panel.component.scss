@@ -1,0 +1,88 @@
+:host {
+  display: block;
+  min-height: 100%;
+}
+
+.access-brand-panel {
+  position: relative;
+  display: grid;
+  min-height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  color: #fff;
+  background: #073f45;
+}
+
+.access-brand-photo,
+.access-brand-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.access-brand-photo {
+  object-fit: cover;
+  object-position: center;
+}
+
+.access-brand-overlay {
+  z-index: 1;
+  background: linear-gradient(180deg, rgb(4 62 67 / 82%) 0%, rgb(6 74 70 / 60%) 45%, rgb(4 49 54 / 86%) 100%);
+}
+
+.access-theme-bosque .access-brand-overlay {
+  background: linear-gradient(180deg, rgb(17 65 51 / 82%) 0%, rgb(30 96 75 / 57%) 45%, rgb(11 56 47 / 88%) 100%);
+}
+
+.access-brand-content {
+  z-index: 2;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 29rem;
+  padding: clamp(1.75rem, 5vw, 3.5rem);
+}
+
+.access-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: 15rem;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.access-brand-symbol {
+  width: 3rem;
+  height: 3rem;
+  flex: none;
+  fill: none;
+  stroke: #ffd376;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3.5;
+}
+
+.access-brand-tagline {
+  max-width: 13ch;
+  margin: auto 0 0;
+  font-size: clamp(1.9rem, 4vw, 3.25rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+}
+
+.access-brand-message {
+  max-width: 27rem;
+  margin: 1rem 0 0;
+  color: rgb(255 255 255 / 92%);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 56rem) {
+  .access-brand-content { min-height: 19rem; }
+}

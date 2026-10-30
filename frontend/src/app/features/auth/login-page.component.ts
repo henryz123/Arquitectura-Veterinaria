@@ -1,14 +1,16 @@
 import { NgIf } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthStateService } from '../../core/auth/auth-state.service';
+import { AccessBrandPanelComponent } from '../access/access-brand-panel.component';
+import { resolveAccessTenant } from '../access/access-tenant';
 
 @Component({
   selector: 'app-login-page',
-  imports: [NgIf, ReactiveFormsModule, RouterLink],
+  imports: [NgIf, ReactiveFormsModule, RouterLink, AccessBrandPanelComponent],
   templateUrl: './login-page.component.html',
   styleUrl: './login-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,12 +35,27 @@ export class LoginPageComponent {
   );
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
-  readonly tenantLabel = computed(() => this.tenantSlug().replaceAll('-', ' '));
+  readonly tenant = computed(() => resolveAccessTenant(this.tenantSlug()));
   readonly isClient = computed(() => this.accountType() === 'CLIENT');
+  readonly showPassword = signal(false);
   readonly form = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(12)]],
   });
+  private currentFormTenant = this.tenantSlug();
+  private readonly clearCredentialsWhenTenantChanges = effect(() => {
+    const requestedTenant = this.tenantSlug();
+    if (requestedTenant !== this.currentFormTenant) {
+      this.form.reset();
+      this.error.set(null);
+      this.showPassword.set(false);
+      this.currentFormTenant = requestedTenant;
+    }
+  });
+
+  togglePassword(): void {
+    this.showPassword.update((visible) => !visible);
+  }
 
   submit(): void {
     if (this.form.invalid || this.submitting()) {
