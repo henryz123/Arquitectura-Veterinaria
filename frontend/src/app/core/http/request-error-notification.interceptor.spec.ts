@@ -38,4 +38,30 @@ describe('requestErrorNotificationInterceptor', () => {
     expect(notifications.notifications()[0]?.kind).toBe('error');
     expect(notifications.notifications()[0]?.message).toMatch(/No fue posible conectar/);
   });
+
+  it('explains invalid credentials without presenting them as an expired session', () => {
+    let receivedStatus: number | undefined;
+    http.post('/api/v1/auth/tenants/veterinaria-aurora/staff-sessions', {}).subscribe({
+      error: (error) => receivedStatus = error.status,
+    });
+
+    httpTesting.expectOne('/api/v1/auth/tenants/veterinaria-aurora/staff-sessions').flush(
+      { code: 'UNAUTHORIZED' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+
+    expect(receivedStatus).toBe(401);
+    expect(notifications.notifications()[0]?.message).toMatch(/No fue posible iniciar sesi.n/i);
+  });
+
+  it('treats an unavailable local backend behind the proxy as a connectivity failure', () => {
+    http.post('/api/v1/auth/tenants/veterinaria-aurora/staff-sessions', {}).subscribe({ error: () => undefined });
+
+    httpTesting.expectOne('/api/v1/auth/tenants/veterinaria-aurora/staff-sessions').flush(
+      { code: 'UPSTREAM_UNAVAILABLE' },
+      { status: 504, statusText: 'Gateway Timeout' },
+    );
+
+    expect(notifications.notifications()[0]?.message).toMatch(/No fue posible conectar/);
+  });
 });

@@ -1,4 +1,5 @@
 import { NgIf } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -68,9 +69,22 @@ export class LoginPageComponent {
       ? this.auth.loginClient(this.tenantSlug(), this.form.getRawValue())
       : this.auth.loginStaff(this.tenantSlug(), this.form.getRawValue());
     login.subscribe({
-      next: () => this.router.navigateByUrl(this.isClient() ? '/client-space' : '/workspace'),
-      error: () => {
+      next: () => {
+        const destination = this.isClient() ? '/client-space' : '/workspace';
+        void this.router.navigateByUrl(destination)
+          .then((navigated) => {
+            if (!navigated) {
+              this.error.set('El acceso fue validado, pero no se pudo abrir tu espacio. Inténtalo nuevamente.');
+            }
+          })
+          .catch(() => this.error.set('El acceso fue validado, pero no se pudo abrir tu espacio. Inténtalo nuevamente.'))
+          .finally(() => this.submitting.set(false));
+      },
+      error: (error: unknown) => {
         this.error.set('No fue posible iniciar sesión. Verifica tus datos e inténtalo nuevamente.');
+        if (error instanceof HttpErrorResponse && [0, 502, 503, 504].includes(error.status)) {
+          this.error.set('No fue posible conectar con el servidor. Comprueba que la aplicación local esté iniciada e inténtalo nuevamente.');
+        }
         this.submitting.set(false);
       },
     });

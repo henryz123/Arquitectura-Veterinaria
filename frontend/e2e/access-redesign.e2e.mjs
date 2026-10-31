@@ -21,6 +21,7 @@ try {
   await verifyTenantSelectorAndProfileSwitching();
   await verifyStaffLoginAndSessionRestore();
   await verifyClientLoginAndTenantIsolation();
+  await verifyBosqueClientLoginWhenConfigured();
   await verifyRegistrationAndRecoveryNavigation();
   await captureResponsiveAccessScreens();
   process.stdout.write('ACCESS_REDESIGN_BROWSER_E2E=PASS\n');
@@ -86,7 +87,25 @@ async function verifyClientLoginAndTenantIsolation() {
   await page.getByLabel('Correo de cliente').fill(process.env.AV_DEMO_CLIENT_AURORA_EMAIL);
   await page.getByLabel('Contraseña', { exact: true }).fill(process.env.AV_DEMO_CLIENT_AURORA_PASSWORD);
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-  await page.getByRole('alert').filter({ hasText: 'No fue posible iniciar sesión.' }).waitFor();
+  await page.locator('.access-error').waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).isEnabled(), true,
+    'an invalid login must release the submit button');
+  await context.close();
+}
+
+async function verifyBosqueClientLoginWhenConfigured() {
+  if (!process.env.AV_DEMO_CLIENT_BOSQUE_EMAIL || !process.env.AV_DEMO_CLIENT_BOSQUE_PASSWORD) {
+    return;
+  }
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto(`${baseUrl}/client/login/veterinaria-bosque`, { waitUntil: 'networkidle' });
+  await page.getByLabel('Correo de cliente').fill(process.env.AV_DEMO_CLIENT_BOSQUE_EMAIL);
+  await page.getByLabel('Contraseña', { exact: true }).fill(process.env.AV_DEMO_CLIENT_BOSQUE_PASSWORD);
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+  await page.waitForURL(`${baseUrl}/client-space`);
+  await page.reload({ waitUntil: 'networkidle' });
+  assert.match(page.url(), /\/client-space$/, 'Bosque client must keep an active session after reload');
   await context.close();
 }
 
@@ -135,12 +154,36 @@ async function captureResponsiveAccessScreens() {
     const page = await context.newPage();
     await page.goto(`${baseUrl}/client/login/veterinaria-aurora`, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { name: 'Acceso a la plataforma' }).waitFor();
+    const passwordToggle = page.getByRole('button', { name: 'Mostrar contraseña' });
+    const passwordInput = page.getByLabel('Contraseña', { exact: true });
+    assert.equal(await passwordToggle.count(), 1, `${name} must expose one password visibility control`);
+    assert.equal(await passwordInput.count(), 1, `${name} must expose one password field`);
+    if (name === 'desktop') {
+      await passwordToggle.focus();
+      await page.keyboard.press('Enter');
+    } else {
+      await passwordToggle.click();
+    }
+    const hidePasswordToggle = page.getByRole('button', { name: 'Ocultar contraseña' });
+    assert.equal(await hidePasswordToggle.count(), 1, `${name} must update the password toggle label`);
+    assert.equal(await passwordInput.getAttribute('type'), 'text', `${name} must expose the password with the keyboard`);
+    assert.equal(await hidePasswordToggle.getAttribute('aria-pressed'), 'true', `${name} must announce the visible password state`);
+    await hidePasswordToggle.click();
+    assert.equal(await passwordInput.getAttribute('type'), 'password', `${name} must restore hidden password state`);
     const metrics = await page.evaluate(() => ({
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,
       gridColumns: getComputedStyle(document.querySelector('.access-page')).gridTemplateColumns,
+      input: document.querySelector('.access-password-field input')?.getBoundingClientRect(),
+      toggle: document.querySelector('.access-password-toggle')?.getBoundingClientRect(),
     }));
     assert.ok(metrics.documentWidth <= metrics.viewportWidth, `${name} must not introduce horizontal scroll`);
+    assert.ok(metrics.input && metrics.toggle, `${name} must render the password control`);
+    assert.equal(
+      Math.round((metrics.toggle.top + metrics.toggle.bottom - metrics.input.top - metrics.input.bottom) / 2),
+      0,
+      `${name} must vertically center the password visibility control`,
+    );
     if (name === 'mobile') {
       assert.equal(metrics.gridColumns.split(' ').length, 1, 'mobile must collapse the access layout to one column');
     }
